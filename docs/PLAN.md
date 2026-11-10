@@ -36,7 +36,7 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 
 | Concern | Proposed choice | Rationale |
 |---|---|---|
-| Language | Python ≥ 3.10 | Standard for bio-image analysis; napari ecosystem |
+| Language | Python ≥ 3.11 | Standard for bio-image analysis; napari ecosystem. Python 3.10 reached end of life in October 2026 |
 | File I/O | `bioio` with plugins (`bioio-nd2`, `bioio-lif`, `bioio-czi`, `bioio-ome-tiff`, `bioio-tifffile`); fallbacks `nd2`, `readlif`, `pylibCZIrw`, `tifffile` | One API for every format, with access to native metadata |
 | Numerics | `numpy`, `scipy`, `scikit-image`, `lmfit` | Robust fitting and uncertainty estimates |
 | Theoretical PSF | `psfmodels` (Gibson-Lanni and vectorial), with built-in analytical formulas as fallback | Validated models plus a dependency-free fallback |
@@ -228,7 +228,7 @@ psfwidget/
 Task IDs map to requirements (in brackets) for traceability.
 
 ### WP0: Project foundation
-- T0.1 Repository scaffolding: `pyproject.toml`, src layout, ruff, mypy, pre-commit, and a GitHub Actions matrix (Windows, macOS, Linux; Python 3.10–3.12).
+- T0.1 Repository scaffolding: `pyproject.toml`, src layout, ruff, mypy, pre-commit, and a GitHub Actions matrix (Windows, macOS, Linux; Python 3.11–3.13).
 - T0.2 Contributor docs, coding standards, branching and release policy.
 - T0.3 Collect a **reference dataset** of real bead stacks in each format from facility instruments, with known acquisition parameters. Store in Git LFS or external storage with checksums. *(This is the critical-path input; start immediately.)*
 - T0.4 Synthetic data generator: Gaussian and theoretical PSF bead fields with known ground truth, noise (Poisson and Gaussian read noise), background, tilt, and saturation. *(Serves NFR-01 and many V&V tests.)*

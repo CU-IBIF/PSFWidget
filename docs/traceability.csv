@@ -1,0 +1,83 @@
+id,priority,requirement,methods,activities
+IMP-01,M,"The system shall import 3D image stacks from Nikon `.nd2`, Leica `.lif`, Zeiss `.czi`, and `.tif`/`.ome.tif` files.","I, S",GOLD-IO reader tests; cross-platform install test
+IMP-02,M,"The system shall support multi-series containers (multiple positions or series in `.lif`/`.nd2`/`.czi`) and let the user select one, several, or all series.",I,GOLD-IO multi-series and multichannel fixtures
+IMP-03,M,The system shall support multichannel stacks and analyze each channel independently.,I,GOLD-IO multi-series and multichannel fixtures
+IMP-04,M,"The system shall extract voxel size (x, y, z) from file metadata, plus objective NA, immersion refractive index, emission and excitation wavelength, pinhole size, and modality where available.","U, I",Metadata resolver tests; GOLD-IO metadata fixtures
+IMP-05,M,"The system shall allow any metadata value to be entered or overridden manually, and shall record whether each value came from the file or from the user.","U, I",Metadata resolver tests; GOLD-IO metadata fixtures
+IMP-06,M,"The system shall refuse to analyze a stack that lacks a required parameter (voxel size, NA, wavelength, RI) and shall report which parameter is missing.","U, I",Metadata resolver tests; GOLD-IO metadata fixtures
+IMP-07,S,The system shall support time-lapse or mosaic data by letting the user select timepoint or tile indices.,"I, S",Time/tile selection tests; large-file lazy-load test (memory cap)
+IMP-08,S,The system shall handle stacks larger than RAM by lazy or chunked loading (e.g. dask).,"I, S",Time/tile selection tests; large-file lazy-load test (memory cap)
+IMP-09,S,The system shall record a SHA-256 hash of each source file for provenance.,U,Hash tests
+IMP-10,M,"The system shall support instrument profiles (microscope, objective, channel presets) that supply default metadata and link results to a tracked configuration.","U, I",Profile schema validation; profile → session linking
+DET-01,M,The system shall automatically detect candidate beads in a 3D field (e.g. by LoG or DoG filtering followed by local maxima detection).,U,SYN-A/SYN-C detection and filter tests
+DET-02,M,The system shall reject beads that are too close to the image border in xy or z for the configured crop size.,U,SYN-A/SYN-C detection and filter tests
+DET-03,M,"The system shall reject beads whose crop region overlaps another bead (minimum separation configurable, default ≥ 4× expected lateral FWHM laterally and ≥ 2× axial FWHM).",U,SYN-A/SYN-C detection and filter tests
+DET-04,M,The system shall reject saturated beads (any voxel at the bit-depth maximum or at a configured threshold).,U,SYN-A/SYN-C detection and filter tests
+DET-05,M,The system shall reject beads with SNR or SBR below configured thresholds.,U,SYN-A/SYN-C detection and filter tests
+DET-06,S,The system shall reject outliers (e.g. aggregates or doublets) by integrated-intensity and FWHM outlier tests (median ± k·MAD).,U,SYN-A/SYN-C detection and filter tests
+DET-07,S,The system shall let the user manually include or exclude beads in the GUI.,S,GUI test script
+DET-08,M,"The system shall report the number of detected, rejected (with reason), and accepted beads.",U,SYN-A/SYN-C detection and filter tests
+MET-01,M,"**FWHM X, Y, Z** from 1D Gaussian fits (with offset) to line profiles through the sub-pixel bead centroid.","U, V",Fitting Monte Carlo (SYN-A); VAL-01
+MET-02,M,"**FWHM in the XY, XZ, and YZ planes** from 2D Gaussian fits to the central orthogonal slices (or max projections, configurable). Reports major and minor axis FWHM and orientation angle.","U, V",Fitting Monte Carlo (SYN-A); VAL-01
+MET-03,S,**3D Gaussian fit** reporting FWHM x/y/z and the sub-pixel centroid.,"U, V",Fitting Monte Carlo (SYN-A); VAL-01
+MET-04,M,"**Integrated intensity (integrated density)**: background-subtracted sum within a defined volume (ellipsoid scaled to k × FWHM, or a fixed box), reported in raw counts and normalized to exposure or gain where metadata permits.",U,"Intensity, background, SBR/SNR tests"
+MET-05,M,**Peak intensity** (fit amplitude and maximum voxel).,U,"Intensity, background, SBR/SNR tests"
+MET-06,M,"**Background** level and noise (local shell or annulus; mean, median, SD).",U,"Intensity, background, SBR/SNR tests"
+MET-07,M,**Signal-to-background ratio (SBR)** and **signal-to-noise ratio (SNR)**.,U,"Intensity, background, SBR/SNR tests"
+MET-08,M,"**Lateral asymmetry / ellipticity**: FWHM ratio (minor/major), plus XY orientation angle.","U, V",Fitting Monte Carlo (SYN-A); VAL-01
+MET-09,S,"**Axial asymmetry**: skewness of the axial profile, and the ratio of intensity above vs. below focus (indicator of spherical aberration or RI mismatch).","U, V",SYN-B RI-mismatch; VAL-02
+MET-10,M,"**Fit quality**: R², reduced χ², and parameter standard errors; beads below a fit-quality threshold are flagged.","U, V",Fitting Monte Carlo (SYN-A); VAL-01
+MET-11,S,"**Field-dependent maps**: FWHM, intensity, and z-centroid vs. (x, y) position across the field, with a fitted plane for **stage or sample tilt** and a quadratic surface for **field curvature**.","U, V",SYN-B tilt and curvature; VAL-02 tilted slide
+MET-12,S,**Field illumination uniformity**: integrated intensity vs. position (center-to-edge ratio).,"U, V",SYN-B tilt and curvature; VAL-02 tilted slide
+MET-13,S,"**Chromatic registration** for multichannel bead data (e.g. TetraSpeck): lateral and axial centroid shifts between channels, in nm.","U, V",SYN-B chromatic shift; TetraSpeck REF-1
+MET-14,S,"**Averaged empirical PSF**: sub-pixel registration and averaging of accepted beads; export as OME-TIFF with metadata, suitable for deconvolution.","U, I",Averaged PSF of SYN-B ≈ ground truth (NCC ≥ 0.98); OME-TIFF round-trip
+MET-15,S,"**Bead size correction**: optional correction of FWHM for finite bead diameter (quadrature subtraction or model-based), with the correction method recorded.",U,Correction formula tests; Nyquist warning tests
+MET-16,M,**Sampling check**: warn when voxel size exceeds Nyquist for the theoretical PSF.,U,Correction formula tests; Nyquist warning tests
+MET-17,C,**Encircled or ensquared energy** (fraction of energy within a radius of 1× and 2× the theoretical FWHM).,U,Analytic Airy encircled-energy / OTF cutoff tests
+MET-18,C,**MTF / OTF estimate** from the averaged PSF (lateral cutoff frequency vs. theoretical).,U,Analytic Airy encircled-energy / OTF cutoff tests
+THE-01,M,"The system shall compute theoretical lateral and axial FWHM from analytical approximations for **widefield** and **confocal** (pinhole-dependent) modalities, with the formula used shown in the report.","U, R",Formula table vs. hand calculation; citation review
+THE-02,S,"The system shall generate a theoretical 3D PSF at the acquisition voxel size with a scalar Gibson-Lanni model and/or a vectorial (Richards-Wolf) model, including immersion/sample RI mismatch and coverslip parameters.",U,Model FWHM vs. analytic
+THE-03,M,The system shall report **measured/theoretical ratios** for every FWHM metric.,"U, V","Ratio, Strehl, and NCC tests; VAL-04"
+THE-04,S,The system shall report a **Strehl ratio estimate** (normalized peak of the averaged empirical PSF relative to the theoretical PSF of equal integrated energy).,"U, V","Ratio, Strehl, and NCC tests; VAL-04"
+THE-05,S,The system shall report a **similarity score** between the averaged empirical PSF and the theoretical PSF (e.g. normalized cross-correlation or Pearson r after alignment).,"U, V","Ratio, Strehl, and NCC tests; VAL-04"
+THE-06,M,"The system shall support user-defined **specification limits** (e.g. lateral ratio ≤ 1.2, axial ratio ≤ 1.3) and report pass/fail.","U, S",Spec evaluation tests; alert scenario
+THE-07,M,"The system shall show side-by-side XY, XZ, and YZ views with overlaid profiles of the empirical vs. theoretical PSF.","I, R",Report snapshot; visual review
+TRK-01,M,"The system shall persist all per-bead and per-field results, the analysis parameters, the software version, and provenance in a local database.",I,DB persistence round-trip
+TRK-02,M,"The system shall key results by **instrument → objective → channel (or wavelength) → modality**, with the acquisition date taken from metadata (falling back to the file date).",I,DB persistence round-trip
+TRK-03,M,"The system shall plot **Levey-Jennings charts** for any tracked metric: session values over time with the mean and ±1, ±2, ±3 SD lines.","I, R",LJ figure snapshot; visual review
+TRK-04,M,The system shall establish control limits from a user-selected **baseline period** (default: first N = 20 valid sessions; configurable) or from user-entered target mean and SD.,"U, V",Baseline and Westgard table tests; LJ-SIM; VAL-05
+TRK-05,M,"The system shall evaluate **Westgard rules** (1₂ₛ warning; 1₃ₛ, 2₂ₛ, R₄ₛ, 4₁ₛ, 10ₓ rejection) per metric, with configurable rule sets per metric.","U, V",Baseline and Westgard table tests; LJ-SIM; VAL-05
+TRK-06,M,"The system shall let the user **re-baseline** after documented events (service, objective replacement, laser change). Events shall be annotated on charts and preserved in history.","U, I","Event, re-baseline, and exclusion audit tests"
+TRK-07,M,"The system shall let the user exclude a session from statistics with a recorded reason, without deleting it.","U, I","Event, re-baseline, and exclusion audit tests"
+TRK-08,S,The system shall show specification limits (THE-06) together with statistical limits on the LJ chart.,"I, R",LJ figure snapshot; visual review
+TRK-09,C,The system shall provide a trend summary (e.g. slope over the last N sessions) to detect gradual drift.,U,LJ-SIM trend detection
+TRK-10,S,"The system shall support database backup and export or import, to move results between machines.",I,Export/import round-trip
+REP-01,M,"The system shall generate a **session report** (one acquisition): metadata, bead overview (MIP with accepted and rejected beads marked), metric summary tables, per-bead tables, orthogonal views, profile fits, theoretical comparison, field maps, and pass/fail status.","I, R, V",Report generation tests; VAL-07
+REP-02,M,"The system shall generate a **trend report** (one instrument or configuration over a date range): LJ charts, rule violations, events, and a summary table.","I, R, V",Report generation tests; VAL-07
+REP-03,M,"Reports shall be available as **HTML** (self-contained, one file) and **PDF**.","I, R, V",Report generation tests; VAL-07
+REP-04,M,"Raw results shall be exportable as **CSV** and **XLSX**, and the averaged PSF as **OME-TIFF**.","I, R, V",Report generation tests; VAL-07
+REP-05,M,Output shall follow a configurable **folder and filename template** (e.g. `{root}/{instrument}/{objective}/{YYYY}/{YYYY-MM-DD}_{channel}_report.pdf`).,"I, R, V",Report generation tests; VAL-07
+REP-06,M,"Each report shall include provenance: software version, analysis parameters, source file name and hash, date of analysis, and operator.","I, R, V",Report generation tests; VAL-07
+REP-07,M,Reports shall carry a clear overall status (PASS / WARNING / FAIL) derived from the spec limits and Westgard rules.,"I, R, V",Report generation tests; VAL-07
+REP-08,C,"Users or facilities shall be able to customize report branding (logo, facility name, footer) through templates.",I,Template override test
+AUT-01,M,"The system shall provide a **CLI** to run analysis, update the database, and generate reports headlessly.",S,CLI scenarios; watch-folder and scheduler soak; alert test
+AUT-02,M,"The system shall support **watch-folder ingestion**: process new files in configured folders, assign them to an instrument profile by folder or filename pattern, and skip files already processed (by hash).",S,CLI scenarios; watch-folder and scheduler soak; alert test
+AUT-03,M,"The system shall support **scheduled jobs** (daily, weekly, monthly, or cron expression) for ingestion and for trend-report generation, through the built-in scheduler or OS schedulers calling the CLI.",S,CLI scenarios; watch-folder and scheduler soak; alert test
+AUT-04,M,"The system shall log every scheduled run (start, end, files processed, errors) and write a run summary file. Failures shall not stop the processing of other files.",S,CLI scenarios; watch-folder and scheduler soak; alert test
+AUT-05,M,"The system shall take all automation settings from a version-controllable **config file** (YAML or TOML), validated on load with clear error messages.",S,CLI scenarios; watch-folder and scheduler soak; alert test
+AUT-06,S,"The system shall write a flag or status file (e.g. `ALERT.txt` or a JSON status) to the output folder when a run produces FAIL or Westgard rejection results, so downstream tools can notify staff.",S,CLI scenarios; watch-folder and scheduler soak; alert test
+UI-01,M,"The system shall provide a **napari dock widget** to load a file, set or override metadata, run detection, review accepted and rejected beads in 3D, view metrics, and generate a report.","S, V",GUI script; pytest-qt smoke; VAL-06
+UI-02,S,The GUI shall provide a **tracking view** to browse instruments and configurations and display LJ charts interactively.,"S, V",GUI script; pytest-qt smoke; VAL-06
+UI-03,S,The GUI shall provide an editor for instrument profiles and spec limits.,"S, V",GUI script; pytest-qt smoke; VAL-06
+UI-04,M,Long-running operations shall show progress and shall not freeze the UI (worker threads).,"S, V",GUI script; pytest-qt smoke; VAL-06
+UI-05,M,A documented **Python API** shall expose all core functions.,"R, I",API docs review; API usage tests
+NFR-01,M,"**Accuracy:** on synthetic Gaussian or theoretical PSFs sampled at or above Nyquist with SNR ≥ 20, the FWHM error shall be ≤ 3% (mean) and ≤ 5% (95th percentile).",U,Fitting Monte Carlo
+NFR-02,M,"**Agreement:** on reference bead datasets, FWHM results shall agree with an established tool (MetroloJ_QC and/or PSFj) within 5% or within the inter-bead SD, whichever is larger.",V,VAL-01
+NFR-03,M,**Reproducibility:** re-analysis of the same file with the same parameters and version shall give bit-identical results.,I,Reproducibility test
+NFR-04,S,"**Performance:** a 1024×1024×100 single-channel field with about 50 beads shall be analyzed in under 60 s on a 4-core, 16 GB workstation (excluding the vectorial PSF model).",S,Benchmark
+NFR-05,M,"**Platforms:** Windows 10/11, macOS (latest two versions), and Linux.",S,CI matrix + manual install
+NFR-06,M,**Robustness:** corrupt or unsupported files produce a clear error and do not crash batch runs.,S,Corrupt-file scenario
+NFR-07,M,"**Data integrity:** the database is never silently modified. Exclusions and re-baselines are append-only and audited, with user and time recorded.","I, R",Audit tests; schema review
+NFR-08,S,**Usability:** a new user can complete a session analysis from the GUI in 10 minutes or less using the quick-start guide.,V,VAL-06
+NFR-09,S,"**Maintainability:** ≥ 85% line coverage on the core package, typed public API, and documented modules.",R,Coverage report (CI gate ≥ 85%) and docs review
+NFR-10,M,**Licensing:** all dependencies are compatible with distribution under the repository's MIT license. GPL dependencies are flagged before adoption.,R,License audit (T0.5) + CI license check

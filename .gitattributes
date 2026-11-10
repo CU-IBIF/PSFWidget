@@ -1,0 +1,11 @@
+# Keep LF everywhere so generated files (docs/traceability.csv) compare
+# byte-for-byte on Windows runners too.
+* text=auto eol=lf
+*.bat text eol=crlf
+
+# Binary image formats (small golden files only; see docs/VV_PLAN.md §3).
+*.tif  binary
+*.tiff binary
+*.nd2  binary
+*.lif  binary
+*.czi  binary
