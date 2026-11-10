@@ -1,0 +1,38 @@
+# Install once per clone:  pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]  # bead stacks go to external storage (docs/VV_PLAN.md §3)
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.4
+    hooks:
+      - id: ruff-check
+        args: ["--fix"]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.4.1
+    hooks:
+      - id: mypy
+        pass_filenames: false
+        args: []  # use [tool.mypy] in pyproject.toml
+        additional_dependencies: ["numpy>=1.26", "pytest>=8.0"]
+
+  - repo: local
+    hooks:
+      - id: traceability
+        name: traceability matrix in sync with docs
+        entry: python tools/traceability.py --check
+        language: python
+        files: ^(docs/(PLAN|VV_PLAN)\.md|docs/traceability\.csv|tools/traceability\.py)$
+        pass_filenames: false

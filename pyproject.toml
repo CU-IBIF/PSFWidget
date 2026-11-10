@@ -1,0 +1,125 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "psfwidget"
+dynamic = ["version"]
+description = "PSF analysis, theoretical comparison, and Levey-Jennings tracking for microscope quality control."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "CU-IBIF" }]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Framework :: napari",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+# Core runtime dependencies. Format readers, theory models, reporting, and the
+# GUI are optional extras so the headless core stays light (see docs/PLAN.md §4).
+dependencies = [
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+# Populated as each work package lands (WP1, WP3, WP5, WP7).
+io = []
+theory = []
+report = []
+napari = []
+test = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+dev = [
+    "psfwidget[test]",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+psfwidget = "psfwidget.automation.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/CU-IBIF/PSFWidget"
+Issues = "https://github.com/CU-IBIF/PSFWidget/issues"
+
+[tool.hatch.version]
+path = "src/psfwidget/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/psfwidget"]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 99
+target-version = "py311"
+src = ["src", "tests", "tools"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # isort
+    "B",       # bugbear
+    "UP",      # pyupgrade
+    "N",       # pep8-naming
+    "NPY",     # numpy-specific
+    "RUF",
+    "SIM",
+    "PT",      # pytest style
+    "D",       # docstrings
+]
+ignore = [
+    "D105",  # magic methods
+    "D107",  # __init__
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["psfwidget", "traceability"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+"tools/**" = ["D"]
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src", "tests", "tools"]
+mypy_path = "src"
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["tools"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+xfail_strict = true
+filterwarnings = ["error"]
+
+# ---------------------------------------------------------------- coverage
+[tool.coverage.run]
+source = ["psfwidget"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 85  # NFR-09
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

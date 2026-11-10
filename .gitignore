@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Environments
+.venv/
+venv/
+.env
+
+# Tooling caches and reports
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+requirement-coverage.csv
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local data and outputs (bead stacks live in external storage)
+/data/
+/output/

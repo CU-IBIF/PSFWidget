@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint, types, traceability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: python -m pip install -e ".[dev]"
+      - run: ruff check --output-format=github .
+      - run: ruff format --check .
+      - run: mypy
+      - run: python tools/traceability.py --check
+
+  test:
+    name: Test (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]  # NFR-05
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -e ".[test]"
+      - name: Run tests
+        run: >-
+          python -m pytest
+          --cov --cov-report=term --cov-report=xml
+          --req-report=requirement-coverage.csv
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-reports-${{ matrix.os }}-py${{ matrix.python }}
+          path: |
+            coverage.xml
+            requirement-coverage.csv
+          if-no-files-found: ignore
