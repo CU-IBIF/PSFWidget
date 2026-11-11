@@ -19,7 +19,7 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 
 - Import of 3D (and 3D multichannel) stacks from `.nd2`, `.lif`, `.czi`, and `.tif`/`.ome.tif`.
 - Automated bead detection, quality filtering, and per-bead metrics.
-- Theoretical PSF generation for widefield and confocal modalities.
+- Theoretical PSF generation for widefield, point-scanning confocal, and spinning-disk confocal modalities.
 - A persistent results database with LJ charts and rule-based flags.
 - HTML and PDF reports, plus CSV and XLSX exports.
 - Scheduled, unattended processing of a watch folder.
@@ -121,7 +121,7 @@ All metrics are computed per bead and summarized per field as n, mean, SD, media
 
 | ID | Requirement | Pri |
 |---|---|---|
-| THE-01 | The system shall compute theoretical lateral and axial FWHM from analytical approximations for **widefield** and **confocal** (pinhole-dependent) modalities, with the formula used shown in the report. | M |
+| THE-01 | The system shall compute theoretical lateral and axial FWHM from analytical approximations for **widefield**, **point-scanning confocal**, and **spinning-disk confocal** modalities, with the formula used shown in the report. The confocal models depend on pinhole size: set per channel for point scanning, and fixed by the disk (physical pinhole diameter and magnification to the disk, from the instrument profile) for spinning disk. | M |
 | THE-02 | The system shall generate a theoretical 3D PSF at the acquisition voxel size with a scalar Gibson-Lanni model and/or a vectorial (Richards-Wolf) model, including immersion/sample RI mismatch and coverslip parameters. | S |
 | THE-03 | The system shall report **measured/theoretical ratios** for every FWHM metric. | M |
 | THE-04 | The system shall report a **Strehl ratio estimate** (normalized peak of the averaged empirical PSF relative to the theoretical PSF of equal integrated energy). | S |
@@ -230,7 +230,7 @@ Task IDs map to requirements (in brackets) for traceability.
 ### WP0: Project foundation
 - T0.1 Repository scaffolding: `pyproject.toml`, src layout, ruff, mypy, pre-commit, and a GitHub Actions matrix (Windows, macOS, Linux; Python 3.11–3.13).
 - T0.2 Contributor docs, coding standards, branching and release policy.
-- T0.3 Collect a **reference dataset** of real bead stacks in each format from facility instruments, with known acquisition parameters. Small files are listed in `tests/data/manifest.json` and kept out of git; full-size files stay in external storage with checksums. **Status:** CZI and LIF bead files received; ND2 covered by public OME samples for now; a facility ND2 bead stack and a TIFF are still needed. *(This is the critical-path input; start immediately.)*
+- T0.3 Collect a **reference dataset** of real bead stacks in each format from facility instruments, with known acquisition parameters. Small files are listed in `tests/data/manifest.json` and kept out of git; full-size files stay in external storage with checksums. **Status:** CZI and LIF bead files received; ND2 covered by public OME samples for now. Facility ND2 bead stacks (one point-scanning, one spinning-disk) are on their way; a TIFF is still needed. *(This is the critical-path input; start immediately.)*
 - T0.4 Synthetic data generator: Gaussian and theoretical PSF bead fields with known ground truth, noise (Poisson and Gaussian read noise), background, tilt, and saturation. *(Serves NFR-01 and many V&V tests.)*
 - T0.5 License audit of candidate dependencies [NFR-10].
 
@@ -339,7 +339,7 @@ Durations are indicative estimates for roughly one developer, with facility staf
 
 ## 8. Open questions for stakeholders
 
-1. **Modalities:** Is v1.0 limited to widefield and point-scanning confocal, or are spinning-disk, multiphoton, or light-sheet systems also in scope?
+1. **Modalities:** *Partly answered 2026-11-11:* point-scanning and spinning-disk confocal are in scope (the facility is providing bead stacks from both). Still open: are multiphoton or light-sheet systems also needed?
 2. **Beads:** What bead types and sizes are in use (e.g. 100 nm or 175 nm PS-Speck, TetraSpeck)? This affects bead size correction and chromatic metrics.
 3. **Instruments:** Which instruments and objectives should be onboarded first? Can sample files be provided for T0.3?
 4. **Distribution:** Is writing to network or shared folders enough for v1.0, or is email or Teams/Slack delivery required?

@@ -58,7 +58,8 @@
           680,
           430,
           580
-        ]
+        ],
+        "settings_confirmed_by_facility": "2026-11-11"
       }
     },
     {
@@ -128,7 +129,8 @@
             "bead_emission_peak_nm": 580
           }
         ],
-        "bead_product": "TetraSpeck, 0.1 um"
+        "bead_product": "TetraSpeck, 0.1 um",
+        "settings_confirmed_by_facility": "2026-11-11"
       }
     },
     {
