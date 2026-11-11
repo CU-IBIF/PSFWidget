@@ -8,16 +8,21 @@ Provides the ``req`` marker that links tests to requirement IDs
 
 Unknown IDs fail collection. ``--req-report=PATH`` writes a CSV of
 requirement, test, and outcome after the run.
+
+Also provides the ``golden_file`` fixture, which returns the path of a file
+listed in ``tests/data/manifest.json`` (see ``tools/fetch_test_data.py``).
 """
 
 from __future__ import annotations
 
 import csv
-from collections.abc import Generator
+import os
+from collections.abc import Callable, Generator
 from pathlib import Path
 
 import pytest
 
+import fetch_test_data
 import traceability
 
 pytest_plugins = ["pytester"]
@@ -78,3 +83,33 @@ def pytest_sessionfinish(session: pytest.Session) -> None:
         writer = csv.writer(handle, lineterminator="\n")
         writer.writerow(("requirement", "test", "outcome"))
         writer.writerows(rows)
+
+
+@pytest.fixture(scope="session")
+def golden_file() -> Callable[[str], Path]:
+    """Return a function mapping a manifest file name to its verified local path.
+
+    A file that is not in the cache skips the test. With
+    ``PSFWIDGET_REQUIRE_TEST_DATA=1`` (set in CI) a missing downloadable file
+    fails instead, so a broken download cannot silently disable tests.
+    Local-only files (no URL) always skip when absent.
+    """
+    manifest = fetch_test_data.load_manifest()
+    verified: dict[str, Path] = {}
+
+    def get(name: str) -> Path:
+        if name in verified:
+            return verified[name]
+        entry = manifest[name]
+        state = fetch_test_data.status(entry)
+        if state == "corrupt":
+            pytest.fail(f"{name}: cached file does not match the manifest sha256")
+        if state == "missing":
+            message = f"{name} not in tests/data/cache; run: python tools/fetch_test_data.py"
+            if entry.is_public and os.environ.get("PSFWIDGET_REQUIRE_TEST_DATA") == "1":
+                pytest.fail(message)
+            pytest.skip(message)
+        verified[name] = entry.path
+        return entry.path
+
+    return get

@@ -1,0 +1,188 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "name": "20261111_QC_980.czi",
+      "format": "czi",
+      "size_bytes": 8256992,
+      "sha256": "c4db4c0d884de10c7d860145619b84adfd62fe11056cf1b339df5fb3cdda4721",
+      "url": null,
+      "source": "CU-IBIF facility acquisition (Zeiss LSM 980), 2026-11-11",
+      "license": "pending facility approval",
+      "attribution": "CU-IBIF",
+      "purpose": "Real bead field, 4 channels, single scene. Short z-range (13 planes).",
+      "expected": {
+        "scenes": [
+          "Image:0"
+        ],
+        "shape": {
+          "T": 1,
+          "C": 4,
+          "Z": 13,
+          "Y": 382,
+          "X": 382
+        },
+        "dtype": "uint8",
+        "voxel_size_um": {
+          "x": 0.07051691182581238,
+          "y": 0.07051691182581238,
+          "z": 0.19
+        },
+        "channel_names": [
+          "AF488-T1",
+          "AF647-T1",
+          "DAPI-T2",
+          "AF568-T2"
+        ],
+        "emission_nm": [
+          517,
+          668,
+          465,
+          603
+        ],
+        "excitation_nm": [
+          493,
+          653,
+          353,
+          577
+        ],
+        "numerical_aperture": 1.4,
+        "immersion_ri": 1.518,
+        "objective": "Plan-Apochromat 63x/1.40 Oil DIC M27",
+        "modality": "confocal",
+        "acquired_utc": "2026-11-11T16:55:57Z"
+      }
+    },
+    {
+      "name": "20261106_QC_SP8.lif",
+      "format": "lif",
+      "size_bytes": 10008211,
+      "sha256": "55af9bdc6d7f3e89da6b07f8f3ed88e37f435010bc62045eb4892bda02d75b4e",
+      "url": null,
+      "source": "CU-IBIF facility acquisition (Leica SP8), 2026-11-06",
+      "license": "pending facility approval",
+      "attribution": "CU-IBIF",
+      "purpose": "Real bead fields, 6 series x 2 channels. Z step is stored negative.",
+      "expected": {
+        "scenes": [
+          "1AU_field1",
+          "1AU_field2",
+          "1AU_field3_2avg",
+          "1AU_field4_avg_uni",
+          "1AU_field5_avg_uni",
+          "1AU_field6_avg_uni"
+        ],
+        "shape": {
+          "T": 1,
+          "C": 2,
+          "Z": 48,
+          "Y": 128,
+          "X": 128
+        },
+        "dtype": "uint8",
+        "voxel_size_um": {
+          "x": 0.05534973228346456,
+          "y": 0.05534973228346456,
+          "z": 0.15020385106382977
+        },
+        "z_step_sign_in_file": -1,
+        "numerical_aperture": 1.4,
+        "immersion_ri": 1.518,
+        "objective": "HC PL APO CS2 63x/1.40 OIL",
+        "pinhole_airy": 0.999561351863575,
+        "modality": "confocal"
+      }
+    },
+    {
+      "name": "BF007.nd2",
+      "format": "nd2",
+      "size_bytes": 270336,
+      "sha256": "e3f449796ac2ce82d5734a607d8899a3ec5a9a575161a3eded2e22eedc1dce92",
+      "url": "https://downloads.openmicroscopy.org/images/ND2/maxime/BF007.nd2",
+      "source": "OME sample images, ND2/maxime",
+      "license": "CC-BY-4.0",
+      "attribution": "Maxime Woringer",
+      "purpose": "Single 2D plane with complete optics metadata. Must be rejected as not a 3D stack.",
+      "expected": {
+        "shape": {
+          "Y": 156,
+          "X": 164
+        },
+        "dtype": "uint16",
+        "voxel_size_um": {
+          "x": 0.158389678930686,
+          "y": 0.158389678930686,
+          "z": null
+        },
+        "emission_nm": [
+          446
+        ],
+        "numerical_aperture": 1.45,
+        "immersion_ri": 1.515,
+        "objective": "Plan Apo TIRF 100x Oil DIC H N2"
+      }
+    },
+    {
+      "name": "Exception_2.nd2",
+      "format": "nd2",
+      "size_bytes": 7665545,
+      "sha256": "2f7f8e0f06b1f398a24758bbaf14795f6a0f765421f0e03c85037737931cf947",
+      "url": "https://downloads.openmicroscopy.org/images/ND2/jonas/jonas_nd2Test/Exception_2.nd2",
+      "source": "OME sample images, ND2/jonas",
+      "license": "CC-BY-4.0",
+      "attribution": "Jonas Dorn",
+      "purpose": "3D stack whose pixel size is uncalibrated (1.0) and whose immersion index is implausible. Exercises missing-metadata handling and overrides.",
+      "expected": {
+        "shape": {
+          "Z": 31,
+          "Y": 520,
+          "X": 696
+        },
+        "dtype": "uint16",
+        "voxel_size_um": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "voxel_size_calibrated": false,
+        "channel_names": [
+          "PSM_GFP"
+        ],
+        "numerical_aperture": 1.2,
+        "immersion_ri": 1.0,
+        "objective": "Plan Apochromat 60x WI/C"
+      }
+    },
+    {
+      "name": "header_test2.nd2",
+      "format": "nd2",
+      "size_bytes": 14700544,
+      "sha256": "48a6302fa0667b68fea455a880d4ccc8fd589fcbdfe771114af2d0034b86ad05",
+      "url": "https://downloads.openmicroscopy.org/images/ND2/jonas/header_test2.nd2",
+      "source": "OME sample images, ND2/jonas",
+      "license": "CC-BY-4.0",
+      "attribution": "Jonas Dorn",
+      "purpose": "Time series of calibrated z-stacks. Exercises timepoint selection.",
+      "expected": {
+        "shape": {
+          "T": 4,
+          "Z": 5,
+          "Y": 520,
+          "X": 696
+        },
+        "dtype": "uint16",
+        "voxel_size_um": {
+          "x": 0.12863494437945,
+          "y": 0.12863494437945,
+          "z": 0.5
+        },
+        "channel_names": [
+          "Jonas_DIC"
+        ],
+        "numerical_aperture": 1.4,
+        "immersion_ri": 1.515,
+        "objective": "Plan Apo 100x Oil DIC H"
+      }
+    }
+  ]
+}

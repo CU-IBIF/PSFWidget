@@ -86,7 +86,7 @@ The structure follows a V-model, adapted for a research and core facility tool. 
 | **SYN-A** | Synthetic Gaussian bead fields; grid of FWHM, SNR, sampling, and offsets | T0.4 generator (seeded) | Generated in CI, not stored |
 | **SYN-B** | Synthetic theoretical-PSF bead fields (Gibson-Lanni/vectorial) with tilt, curvature, chromatic shift, and RI mismatch | T0.4 generator | Generated in CI |
 | **SYN-C** | Defect fields: doublets, aggregates, saturation, edge beads, hot pixels | T0.4 generator | Generated in CI |
-| **GOLD-IO** | Small real files per format, multi-series and multichannel variants | Facility instruments / public samples (license checked) | Git LFS, < 50 MB total |
+| **GOLD-IO** | Small real files per format, multi-series and multichannel variants | Facility instruments / public samples (license checked) | Not in git. Listed in `tests/data/manifest.json` with SHA-256; public files download on demand, others are local-only. < 50 MB total |
 | **REF-1** | Full-size real bead fields for VAL-01, VAL-03, VAL-04 | Facility acquisition per SOP | External storage with SHA-256 manifest |
 | **REF-2** | Deliberately perturbed acquisitions for VAL-02 | Facility acquisition | External storage with manifest |
 | **LJ-SIM** | Simulated longitudinal series with injected shifts, trends, and increased variance | Generator | Generated in CI |

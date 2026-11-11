@@ -37,7 +37,7 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 | Concern | Proposed choice | Rationale |
 |---|---|---|
 | Language | Python ≥ 3.11 | Standard for bio-image analysis; napari ecosystem. Python 3.10 reached end of life in October 2026 |
-| File I/O | `bioio` with plugins (`bioio-nd2`, `bioio-lif`, `bioio-czi`, `bioio-ome-tiff`, `bioio-tifffile`); fallbacks `nd2`, `readlif`, `pylibCZIrw`, `tifffile` | One API for every format, with access to native metadata |
+| File I/O | Direct BSD-licensed readers: `nd2`, `liffile`, `czifile`, `tifffile` | `bioio-czi` and `readlif` (used by `bioio-lif`) are GPL-3, which conflicts with NFR-10. The BSD readers were checked against the facility CZI and LIF files (see §7) |
 | Numerics | `numpy`, `scipy`, `scikit-image`, `lmfit` | Robust fitting and uncertainty estimates |
 | Theoretical PSF | `psfmodels` (Gibson-Lanni and vectorial), with built-in analytical formulas as fallback | Validated models plus a dependency-free fallback |
 | Storage | SQLite through SQLAlchemy | Single file, portable, no server needed |
@@ -230,13 +230,13 @@ Task IDs map to requirements (in brackets) for traceability.
 ### WP0: Project foundation
 - T0.1 Repository scaffolding: `pyproject.toml`, src layout, ruff, mypy, pre-commit, and a GitHub Actions matrix (Windows, macOS, Linux; Python 3.11–3.13).
 - T0.2 Contributor docs, coding standards, branching and release policy.
-- T0.3 Collect a **reference dataset** of real bead stacks in each format from facility instruments, with known acquisition parameters. Store in Git LFS or external storage with checksums. *(This is the critical-path input; start immediately.)*
+- T0.3 Collect a **reference dataset** of real bead stacks in each format from facility instruments, with known acquisition parameters. Small files are listed in `tests/data/manifest.json` and kept out of git; full-size files stay in external storage with checksums. **Status:** CZI and LIF bead files received; ND2 covered by public OME samples for now; a facility ND2 bead stack and a TIFF are still needed. *(This is the critical-path input; start immediately.)*
 - T0.4 Synthetic data generator: Gaussian and theoretical PSF bead fields with known ground truth, noise (Poisson and Gaussian read noise), background, tilt, and saturation. *(Serves NFR-01 and many V&V tests.)*
 - T0.5 License audit of candidate dependencies [NFR-10].
 
 ### WP1: Data import
 - T1.1 `ImageStack` data model and `MetadataResolver` (file → profile → user override precedence, with source tagging) [IMP-04, IMP-05, IMP-06].
-- T1.2 Readers for ND2, LIF, CZI, and TIFF/OME-TIFF through bioio, with fallbacks [IMP-01].
+- T1.2 Readers for ND2, LIF, CZI, and TIFF/OME-TIFF using `nd2`, `liffile`, `czifile`, and `tifffile` [IMP-01].
 - T1.3 Multi-series, multichannel, time, and tile selection [IMP-02, IMP-03, IMP-07].
 - T1.4 Lazy or chunked loading [IMP-08].
 - T1.5 File hashing and provenance [IMP-09].
@@ -325,12 +325,14 @@ Durations are indicative estimates for roughly one developer, with facility staf
 | Risk | Impact | Mitigation |
 |---|---|---|
 | Incomplete or vendor-specific metadata (NA, RI, wavelength missing in TIFF or some CZI/LIF) | Wrong theoretical comparison | Instrument profiles + mandatory-parameter check (IMP-06); source tagging in report |
-| Reader library gaps or format changes (e.g. new ND2/CZI versions) | Import failures | bioio + native fallbacks; per-format regression files in CI |
+| Reader library gaps or format changes (e.g. new ND2/CZI versions) | Import failures | Thin reader layer over one library per format, so a library can be swapped; per-format regression files in CI |
 | Poor bead samples (aggregates, saturation, undersampling) | Noisy trends, false alarms | Strict filters, sampling warnings, acquisition SOP (T8.1) |
 | Day-to-day variance from sample prep rather than the instrument | LJ false positives | Use a fixed, long-lived bead slide; track the accepted-bead count and SBR as covariates; median-based summaries |
 | Integrated intensity depends on laser power, exposure, and gain | Non-comparable intensity trends | Normalize where metadata allows; require fixed acquisition settings per profile; flag setting changes |
 | Vectorial PSF computation is slow | Performance | Cache theoretical PSFs per configuration; analytical fallback |
-| GPL-licensed dependency adopted unknowingly | Licensing conflict | T0.5 audit; CI license check |
+| GPL-licensed dependency adopted unknowingly | Licensing conflict | T0.5 audit; CI license check. **Found 2026-11-11:** `bioio-czi` 4.1.0 (GPL-3, depends on `aicspylibczi`, GPL-3) and `readlif` 0.6.6 (GPL-3). Replaced in §1.3 by `czifile` and `liffile` (BSD-3) |
+| Test files carry personal data in embedded metadata (account names, serial numbers) | Publishing personal data in a public repository | Golden files stay out of git; inspect metadata before publishing any file (`tests/data/README.md`) |
+| Vendor metadata quirks (e.g. Leica stores a negative z step) | Wrong voxel size or flipped stacks | Reader normalizes sign and records it; golden-file expectations cover each quirk found |
 | Scheduled jobs fail silently on facility PCs | Missed QC | Run logs, status files, "last successful run" shown in the trend report |
 
 ---

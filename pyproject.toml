@@ -85,7 +85,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["psfwidget", "traceability"]
+known-first-party = ["psfwidget", "traceability", "fetch_test_data"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
