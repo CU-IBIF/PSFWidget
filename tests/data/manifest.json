@@ -51,7 +51,14 @@
         "objective": "Plan-Apochromat 63x/1.40 Oil DIC M27",
         "modality": "confocal",
         "acquired_utc": "2026-11-11T16:55:57Z",
-        "bead_diameter_nm": 100
+        "bead_diameter_nm": 100,
+        "bead_product": "TetraSpeck, 0.1 um",
+        "bead_emission_peak_nm": [
+          515,
+          680,
+          430,
+          580
+        ]
       }
     },
     {
@@ -104,7 +111,8 @@
               507,
               686
             ],
-            "dye_setting": "Leica/ALEXA 488"
+            "dye_setting": "Leica/ALEXA 488",
+            "bead_emission_peak_nm": 515
           },
           {
             "index": 1,
@@ -116,9 +124,11 @@
               558,
               761
             ],
-            "dye_setting": "Leica/ALEXA 568"
+            "dye_setting": "Leica/ALEXA 568",
+            "bead_emission_peak_nm": 580
           }
-        ]
+        ],
+        "bead_product": "TetraSpeck, 0.1 um"
       }
     },
     {

@@ -36,8 +36,8 @@ name in the manifest; the fetch tool then verifies the hash.
 
 | File | Source | Used for |
 |---|---|---|
-| `20261111_QC_980.czi` | CU-IBIF, Zeiss LSM 980 | Real bead field (100 nm beads), 4 channels |
-| `20261106_QC_SP8.lif` | CU-IBIF, Leica SP8 | Real bead fields (100 nm beads), 6 series × 2 channels from sequential scans (488 and 552 nm excitation); z step stored negative |
+| `20261111_QC_980.czi` | CU-IBIF, Zeiss LSM 980 | Real bead field (100 nm TetraSpeck beads), 4 channels |
+| `20261106_QC_SP8.lif` | CU-IBIF, Leica SP8 | Real bead fields (100 nm TetraSpeck beads), 6 series × 2 channels from sequential scans (488 and 552 nm excitation); z step stored negative |
 
 They are local-only by facility decision (2026-11-11). Their embedded
 metadata contains Windows account names and an instrument serial number,
