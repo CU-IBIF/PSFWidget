@@ -8,7 +8,7 @@
       "sha256": "c4db4c0d884de10c7d860145619b84adfd62fe11056cf1b339df5fb3cdda4721",
       "url": null,
       "source": "CU-IBIF facility acquisition (Zeiss LSM 980), 2026-11-11",
-      "license": "pending facility approval",
+      "license": "not for redistribution (facility decision, 2026-11-11)",
       "attribution": "CU-IBIF",
       "purpose": "Real bead field, 4 channels, single scene. Short z-range (13 planes).",
       "expected": {
@@ -60,7 +60,7 @@
       "sha256": "55af9bdc6d7f3e89da6b07f8f3ed88e37f435010bc62045eb4892bda02d75b4e",
       "url": null,
       "source": "CU-IBIF facility acquisition (Leica SP8), 2026-11-06",
-      "license": "pending facility approval",
+      "license": "not for redistribution (facility decision, 2026-11-11)",
       "attribution": "CU-IBIF",
       "purpose": "Real bead fields, 6 series x 2 channels. Z step is stored negative.",
       "expected": {

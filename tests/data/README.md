@@ -39,10 +39,12 @@ name in the manifest; the fetch tool then verifies the hash.
 | `20261111_QC_980.czi` | CU-IBIF, Zeiss LSM 980 | Real bead field, 4 channels |
 | `20261106_QC_SP8.lif` | CU-IBIF, Leica SP8 | Real bead fields, 6 series × 2 channels; z step stored negative |
 
-They are local-only because their embedded metadata contains Windows
-account names and an instrument serial number, and this repository is
-public. Publishing them (for example as release assets, with a URL added to
-the manifest) needs a facility decision first.
+They are local-only by facility decision (2026-11-11). Their embedded
+metadata contains Windows account names and an instrument serial number,
+and this repository is public. Do not commit them, attach them to a
+release, or upload them anywhere else. Tests that need them run only where
+the file has been copied into the cache, and are skipped everywhere else,
+including CI.
 
 ## Adding a file
 
