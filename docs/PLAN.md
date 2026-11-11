@@ -77,7 +77,7 @@ Requirement IDs are stable and are referenced by the V&V traceability matrix. Pr
 | IMP-07 | The system shall support time-lapse or mosaic data by letting the user select timepoint or tile indices. | S |
 | IMP-08 | The system shall handle stacks larger than RAM by lazy or chunked loading (e.g. dask). | S |
 | IMP-09 | The system shall record a SHA-256 hash of each source file for provenance. | S |
-| IMP-10 | The system shall support instrument profiles (microscope, objective, channel presets) that supply default metadata and link results to a tracked configuration. | M |
+| IMP-10 | The system shall support instrument profiles (microscope, objective, channel presets) that supply default metadata, including values no file records such as bead diameter and the bead dye's emission peak, and link results to a tracked configuration. | M |
 
 ### 3.2 Bead detection and selection (DET)
 
@@ -332,7 +332,7 @@ Durations are indicative estimates for roughly one developer, with facility staf
 | Vectorial PSF computation is slow | Performance | Cache theoretical PSFs per configuration; analytical fallback |
 | GPL-licensed dependency adopted unknowingly | Licensing conflict | T0.5 audit; CI license check. **Found 2026-11-11:** `bioio-czi` 4.1.0 (GPL-3, depends on `aicspylibczi`, GPL-3) and `readlif` 0.6.6 (GPL-3). Replaced in §1.3 by `czifile` and `liffile` (BSD-3) |
 | Test files carry personal data in embedded metadata (account names, serial numbers) | Publishing personal data in a public repository | Golden files stay out of git; inspect metadata before publishing any file (`tests/data/README.md`) |
-| Vendor metadata quirks (e.g. Leica stores a negative z step) | Wrong voxel size or flipped stacks | Reader normalizes sign and records it; golden-file expectations cover each quirk found |
+| Vendor metadata quirks (Leica stores a negative z step; Leica sequential scans store one setting block per sequence plus stale blocks, each listing all four detector slots, so channel wavelengths must come from the active detector and laser of the matching `Seq.` block) | Wrong voxel size or flipped stacks | Reader normalizes sign and records it; golden-file expectations cover each quirk found |
 | Scheduled jobs fail silently on facility PCs | Missed QC | Run logs, status files, "last successful run" shown in the trend report |
 
 ---

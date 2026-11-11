@@ -8,7 +8,7 @@ IMP-06,M,"The system shall refuse to analyze a stack that lacks a required param
 IMP-07,S,The system shall support time-lapse or mosaic data by letting the user select timepoint or tile indices.,"I, S",Time/tile selection tests; large-file lazy-load test (memory cap)
 IMP-08,S,The system shall handle stacks larger than RAM by lazy or chunked loading (e.g. dask).,"I, S",Time/tile selection tests; large-file lazy-load test (memory cap)
 IMP-09,S,The system shall record a SHA-256 hash of each source file for provenance.,U,Hash tests
-IMP-10,M,"The system shall support instrument profiles (microscope, objective, channel presets) that supply default metadata and link results to a tracked configuration.","U, I",Profile schema validation; profile → session linking
+IMP-10,M,"The system shall support instrument profiles (microscope, objective, channel presets) that supply default metadata, including values no file records such as bead diameter and the bead dye's emission peak, and link results to a tracked configuration.","U, I",Profile schema validation; profile → session linking
 DET-01,M,The system shall automatically detect candidate beads in a 3D field (e.g. by LoG or DoG filtering followed by local maxima detection).,U,SYN-A/SYN-C detection and filter tests
 DET-02,M,The system shall reject beads that are too close to the image border in xy or z for the configured crop size.,U,SYN-A/SYN-C detection and filter tests
 DET-03,M,"The system shall reject beads whose crop region overlaps another bead (minimum separation configurable, default ≥ 4× expected lateral FWHM laterally and ≥ 2× axial FWHM).",U,SYN-A/SYN-C detection and filter tests

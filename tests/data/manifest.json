@@ -50,7 +50,8 @@
         "immersion_ri": 1.518,
         "objective": "Plan-Apochromat 63x/1.40 Oil DIC M27",
         "modality": "confocal",
-        "acquired_utc": "2026-11-11T16:55:57Z"
+        "acquired_utc": "2026-11-11T16:55:57Z",
+        "bead_diameter_nm": 100
       }
     },
     {
@@ -62,7 +63,7 @@
       "source": "CU-IBIF facility acquisition (Leica SP8), 2026-11-06",
       "license": "not for redistribution (facility decision, 2026-11-11)",
       "attribution": "CU-IBIF",
-      "purpose": "Real bead fields, 6 series x 2 channels. Z step is stored negative.",
+      "purpose": "Real bead fields, 6 series x 2 channels acquired as sequential scans. Z step is stored negative. Each image carries 4 setting blocks; only the 'Seq.' blocks describe the image channels.",
       "expected": {
         "scenes": [
           "1AU_field1",
@@ -90,7 +91,34 @@
         "immersion_ri": 1.518,
         "objective": "HC PL APO CS2 63x/1.40 OIL",
         "pinhole_airy": 0.999561351863575,
-        "modality": "confocal"
+        "modality": "confocal",
+        "bead_diameter_nm": 100,
+        "channels": [
+          {
+            "index": 0,
+            "lut": "Green",
+            "sequence": "Seq. 2",
+            "detector": "HyD 1",
+            "excitation_nm": 488,
+            "detection_band_nm": [
+              507,
+              686
+            ],
+            "dye_setting": "Leica/ALEXA 488"
+          },
+          {
+            "index": 1,
+            "lut": "Yellow",
+            "sequence": "Seq. 3",
+            "detector": "HyD 1",
+            "excitation_nm": 552,
+            "detection_band_nm": [
+              558,
+              761
+            ],
+            "dye_setting": "Leica/ALEXA 568"
+          }
+        ]
       }
     },
     {
