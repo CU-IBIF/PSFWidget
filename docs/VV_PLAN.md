@@ -122,6 +122,8 @@ Legend: **U** = Unit, **I** = Integration, **S** = System, **V** = Validation, *
 | THE-03 … THE-05 | U, V | Ratio, Strehl, and NCC tests; VAL-04 |
 | THE-06 | U, S | Spec evaluation tests; alert scenario |
 | THE-07 | I, R | Report snapshot; visual review |
+| THE-08 | U, I | Mode detection on the NSPARC and Live-SR golden files; ratio tests against the base-modality model |
+| THE-09 | U, V | Image-scanning model FWHM vs. published reassignment factors; VAL-04 on NSPARC and Live-SR stacks |
 | TRK-01, TRK-02 | I | DB persistence round-trip |
 | TRK-03, TRK-08 | I, R | LJ figure snapshot; visual review |
 | TRK-04, TRK-05 | U, V | Baseline and Westgard table tests; LJ-SIM; VAL-05 |

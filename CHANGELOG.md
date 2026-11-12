@@ -25,5 +25,8 @@ All notable changes to this project are documented here. The format follows
   - a `golden_file` pytest fixture.
 
 ### Changed
+- Scope: spinning-disk confocal added (THE-01). Resolution-enhanced modes
+  (NSPARC SR, Live-SR) keep a theoretical comparison (new THE-08, THE-09).
+- TRK-02: acquisition dates come from file metadata, never from file names.
 - Planned file readers are now `nd2`, `liffile`, `czifile`, and `tifffile`.
   `bioio-czi` and `readlif` are GPL-3 and conflict with the MIT licence.

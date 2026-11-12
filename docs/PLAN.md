@@ -27,7 +27,7 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 
 ### 1.2 Out of scope (v1.0, candidates for later)
 
-- Light-sheet, SIM, STED, and other super-resolution-specific PSF models.
+- Light-sheet, SIM, and STED PSF models. (Image-scanning modes such as NSPARC and Live-SR are in scope; see THE-08 and THE-09.)
 - Email or Slack delivery of reports. v1.0 writes to folders only, so existing sharing tools handle distribution.
 - A multi-user web server or dashboard.
 - Deconvolution itself. v1.0 only exports averaged PSFs for use in deconvolution software.
@@ -128,13 +128,15 @@ All metrics are computed per bead and summarized per field as n, mean, SD, media
 | THE-05 | The system shall report a **similarity score** between the averaged empirical PSF and the theoretical PSF (e.g. normalized cross-correlation or Pearson r after alignment). | S |
 | THE-06 | The system shall support user-defined **specification limits** (e.g. lateral ratio ≤ 1.2, axial ratio ≤ 1.3) and report pass/fail. | M |
 | THE-07 | The system shall show side-by-side XY, XZ, and YZ views with overlaid profiles of the empirical vs. theoretical PSF. | M |
+| THE-08 | For configurations that use a resolution-enhancing mode (e.g. Nikon NSPARC SR, Live-SR), the system shall keep the theoretical comparison: it shall report measured/theoretical ratios against the model of the base modality (point-scanning or spinning-disk confocal) and label the result with the enhancement mode. | M |
+| THE-09 | For resolution-enhancing modes based on image scanning (pixel reassignment), the system shall also compute a theoretical PSF from an image-scanning-microscopy model and report ratios against it. | S |
 
 ### 3.5 Tracking and statistical process control (TRK)
 
 | ID | Requirement | Pri |
 |---|---|---|
 | TRK-01 | The system shall persist all per-bead and per-field results, the analysis parameters, the software version, and provenance in a local database. | M |
-| TRK-02 | The system shall key results by **instrument → objective → channel (or wavelength) → modality**, with the acquisition date taken from metadata (falling back to the file date). | M |
+| TRK-02 | The system shall key results by **instrument → objective → channel (or wavelength) → modality**, with the acquisition date taken from the file's metadata (falling back to the file-system date only when the metadata has none; dates in file names are never used). | M |
 | TRK-03 | The system shall plot **Levey-Jennings charts** for any tracked metric: session values over time with the mean and ±1, ±2, ±3 SD lines. | M |
 | TRK-04 | The system shall establish control limits from a user-selected **baseline period** (default: first N = 20 valid sessions; configurable) or from user-entered target mean and SD. | M |
 | TRK-05 | The system shall evaluate **Westgard rules** (1₂ₛ warning; 1₃ₛ, 2₂ₛ, R₄ₛ, 4₁ₛ, 10ₓ rejection) per metric, with configurable rule sets per metric. | M |
@@ -262,6 +264,7 @@ Task IDs map to requirements (in brackets) for traceability.
 - T3.3 Ratios, Strehl estimate, similarity score [THE-03 … THE-05].
 - T3.4 Spec limit configuration and pass/fail evaluation [THE-06].
 - T3.5 Comparison figures [THE-07].
+- T3.6 Resolution-enhanced modes: detect the mode from metadata or the profile, compare against the base-modality model, and add an image-scanning-microscopy model [THE-08, THE-09].
 
 ### WP4: Tracking database and SPC
 - T4.1 SQLAlchemy schema and Alembic migrations [TRK-01, TRK-02].
@@ -313,7 +316,7 @@ Durations are indicative estimates for roughly one developer, with facility staf
 | **M2: Core metrics (MVP analysis)** | WP2 Musts + T3.1, T3.3 (ratios), T3.4 | FWHM X/Y/Z and XY/XZ/YZ, integrated intensity, SBR/SNR, and ratios meet NFR-01 on synthetic data; CLI `analyze` writes CSV | Week 10 |
 | **M3: Tracking and LJ** | WP4 | Sessions persist; baselines and Westgard rules pass rule-engine tests; LJ charts render with events | Week 13 |
 | **M4: Reporting and automation (alpha)** | WP5, WP6 | Session and trend reports in HTML and PDF; scheduled watch-folder run works end to end unattended for 1 week on a test machine | Week 17 |
-| **M5: GUI and Shoulds (beta)** | WP7, remaining Shoulds in WP2 and WP3 (field maps, chromatic, averaged PSF, vectorial model, Strehl) | GUI usability session completed; beta deployed on 1–2 facility microscopes | Week 22 |
+| **M5: GUI and Shoulds (beta)** | WP7, remaining Shoulds in WP2 and WP3 (field maps, chromatic, averaged PSF, vectorial model, Strehl, image-scanning model) | GUI usability session completed; beta deployed on 1–2 facility microscopes | Week 22 |
 | **M6: Validation and v1.0 release** | WP8, V&V execution | All Must requirements verified; NFR-02 agreement study passed; ≥ 4 weeks of parallel run against the current QC method; V&V summary report signed off | Week 28 |
 
 **Critical path:** reference data (T0.3) → import (WP1) → metrics (WP2) → tracking (WP4) → automation (WP6) → validation (M6). LJ charts become meaningful only after about 20 sessions, so **baseline data collection should begin at M2** with the CLI, before the GUI exists.
@@ -340,7 +343,7 @@ Durations are indicative estimates for roughly one developer, with facility staf
 ## 8. Open questions for stakeholders
 
 1. **Modalities:** *Partly answered 2026-11-11:* point-scanning and spinning-disk confocal are in scope (the facility is providing bead stacks from both). Still open: are multiphoton or light-sheet systems also needed?
-   **New 2026-11-12:** both facility ND2 stacks use resolution-enhancing modes (NSPARC SR on the AX R, Live-SR on the spinning disk). §1.2 excludes super-resolution PSF models, so a plain confocal model will overestimate their FWHM. Options for v1.0: (a) compare against the plain confocal model and expect ratios below 1; (b) track these configurations with Levey-Jennings limits and facility-set spec limits only; (c) add an image-scanning-microscopy model to scope.
+   *Answered 2026-11-12:* resolution-enhanced modes (NSPARC SR, Live-SR) keep a theoretical comparison (THE-08, THE-09).
 2. **Beads:** What bead types and sizes are in use (e.g. 100 nm or 175 nm PS-Speck, TetraSpeck)? This affects bead size correction and chromatic metrics.
 3. **Instruments:** Which instruments and objectives should be onboarded first? Can sample files be provided for T0.3?
 4. **Distribution:** Is writing to network or shared folders enough for v1.0, or is email or Teams/Slack delivery required?

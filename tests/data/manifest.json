@@ -233,7 +233,7 @@
       "source": "CU-IBIF facility acquisition (Nikon AX R with NSPARC detector), 2026-11-10",
       "license": "not for redistribution (facility decision, 2026-11-11)",
       "attribution": "CU-IBIF",
-      "purpose": "Real bead crop, 4 channels, point-scanning confocal with NSPARC array detector in SR mode. No pinhole is recorded. The structured emission wavelength is the lower edge of the detection band. The file name date (2026-10-12) differs from the acquisition date in the metadata.",
+      "purpose": "Real bead crop, 4 channels, point-scanning confocal with NSPARC array detector in SR mode. No pinhole is recorded. The structured emission wavelength is the lower edge of the detection band. The file name date (2026-10-12) differs from the acquisition date in the metadata; the metadata date is the one to use.",
       "expected": {
         "shape": {
           "Z": 15,
