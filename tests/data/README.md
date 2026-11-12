@@ -40,6 +40,7 @@ name in the manifest; the fetch tool then verifies the hash.
 | `20261012_QC_AxR_NSPARC_crop.nd2` | CU-IBIF, Nikon AX R (NSPARC, SR mode) | Real bead crop, 4 channels, point scanning; no pinhole recorded |
 | `20261111_psfbeads_SPD_1x_SR_crop.nd2` | CU-IBIF, Nikon Ti2 + CSU (Live-SR) | Real bead crop, 3 channels, spinning disk; one channel has wrong structured wavelengths |
 | `20261111_psfbeads_SPD_1x_SR_crop.ome.tif` | NIS-Elements export of the file above | Cross-format check: identical pixels to the ND2 |
+| `20261111_psfbeads_SPD_1x_SR_crop.tif` | ImageJ re-save of the OME-TIFF | Plain TIFF: identical pixels, voxel size only, no optics metadata |
 | `20261106_QC_SP8.lif` | CU-IBIF, Leica SP8 | Real bead fields (100 nm TetraSpeck beads), 6 series × 2 channels from sequential scans (488 and 552 nm excitation); z step stored negative |
 
 They are local-only by facility decision (2026-11-11). Their embedded
