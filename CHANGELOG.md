@@ -20,7 +20,7 @@ All notable changes to this project are documented here. The format follows
   - a `--req-report` option that writes requirement coverage per test run.
 - Golden test data (M0, task T0.3, in progress):
   - `tests/data/manifest.json` with hashes, licences, and expected reader
-    values for five files (one CZI, one LIF, three ND2);
+    values for eight files (CZI, LIF, five ND2, and an OME-TIFF);
   - `tools/fetch_test_data.py` to download and verify them;
   - a `golden_file` pytest fixture.
 

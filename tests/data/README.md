@@ -26,8 +26,8 @@ All are licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and a
 | `Exception_2.nd2` | Jonas Dorn | A 3D stack with uncalibrated pixel size; missing-metadata handling |
 | `header_test2.nd2` | Jonas Dorn | A time series of calibrated z-stacks; timepoint selection |
 
-None of these is a bead image, and none is a multichannel or multi-position
-ND2. A facility ND2 bead stack is still needed for those cases.
+None of these is a bead image. The facility ND2 files below cover real
+multichannel bead data; a multi-position ND2 is still missing.
 
 ## Local-only files
 
@@ -37,10 +37,13 @@ name in the manifest; the fetch tool then verifies the hash.
 | File | Source | Used for |
 |---|---|---|
 | `20261111_QC_980.czi` | CU-IBIF, Zeiss LSM 980 | Real bead field (100 nm TetraSpeck beads), 4 channels |
+| `20261012_QC_AxR_NSPARC_crop.nd2` | CU-IBIF, Nikon AX R (NSPARC, SR mode) | Real bead crop, 4 channels, point scanning; no pinhole recorded |
+| `20261111_psfbeads_SPD_1x_SR_crop.nd2` | CU-IBIF, Nikon Ti2 + CSU (Live-SR) | Real bead crop, 3 channels, spinning disk; one channel has wrong structured wavelengths |
+| `20261111_psfbeads_SPD_1x_SR_crop.ome.tif` | NIS-Elements export of the file above | Cross-format check: identical pixels to the ND2 |
 | `20261106_QC_SP8.lif` | CU-IBIF, Leica SP8 | Real bead fields (100 nm TetraSpeck beads), 6 series × 2 channels from sequential scans (488 and 552 nm excitation); z step stored negative |
 
 They are local-only by facility decision (2026-11-11). Their embedded
-metadata contains Windows account names and an instrument serial number,
+metadata contains account names or instrument and camera serial numbers,
 and this repository is public. Do not commit them, attach them to a
 release, or upload them anywhere else. Tests that need them run only where
 the file has been copied into the cache, and are skipped everywhere else,

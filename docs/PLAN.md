@@ -230,7 +230,7 @@ Task IDs map to requirements (in brackets) for traceability.
 ### WP0: Project foundation
 - T0.1 Repository scaffolding: `pyproject.toml`, src layout, ruff, mypy, pre-commit, and a GitHub Actions matrix (Windows, macOS, Linux; Python 3.11–3.13).
 - T0.2 Contributor docs, coding standards, branching and release policy.
-- T0.3 Collect a **reference dataset** of real bead stacks in each format from facility instruments, with known acquisition parameters. Small files are listed in `tests/data/manifest.json` and kept out of git; full-size files stay in external storage with checksums. **Status:** CZI and LIF bead files received; ND2 covered by public OME samples for now. Facility ND2 bead stacks (one point-scanning, one spinning-disk) are on their way; a TIFF is still needed. *(This is the critical-path input; start immediately.)*
+- T0.3 Collect a **reference dataset** of real bead stacks in each format from facility instruments, with known acquisition parameters. Small files are listed in `tests/data/manifest.json` and kept out of git; full-size files stay in external storage with checksums. **Status (2026-11-12):** bead files received for all four formats: CZI (LSM 980), LIF (SP8), ND2 (AX R NSPARC and CSU spinning disk), and an OME-TIFF export of the spinning-disk stack. Public OME samples cover the remaining ND2 reader cases. A plain (non-OME) TIFF is still needed.
 - T0.4 Synthetic data generator: Gaussian and theoretical PSF bead fields with known ground truth, noise (Poisson and Gaussian read noise), background, tilt, and saturation. *(Serves NFR-01 and many V&V tests.)*
 - T0.5 License audit of candidate dependencies [NFR-10].
 
@@ -332,7 +332,7 @@ Durations are indicative estimates for roughly one developer, with facility staf
 | Vectorial PSF computation is slow | Performance | Cache theoretical PSFs per configuration; analytical fallback |
 | GPL-licensed dependency adopted unknowingly | Licensing conflict | T0.5 audit; CI license check. **Found 2026-11-11:** `bioio-czi` 4.1.0 (GPL-3, depends on `aicspylibczi`, GPL-3) and `readlif` 0.6.6 (GPL-3). Replaced in §1.3 by `czifile` and `liffile` (BSD-3) |
 | Test files carry personal data in embedded metadata (account names, serial numbers) | Publishing personal data in a public repository | Golden files stay out of git; inspect metadata before publishing any file (`tests/data/README.md`) |
-| Vendor metadata quirks (Leica stores a negative z step; Leica sequential scans store one setting block per sequence plus stale blocks, each listing all four detector slots, so channel wavelengths must come from the active detector and laser of the matching `Seq.` block) | Wrong voxel size or flipped stacks | Reader normalizes sign and records it; golden-file expectations cover each quirk found |
+| Vendor metadata quirks (Leica stores a negative z step; Leica sequential scans store one setting block per sequence plus stale blocks, each listing all four detector slots, so channel wavelengths must come from the active detector and laser of the matching `Seq.` block. Nikon AX files report the lower edge of the detection band as the emission wavelength and record no pinhole with the NSPARC detector. A Nikon spinning-disk file gave the wrong excitation and no emission for one channel in the structured metadata while the free-text description was right. The NIS-Elements OME-TIFF export rounds pixel size to six significant figures) | Wrong voxel size or flipped stacks | Reader normalizes sign and records it; golden-file expectations cover each quirk found |
 | Scheduled jobs fail silently on facility PCs | Missed QC | Run logs, status files, "last successful run" shown in the trend report |
 
 ---
@@ -340,6 +340,7 @@ Durations are indicative estimates for roughly one developer, with facility staf
 ## 8. Open questions for stakeholders
 
 1. **Modalities:** *Partly answered 2026-11-11:* point-scanning and spinning-disk confocal are in scope (the facility is providing bead stacks from both). Still open: are multiphoton or light-sheet systems also needed?
+   **New 2026-11-12:** both facility ND2 stacks use resolution-enhancing modes (NSPARC SR on the AX R, Live-SR on the spinning disk). §1.2 excludes super-resolution PSF models, so a plain confocal model will overestimate their FWHM. Options for v1.0: (a) compare against the plain confocal model and expect ratios below 1; (b) track these configurations with Levey-Jennings limits and facility-set spec limits only; (c) add an image-scanning-microscopy model to scope.
 2. **Beads:** What bead types and sizes are in use (e.g. 100 nm or 175 nm PS-Speck, TetraSpeck)? This affects bead size correction and chromatic metrics.
 3. **Instruments:** Which instruments and objectives should be onboarded first? Can sample files be provided for T0.3?
 4. **Distribution:** Is writing to network or shared folders enough for v1.0, or is email or Teams/Slack delivery required?

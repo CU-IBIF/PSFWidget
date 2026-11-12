@@ -223,6 +223,194 @@
         "immersion_ri": 1.515,
         "objective": "Plan Apo 100x Oil DIC H"
       }
+    },
+    {
+      "name": "20261012_QC_AxR_NSPARC_crop.nd2",
+      "format": "nd2",
+      "size_bytes": 1646592,
+      "sha256": "3c8b460aa0a0f941235d1b13ad6f01ae9924ba2bc2a08ae603af9ac68c754f77",
+      "url": null,
+      "source": "CU-IBIF facility acquisition (Nikon AX R with NSPARC detector), 2026-11-10",
+      "license": "not for redistribution (facility decision, 2026-11-11)",
+      "attribution": "CU-IBIF",
+      "purpose": "Real bead crop, 4 channels, point-scanning confocal with NSPARC array detector in SR mode. No pinhole is recorded. The structured emission wavelength is the lower edge of the detection band. The file name date (2026-10-12) differs from the acquisition date in the metadata.",
+      "expected": {
+        "shape": {
+          "Z": 15,
+          "C": 4,
+          "Y": 106,
+          "X": 106
+        },
+        "dtype": "uint16",
+        "significant_bits": 12,
+        "voxel_size_um": {
+          "x": 0.04875227344474732,
+          "y": 0.04875227344474732,
+          "z": 0.1498908530041152
+        },
+        "channel_names": [
+          "AF405",
+          "AF488",
+          "AF546",
+          "AF647"
+        ],
+        "excitation_nm": [
+          405,
+          488,
+          561,
+          638
+        ],
+        "emission_nm_structured": [
+          430,
+          503,
+          582,
+          663
+        ],
+        "detection_band_nm": [
+          [
+            430,
+            463
+          ],
+          [
+            503,
+            545
+          ],
+          [
+            582,
+            618
+          ],
+          [
+            663,
+            691
+          ]
+        ],
+        "numerical_aperture": 1.42,
+        "immersion_ri": 1.515,
+        "objective": "PLAN APO λD 60x OIL OFN25 DIC N2",
+        "pinhole_um": null,
+        "modality": "point-scanning confocal",
+        "resolution_enhancement": "NSPARC SR",
+        "acquired_utc": "2026-11-10T21:47:27Z"
+      }
+    },
+    {
+      "name": "20261111_psfbeads_SPD_1x_SR_crop.nd2",
+      "format": "nd2",
+      "size_bytes": 2023424,
+      "sha256": "1f2fdfcc27fd92b2e66029620606d2fcaa4f4733a3715542fa247cbfa934b690",
+      "url": null,
+      "source": "CU-IBIF facility acquisition (Nikon Ti2 with CSU spinning disk and Live-SR), 2026-11-11",
+      "license": "not for redistribution (facility decision, 2026-11-11)",
+      "attribution": "CU-IBIF",
+      "purpose": "Real bead crop, 3 channels, spinning-disk confocal with Live-SR. The structured metadata gives the wrong excitation and no emission for the Cy5 channel; the free-text description has the right laser line.",
+      "expected": {
+        "shape": {
+          "Z": 21,
+          "C": 3,
+          "Y": 112,
+          "X": 110
+        },
+        "dtype": "uint16",
+        "significant_bits": 12,
+        "channel_names": [
+          "TRITC_SR",
+          "GFP_SR",
+          "Cy5_SR"
+        ],
+        "excitation_nm_structured": [
+          550,
+          488,
+          550
+        ],
+        "excitation_nm_true": [
+          550,
+          488,
+          640
+        ],
+        "emission_nm_structured": [
+          603.5,
+          535,
+          null
+        ],
+        "numerical_aperture": 1.4,
+        "immersion_ri": 1.515,
+        "objective": "Plan Apo λ 60x Oil",
+        "pinhole_um": 50,
+        "total_zoom": 2.55,
+        "modality": "spinning-disk confocal",
+        "resolution_enhancement": "Live-SR",
+        "acquired_utc": "2026-11-11T18:29:37Z",
+        "saturated_voxels": [
+          2,
+          0,
+          0
+        ],
+        "voxel_size_um": {
+          "x": 0.042378794225374515,
+          "y": 0.042378794225374515,
+          "z": 0.3
+        }
+      }
+    },
+    {
+      "name": "20261111_psfbeads_SPD_1x_SR_crop.ome.tif",
+      "format": "ome-tiff",
+      "size_bytes": 1860076,
+      "sha256": "400e2a3ed833d946bfdde1e14cbbe1c6a32969ea7957f1b1d988cf6b1040b3bc",
+      "url": null,
+      "source": "NIS-Elements OME-TIFF export of 20261111_psfbeads_SPD_1x_SR_crop.nd2",
+      "license": "not for redistribution (facility decision, 2026-11-11)",
+      "attribution": "CU-IBIF",
+      "purpose": "Cross-format check: pixel data is identical to the ND2. Pixel size is rounded to six significant figures in the export.",
+      "expected": {
+        "shape": {
+          "Z": 21,
+          "C": 3,
+          "Y": 112,
+          "X": 110
+        },
+        "dtype": "uint16",
+        "significant_bits": 12,
+        "channel_names": [
+          "TRITC_SR",
+          "GFP_SR",
+          "Cy5_SR"
+        ],
+        "excitation_nm_structured": [
+          550,
+          488,
+          550
+        ],
+        "excitation_nm_true": [
+          550,
+          488,
+          640
+        ],
+        "emission_nm_structured": [
+          603.5,
+          535,
+          null
+        ],
+        "numerical_aperture": 1.4,
+        "immersion_ri": 1.515,
+        "objective": "Plan Apo λ 60x Oil",
+        "pinhole_um": 50,
+        "total_zoom": 2.55,
+        "modality": "spinning-disk confocal",
+        "resolution_enhancement": "Live-SR",
+        "acquired_utc": "2026-11-11T18:29:37Z",
+        "saturated_voxels": [
+          2,
+          0,
+          0
+        ],
+        "voxel_size_um": {
+          "x": 0.0423788,
+          "y": 0.0423788,
+          "z": 0.3
+        },
+        "same_pixels_as": "20261111_psfbeads_SPD_1x_SR_crop.nd2"
+      }
     }
   ]
 }
