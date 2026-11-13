@@ -1,0 +1,480 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "name": "20261111_QC_980.czi",
+      "format": "czi",
+      "size_bytes": 8256992,
+      "sha256": "c4db4c0d884de10c7d860145619b84adfd62fe11056cf1b339df5fb3cdda4721",
+      "url": null,
+      "source": "CU-IBIF facility acquisition (Zeiss LSM 980), 2026-11-11",
+      "license": "not for redistribution (facility decision, 2026-11-11)",
+      "attribution": "CU-IBIF",
+      "purpose": "Real bead field, 4 channels, single scene. Short z-range (13 planes).",
+      "expected": {
+        "scenes": [
+          "Image:0"
+        ],
+        "shape": {
+          "T": 1,
+          "C": 4,
+          "Z": 13,
+          "Y": 382,
+          "X": 382
+        },
+        "dtype": "uint8",
+        "voxel_size_um": {
+          "x": 0.07051691182581238,
+          "y": 0.07051691182581238,
+          "z": 0.19
+        },
+        "channel_names": [
+          "AF488-T1",
+          "AF647-T1",
+          "DAPI-T2",
+          "AF568-T2"
+        ],
+        "emission_nm": [
+          517,
+          668,
+          465,
+          603
+        ],
+        "excitation_nm": [
+          493,
+          653,
+          353,
+          577
+        ],
+        "numerical_aperture": 1.4,
+        "immersion_ri": 1.518,
+        "objective": "Plan-Apochromat 63x/1.40 Oil DIC M27",
+        "modality": "confocal",
+        "acquired_utc": "2026-11-11T16:55:57Z",
+        "bead_diameter_nm": 100,
+        "bead_product": "TetraSpeck, 0.1 um",
+        "bead_emission_peak_nm": [
+          515,
+          680,
+          430,
+          580
+        ],
+        "settings_confirmed_by_facility": "2026-11-11"
+      }
+    },
+    {
+      "name": "20261106_QC_SP8.lif",
+      "format": "lif",
+      "size_bytes": 10008211,
+      "sha256": "55af9bdc6d7f3e89da6b07f8f3ed88e37f435010bc62045eb4892bda02d75b4e",
+      "url": null,
+      "source": "CU-IBIF facility acquisition (Leica SP8), 2026-11-06",
+      "license": "not for redistribution (facility decision, 2026-11-11)",
+      "attribution": "CU-IBIF",
+      "purpose": "Real bead fields, 6 series x 2 channels acquired as sequential scans. Z step is stored negative. Each image carries 4 setting blocks; only the 'Seq.' blocks describe the image channels.",
+      "expected": {
+        "scenes": [
+          "1AU_field1",
+          "1AU_field2",
+          "1AU_field3_2avg",
+          "1AU_field4_avg_uni",
+          "1AU_field5_avg_uni",
+          "1AU_field6_avg_uni"
+        ],
+        "shape": {
+          "T": 1,
+          "C": 2,
+          "Z": 48,
+          "Y": 128,
+          "X": 128
+        },
+        "dtype": "uint8",
+        "voxel_size_um": {
+          "x": 0.05534973228346456,
+          "y": 0.05534973228346456,
+          "z": 0.15020385106382977
+        },
+        "z_step_sign_in_file": -1,
+        "numerical_aperture": 1.4,
+        "immersion_ri": 1.518,
+        "objective": "HC PL APO CS2 63x/1.40 OIL",
+        "pinhole_airy": 0.999561351863575,
+        "modality": "confocal",
+        "bead_diameter_nm": 100,
+        "channels": [
+          {
+            "index": 0,
+            "lut": "Green",
+            "sequence": "Seq. 2",
+            "detector": "HyD 1",
+            "excitation_nm": 488,
+            "detection_band_nm": [
+              507,
+              686
+            ],
+            "dye_setting": "Leica/ALEXA 488",
+            "bead_emission_peak_nm": 515
+          },
+          {
+            "index": 1,
+            "lut": "Yellow",
+            "sequence": "Seq. 3",
+            "detector": "HyD 1",
+            "excitation_nm": 552,
+            "detection_band_nm": [
+              558,
+              761
+            ],
+            "dye_setting": "Leica/ALEXA 568",
+            "bead_emission_peak_nm": 580
+          }
+        ],
+        "bead_product": "TetraSpeck, 0.1 um",
+        "settings_confirmed_by_facility": "2026-11-11"
+      }
+    },
+    {
+      "name": "BF007.nd2",
+      "format": "nd2",
+      "size_bytes": 270336,
+      "sha256": "e3f449796ac2ce82d5734a607d8899a3ec5a9a575161a3eded2e22eedc1dce92",
+      "url": "https://downloads.openmicroscopy.org/images/ND2/maxime/BF007.nd2",
+      "source": "OME sample images, ND2/maxime",
+      "license": "CC-BY-4.0",
+      "attribution": "Maxime Woringer",
+      "purpose": "Single 2D plane with complete optics metadata. Must be rejected as not a 3D stack.",
+      "expected": {
+        "shape": {
+          "Y": 156,
+          "X": 164
+        },
+        "dtype": "uint16",
+        "voxel_size_um": {
+          "x": 0.158389678930686,
+          "y": 0.158389678930686,
+          "z": null
+        },
+        "emission_nm": [
+          446
+        ],
+        "numerical_aperture": 1.45,
+        "immersion_ri": 1.515,
+        "objective": "Plan Apo TIRF 100x Oil DIC H N2"
+      }
+    },
+    {
+      "name": "Exception_2.nd2",
+      "format": "nd2",
+      "size_bytes": 7665545,
+      "sha256": "2f7f8e0f06b1f398a24758bbaf14795f6a0f765421f0e03c85037737931cf947",
+      "url": "https://downloads.openmicroscopy.org/images/ND2/jonas/jonas_nd2Test/Exception_2.nd2",
+      "source": "OME sample images, ND2/jonas",
+      "license": "CC-BY-4.0",
+      "attribution": "Jonas Dorn",
+      "purpose": "3D stack whose pixel size is uncalibrated (1.0) and whose immersion index is implausible. Exercises missing-metadata handling and overrides.",
+      "expected": {
+        "shape": {
+          "Z": 31,
+          "Y": 520,
+          "X": 696
+        },
+        "dtype": "uint16",
+        "voxel_size_um": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "voxel_size_calibrated": false,
+        "channel_names": [
+          "PSM_GFP"
+        ],
+        "numerical_aperture": 1.2,
+        "immersion_ri": 1.0,
+        "objective": "Plan Apochromat 60x WI/C"
+      }
+    },
+    {
+      "name": "header_test2.nd2",
+      "format": "nd2",
+      "size_bytes": 14700544,
+      "sha256": "48a6302fa0667b68fea455a880d4ccc8fd589fcbdfe771114af2d0034b86ad05",
+      "url": "https://downloads.openmicroscopy.org/images/ND2/jonas/header_test2.nd2",
+      "source": "OME sample images, ND2/jonas",
+      "license": "CC-BY-4.0",
+      "attribution": "Jonas Dorn",
+      "purpose": "Time series of calibrated z-stacks. Exercises timepoint selection.",
+      "expected": {
+        "shape": {
+          "T": 4,
+          "Z": 5,
+          "Y": 520,
+          "X": 696
+        },
+        "dtype": "uint16",
+        "voxel_size_um": {
+          "x": 0.12863494437945,
+          "y": 0.12863494437945,
+          "z": 0.5
+        },
+        "channel_names": [
+          "Jonas_DIC"
+        ],
+        "numerical_aperture": 1.4,
+        "immersion_ri": 1.515,
+        "objective": "Plan Apo 100x Oil DIC H"
+      }
+    },
+    {
+      "name": "20261012_QC_AxR_NSPARC_crop.nd2",
+      "format": "nd2",
+      "size_bytes": 1646592,
+      "sha256": "3c8b460aa0a0f941235d1b13ad6f01ae9924ba2bc2a08ae603af9ac68c754f77",
+      "url": null,
+      "source": "CU-IBIF facility acquisition (Nikon AX R with NSPARC detector), 2026-11-10",
+      "license": "not for redistribution (facility decision, 2026-11-11)",
+      "attribution": "CU-IBIF",
+      "purpose": "Real bead crop, 4 channels, point-scanning confocal with NSPARC array detector in SR mode. No pinhole is recorded. The structured emission wavelength is the lower edge of the detection band. The file name date (2026-10-12) differs from the acquisition date in the metadata; the metadata date is the one to use.",
+      "expected": {
+        "shape": {
+          "Z": 15,
+          "C": 4,
+          "Y": 106,
+          "X": 106
+        },
+        "dtype": "uint16",
+        "significant_bits": 12,
+        "voxel_size_um": {
+          "x": 0.04875227344474732,
+          "y": 0.04875227344474732,
+          "z": 0.1498908530041152
+        },
+        "channel_names": [
+          "AF405",
+          "AF488",
+          "AF546",
+          "AF647"
+        ],
+        "excitation_nm": [
+          405,
+          488,
+          561,
+          638
+        ],
+        "emission_nm_structured": [
+          430,
+          503,
+          582,
+          663
+        ],
+        "detection_band_nm": [
+          [
+            430,
+            463
+          ],
+          [
+            503,
+            545
+          ],
+          [
+            582,
+            618
+          ],
+          [
+            663,
+            691
+          ]
+        ],
+        "numerical_aperture": 1.42,
+        "immersion_ri": 1.515,
+        "objective": "PLAN APO λD 60x OIL OFN25 DIC N2",
+        "pinhole_um": null,
+        "modality": "point-scanning confocal",
+        "resolution_enhancement": "NSPARC SR",
+        "acquired_utc": "2026-11-10T21:47:27Z",
+        "bead_product": "TetraSpeck, 0.1 um",
+        "bead_diameter_nm": 100,
+        "bead_emission_peak_nm": [
+          430,
+          515,
+          580,
+          680
+        ],
+        "settings_confirmed_by_facility": "2026-11-12"
+      }
+    },
+    {
+      "name": "20261111_psfbeads_SPD_1x_SR_crop.nd2",
+      "format": "nd2",
+      "size_bytes": 2023424,
+      "sha256": "1f2fdfcc27fd92b2e66029620606d2fcaa4f4733a3715542fa247cbfa934b690",
+      "url": null,
+      "source": "CU-IBIF facility acquisition (Nikon Ti2 with CSU spinning disk and Live-SR), 2026-11-11",
+      "license": "not for redistribution (facility decision, 2026-11-11)",
+      "attribution": "CU-IBIF",
+      "purpose": "Real bead crop, 3 channels, spinning-disk confocal with Live-SR. The structured metadata gives the wrong excitation and no emission for the Cy5 channel; the free-text description has the right laser line.",
+      "expected": {
+        "shape": {
+          "Z": 21,
+          "C": 3,
+          "Y": 112,
+          "X": 110
+        },
+        "dtype": "uint16",
+        "significant_bits": 12,
+        "channel_names": [
+          "TRITC_SR",
+          "GFP_SR",
+          "Cy5_SR"
+        ],
+        "excitation_nm_structured": [
+          550,
+          488,
+          550
+        ],
+        "excitation_nm_true": [
+          550,
+          488,
+          640
+        ],
+        "emission_nm_structured": [
+          603.5,
+          535,
+          null
+        ],
+        "numerical_aperture": 1.4,
+        "immersion_ri": 1.515,
+        "objective": "Plan Apo λ 60x Oil",
+        "pinhole_um": 50,
+        "total_zoom": 2.55,
+        "modality": "spinning-disk confocal",
+        "resolution_enhancement": "Live-SR",
+        "acquired_utc": "2026-11-11T18:29:37Z",
+        "saturated_voxels": [
+          2,
+          0,
+          0
+        ],
+        "voxel_size_um": {
+          "x": 0.042378794225374515,
+          "y": 0.042378794225374515,
+          "z": 0.3
+        },
+        "bead_product": "TetraSpeck, 0.1 um",
+        "bead_diameter_nm": 100,
+        "bead_emission_peak_nm": [
+          580,
+          515,
+          680
+        ],
+        "settings_confirmed_by_facility": "2026-11-12"
+      }
+    },
+    {
+      "name": "20261111_psfbeads_SPD_1x_SR_crop.ome.tif",
+      "format": "ome-tiff",
+      "size_bytes": 1860076,
+      "sha256": "400e2a3ed833d946bfdde1e14cbbe1c6a32969ea7957f1b1d988cf6b1040b3bc",
+      "url": null,
+      "source": "NIS-Elements OME-TIFF export of 20261111_psfbeads_SPD_1x_SR_crop.nd2",
+      "license": "not for redistribution (facility decision, 2026-11-11)",
+      "attribution": "CU-IBIF",
+      "purpose": "Cross-format check: pixel data is identical to the ND2. Pixel size is rounded to six significant figures in the export.",
+      "expected": {
+        "shape": {
+          "Z": 21,
+          "C": 3,
+          "Y": 112,
+          "X": 110
+        },
+        "dtype": "uint16",
+        "significant_bits": 12,
+        "channel_names": [
+          "TRITC_SR",
+          "GFP_SR",
+          "Cy5_SR"
+        ],
+        "excitation_nm_structured": [
+          550,
+          488,
+          550
+        ],
+        "excitation_nm_true": [
+          550,
+          488,
+          640
+        ],
+        "emission_nm_structured": [
+          603.5,
+          535,
+          null
+        ],
+        "numerical_aperture": 1.4,
+        "immersion_ri": 1.515,
+        "objective": "Plan Apo λ 60x Oil",
+        "pinhole_um": 50,
+        "total_zoom": 2.55,
+        "modality": "spinning-disk confocal",
+        "resolution_enhancement": "Live-SR",
+        "acquired_utc": "2026-11-11T18:29:37Z",
+        "saturated_voxels": [
+          2,
+          0,
+          0
+        ],
+        "voxel_size_um": {
+          "x": 0.0423788,
+          "y": 0.0423788,
+          "z": 0.3
+        },
+        "same_pixels_as": "20261111_psfbeads_SPD_1x_SR_crop.nd2",
+        "bead_product": "TetraSpeck, 0.1 um",
+        "bead_diameter_nm": 100,
+        "bead_emission_peak_nm": [
+          580,
+          515,
+          680
+        ],
+        "settings_confirmed_by_facility": "2026-11-12"
+      }
+    },
+    {
+      "name": "20261111_psfbeads_SPD_1x_SR_crop.tif",
+      "format": "tiff",
+      "size_bytes": 1567279,
+      "sha256": "332b19cf01974dd17bf074dd2972d8b7ce045f58e094ab6812bda5c38585ffb8",
+      "url": null,
+      "source": "ImageJ/Fiji re-save of 20261111_psfbeads_SPD_1x_SR_crop.ome.tif",
+      "license": "not for redistribution (facility decision, 2026-11-11)",
+      "attribution": "CU-IBIF",
+      "purpose": "Plain ImageJ TIFF. Pixels are identical to the ND2 and voxel size survives, but there is no NA, refractive index, wavelength, pinhole, modality, or channel name. Analysis must refuse it until a profile or the user supplies them.",
+      "expected": {
+        "shape": {
+          "Z": 21,
+          "C": 3,
+          "Y": 112,
+          "X": 110
+        },
+        "dtype": "uint16",
+        "voxel_size_um": {
+          "x": 0.0423788,
+          "y": 0.0423788,
+          "z": 0.3
+        },
+        "channel_names": null,
+        "numerical_aperture": null,
+        "immersion_ri": null,
+        "emission_nm": null,
+        "pinhole_um": null,
+        "modality": null,
+        "same_pixels_as": "20261111_psfbeads_SPD_1x_SR_crop.nd2",
+        "bead_product": "TetraSpeck, 0.1 um",
+        "bead_diameter_nm": 100,
+        "bead_emission_peak_nm": [
+          580,
+          515,
+          680
+        ]
+      }
+    }
+  ]
+}

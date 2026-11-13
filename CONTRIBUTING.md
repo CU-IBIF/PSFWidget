@@ -95,10 +95,18 @@ would get mixed on a Levey-Jennings chart.
 
 ## Test data
 
-Do not commit full-size bead stacks. The pre-commit hook rejects files over
-1 MB. Small golden files for reader tests will go under `tests/data/`.
-Reference datasets live in external storage with a SHA-256 manifest
-(docs/VV_PLAN.md §3).
+Do not commit image files. The pre-commit hook rejects files over 1 MB.
+
+- **Golden files** for reader tests are listed in `tests/data/manifest.json`
+  and cached in `tests/data/cache/` (git-ignored). Run
+  `python tools/fetch_test_data.py` to download the public ones. Tests get a
+  file through the `golden_file` fixture and are skipped if it is absent.
+  See `tests/data/README.md` for how to add a file.
+- **Reference datasets** live in external storage with a SHA-256 manifest
+  (docs/VV_PLAN.md §3).
+
+Microscope files embed metadata such as account names and serial numbers.
+Inspect a file before publishing it anywhere.
 
 ## Releases
 

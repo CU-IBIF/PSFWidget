@@ -28,4 +28,5 @@ Thumbs.db
 
 # Local data and outputs (bead stacks live in external storage)
 /data/
+/tests/data/cache/
 /output/
