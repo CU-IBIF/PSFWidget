@@ -24,3 +24,30 @@ psfwidget info path/to/file.nd2 --profile examples/profiles/csu-livesr.toml
 
 Values are applied in this order: file, then profile, then `--set` overrides.
 The `info` output shows where each value came from.
+
+## Notes on the examples
+
+- **`axr-nsparc.toml`:** the NSPARC detector records no pinhole size, but the
+  confocal model that NSPARC SR is compared with needs one. The profile
+  assumes **1 AU**; replace it with the effective size for your setting.
+- **`csu-livesr.toml`:** the objective magnification (60) is set so the 50 µm
+  disk pinhole can be converted to Airy units for OME-TIFF exports, which do
+  not record the magnification. This assumes no extra magnification between
+  the objective and the disk.
+
+## Acceptance limits
+
+A profile can carry pass/fail limits, checked against each channel's median
+over accepted beads:
+
+```toml
+[spec]
+lateral_ratio_max = 1.3   # FWHM x and y over the theoretical value
+axial_ratio_max = 1.5     # FWHM z over the theoretical value
+ellipticity_min = 0.8     # minor/major FWHM in the XY plane
+min_beads = 5             # accepted beads needed for a result
+```
+
+The examples set no limits; these numbers are placeholders, not
+recommendations. `psfwidget analyze --fail-on-spec` exits with status 3 when a
+channel fails.

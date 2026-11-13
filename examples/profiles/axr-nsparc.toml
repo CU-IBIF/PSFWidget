@@ -10,22 +10,30 @@ product = "TetraSpeck 0.1 um"
 id = "60x-oil-1.42"
 match = "60x OIL"
 
+# The NSPARC detector records no pinhole size, but the confocal model that
+# NSPARC SR is compared with (THE-08) needs one. pinhole_airy = 1.0 below is
+# an ASSUMPTION; replace it with the effective size for your NSPARC setting.
+
 [[channel]]
 id = "blue"
 match = { excitation_nm = 405 }
 emission_nm = 430
+pinhole_airy = 1.0
 
 [[channel]]
 id = "green"
 match = { excitation_nm = 488 }
 emission_nm = 515
+pinhole_airy = 1.0
 
 [[channel]]
 id = "orange"
 match = { excitation_nm = 561 }
 emission_nm = 580
+pinhole_airy = 1.0
 
 [[channel]]
 id = "far-red"
 match = { excitation_nm = 638 }
 emission_nm = 680
+pinhole_airy = 1.0
