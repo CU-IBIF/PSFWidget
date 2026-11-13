@@ -30,7 +30,7 @@ from psfwidget.tracking.settings import (
     MIN_BASELINE_SESSIONS,
     TrackingSettings,
 )
-from psfwidget.tracking.store import Configuration, Event, SessionPoint
+from psfwidget.tracking.store import Configuration, Event, ResultsDatabase, SessionPoint
 from psfwidget.tracking.westgard import Rule, evaluate, severity
 
 DAYS_PER_MONTH = 30.4375
@@ -366,4 +366,21 @@ def control_series(
         rules=rules,
         spec=spec_line(metric, spec_limits),
         trend=_trend(control, current),
+    )
+
+
+def series_from_database(
+    database: ResultsDatabase,
+    configuration: Configuration,
+    metric: str,
+    settings: TrackingSettings | None = None,
+) -> ControlSeries:
+    """Build the control series of one metric of one configuration from the database."""
+    return control_series(
+        configuration,
+        metric,
+        database.points(configuration, metric),
+        database.events(configuration),
+        settings,
+        database.latest_spec_limits(configuration),
     )

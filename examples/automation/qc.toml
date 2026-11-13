@@ -1,0 +1,42 @@
+# Example PSFWidget automation configuration.
+# Check it with:  psfwidget check-config examples/automation/qc.toml
+# Relative paths are relative to this file.
+
+[database]
+path = "qc.sqlite"
+
+[output]
+root = "reports"
+session_template = "{instrument}/{yyyy}/{date}_{file_stem}_s{series}"
+trend_template = "{instrument}/trend/{date}_{instrument}_trend"
+reports = ["html", "pdf"]
+exports = ["csv", "xlsx"]
+page_size = "letter"
+
+[branding]
+facility = "Light Microscopy Core"
+footer = "Internal quality control. Not for diagnostic use."
+
+# One [[watch]] table per instrument. Every new file in the folder is
+# analysed with that instrument's profile.
+[[watch]]
+folder = "incoming/sp8"
+profile = "../profiles/sp8.toml"
+patterns = ["*.lif"]
+recursive = true
+series = "all"
+settle_seconds = 120
+
+[[watch]]
+folder = "incoming/axr"
+profile = "../profiles/axr-nsparc.toml"
+patterns = ["*.nd2"]
+
+[schedule]
+ingest = "every 15 minutes"
+trend_report = "weekly monday 07:30"
+trend_days = 90
+
+[alerts]
+status_file = "STATUS.json"
+alert_file = "ALERT.txt"

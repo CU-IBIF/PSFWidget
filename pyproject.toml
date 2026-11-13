@@ -40,6 +40,8 @@ dependencies = [
 theory = []
 report = [
     "matplotlib>=3.8",
+    "openpyxl>=3.1",
+    "reportlab>=4.0",
 ]
 napari = []
 test = [
@@ -53,6 +55,8 @@ dev = [
     "pre-commit>=3.7",
     "ruff>=0.6",
     "scipy-stubs",
+    "types-openpyxl",
+    "types-reportlab",
 ]
 
 [project.scripts]
@@ -94,7 +98,7 @@ ignore = [
 ]
 
 # Mathematical notation in docstrings and in formula strings shown to users.
-allowed-confusables = ["−", "×", "ρ", "σ"]
+allowed-confusables = ["−", "×", "ρ", "σ", "–"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["psfwidget", "traceability", "fetch_test_data", "check_licenses", "fitting_accuracy", "demo_tracking"]
@@ -105,6 +109,7 @@ convention = "numpy"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "E501"]  # tests embed long XML and text fixtures
 "tools/**" = ["D"]
+"src/psfwidget/report/render_html.py" = ["E501"]  # inline CSS
 
 # ---------------------------------------------------------------- mypy
 [tool.mypy]

@@ -1,6 +1,6 @@
 # Dependency licence audit (T0.5, NFR-10)
 
-**Date:** 2026-11-13 (updated for M2 and M3 the same day)
+**Date:** 2026-11-13 (updated for M2, M3, and M4 the same day)
 **Method:** each package was installed from PyPI and its licence read from the
 package metadata. `tools/check_licenses.py` repeats the check on the installed
 dependency tree in CI and fails on any GPL or AGPL licence.
@@ -24,7 +24,12 @@ first draft of the plan are GPL and have been replaced or deferred.
 | `czifile` | 2026.11.8 | BSD-3-Clause | Zeiss CZI reader |
 | `tifffile` | 2026.11.12 | BSD-3-Clause | TIFF and OME-TIFF reader |
 | `scipy` | 1.18.1 | BSD-3-Clause | Fitting, filtering, Bessel functions (WP2, WP3) |
-| `matplotlib` | 3.11.2 | PSF-based | Levey-Jennings charts (WP4); optional `report` extra. Its dependencies (`pillow` MIT-CMU, `fonttools` MIT, `contourpy` BSD-3, `kiwisolver` BSD, `cycler` BSD, `pyparsing` MIT, `python-dateutil` BSD-3) all pass the check |
+| `matplotlib` | 3.11.2 | PSF-based | Levey-Jennings charts (WP4) and report figures (WP5); optional `report` extra. Its dependencies (`pillow` MIT-CMU, `fonttools` MIT, `contourpy` BSD-3, `kiwisolver` BSD, `cycler` BSD, `pyparsing` MIT, `python-dateutil` BSD-3) all pass the check |
+| `reportlab` | 5.1.0 | BSD-3-Clause | PDF reports (WP5); optional `report` extra. Its dependency `charset-normalizer` is MIT |
+| `openpyxl` | 3.1.5 | MIT | XLSX export (WP5); optional `report` extra. Its dependency `et-xmlfile` is MIT |
+
+The type-stub packages `types-reportlab` and `types-openpyxl` (Apache-2.0) are
+used only for type checking in the `dev` extra and are not distributed.
 
 `czifile`, `liffile`, and `tifffile` require Python 3.12 or newer, which
 sets the project's minimum Python version.
@@ -38,10 +43,9 @@ sets the project's minimum Python version.
 | `SQLAlchemy` | 2.1.8 | MIT | Not needed (WP4 uses the built-in `sqlite3`) | OK |
 | `alembic` | 1.20.1 | MIT | Not needed (WP4 uses the built-in `sqlite3`) | OK |
 | `plotly` | 7.1.0 | MIT | Interactive charts (WP5) | OK |
-| `Jinja2` | 3.1.6 | BSD-3-Clause | Report templates (WP5) | OK |
-| `weasyprint` | 70.0 | BSD-3-Clause | PDF output (WP5) | OK. Its dependency `pyphen` is offered under GPL-2+, LGPL-2+, or MPL-1.1; the LGPL or MPL option applies |
-| `openpyxl` | 3.1.5 | MIT | XLSX export (WP5) | OK |
-| `APScheduler` | 3.11.3 | MIT | Scheduling (WP6) | OK |
+| `Jinja2` | 3.1.6 | BSD-3-Clause | Not needed (WP5 uses a block-based report model) | OK |
+| `weasyprint` | 70.0 | BSD-3-Clause | Not needed (WP5 uses `reportlab`) | OK. Its dependency `pyphen` is offered under GPL-2+, LGPL-2+, or MPL-1.1; the LGPL or MPL option applies |
+| `APScheduler` | 3.11.3 | MIT | Not needed (WP6 has its own small scheduler) | OK |
 | `napari` | 0.10.0 | BSD-3-Clause | GUI (WP7) | OK |
 | `magicgui` | 0.10.2 | MIT | GUI widgets (WP7) | OK |
 | `qtpy` | 2.4.3 | MIT | Qt abstraction (WP7) | OK |

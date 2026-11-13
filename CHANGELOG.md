@@ -88,8 +88,36 @@ All notable changes to this project are documented here. The format follows
     exclude|include|export|backup|audit`;
   - `tools/demo_tracking.py`, which builds a demonstration database from
     simulated weekly sessions.
+- Reports (M4, WP5):
+  - session reports with an overall status and its reasons, acquisition
+    settings, metric summary against theory, Westgard and spec checks, bead
+    overview, XY/XZ/YZ views, profile fits, bead table, and provenance
+    (REP-01, REP-06, REP-07);
+  - trend reports with latest status, rule violations, events, and
+    Levey-Jennings charts over a period (REP-02);
+  - self-contained HTML and PDF (letter or A4) from one report model
+    (REP-03); XLSX export (REP-04);
+  - output folder and file name templates that never overwrite (REP-05);
+  - facility name, logo, and footer on every report (REP-08);
+  - `psfwidget analyze --report html,pdf --xlsx` and `psfwidget report trend`.
+- Automation (M4, WP6):
+  - TOML configuration with validation and clear messages, and
+    `psfwidget check-config` (AUT-05); example in `examples/automation/`;
+  - watch-folder ingestion with a settle time, deduplication by file hash,
+    and per-file error isolation (AUT-02, NFR-06);
+  - plain-word schedules for ingestion and trend reports, run by
+    `psfwidget run` (cron, Task Scheduler) or `psfwidget watch` (AUT-03);
+  - a log and a JSON summary of every run, and a lock against overlapping
+    runs (AUT-04);
+  - `STATUS.json` after every run and `ALERT.txt` while something needs
+    attention (AUT-06).
 
 ### Changed
+- Reports use a block-based model with `reportlab` for PDF instead of
+  Jinja2 templates and `weasyprint`, and scheduling uses PSFWidget's own
+  state file instead of APScheduler.
+- The averaged-PSF OME-TIFF export (REP-04) moves to M5 with the averaged
+  PSF (MET-14).
 - NFR-01 now applies its 3%/5% limits to the median of a 10-bead field, and
   adds a per-bead bias limit of 1%.
 - `scipy` is a core dependency; `matplotlib` is in the optional `report` extra.

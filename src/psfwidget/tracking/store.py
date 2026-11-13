@@ -427,6 +427,17 @@ class ResultsDatabase:
                     state[other] = None
         return {k: v for k, v in state.items() if v is not None}
 
+    def latest_session(self, configuration: Configuration) -> tuple[int, str | None] | None:
+        """Return the latest session id of a configuration and its spec status, if any."""
+        rows = self._rows(configuration)
+        if not rows:
+            return None
+        row = self._connection.execute(
+            "SELECT spec_status FROM channel_results WHERE id = ?",
+            (rows[-1]["channel_result_id"],),
+        ).fetchone()
+        return int(rows[-1]["session_id"]), None if row is None else row[0]
+
     def latest_spec_limits(self, configuration: Configuration) -> SpecLimits:
         """Return the spec limits stored with the configuration's most recent session."""
         rows = self._rows(configuration)

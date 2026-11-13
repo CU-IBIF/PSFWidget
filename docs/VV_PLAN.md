@@ -158,10 +158,12 @@ The matrix will be maintained as a machine-readable file (`docs/traceability.csv
 | M1 | GOLD-IO integration tests; metadata resolver unit tests | 100% IMP Musts verified |
 | M2 | Fitting Monte Carlo (NFR-01); detection and filter tests; formula review | NFR-01 met; DET/MET Musts verified |
 | M3 | Westgard and baseline table tests; LJ-SIM; DB integration | TRK Musts verified |
-| M4 | Report tests; CLI scenarios; 7-day soak test | REP and AUT Musts verified; soak test passed |
+| M4 | Report tests; CLI scenarios; 7-day soak test | REP and AUT Musts verified (REP-04's OME-TIFF part moves to M5 with MET-14); soak test passed |
 | M5 | GUI script; VAL-01 started; VAL-03; VAL-06 usability | Beta acceptance by facility manager |
 | M6 | VAL-01 … VAL-07 complete; full traceability report; V&V summary report | All Musts verified and validated; open anomalies triaged (no open Critical/Major) |
 
+
+**M4 status (2026-11-13).** Automated: report rendering (`tests/test_reports.py`: every block type in HTML and PDF, PDF character mapping, templates and collision handling, status logic, session report sections and provenance, XLSX sheets, trend report period filtering); automation (`tests/test_automation.py`: schedule parsing and due times, config validation messages, ingest with a corrupt file, a file still being written, a duplicate, and a missing folder, lock handling, CLI). The watch-folder scenario has no "unknown-profile file" case, because each watched folder has exactly one profile; a file whose metadata is incomplete even with that profile is skipped and listed in the run summary. A **compressed soak test** (`test_four_weeks_unattended`) simulates 29 days of daily acquisitions with the scheduler waking every 4 hours: every file is recorded once, four weekly trend reports are written, and the injected wide session raises `ALERT.txt`. Still open for the M4 gate: the real 7-day soak on a Windows and a Linux machine, and the PDF text-extraction check (PDFs are checked for validity and size only).
 ---
 
 ## 6. Anomaly management
