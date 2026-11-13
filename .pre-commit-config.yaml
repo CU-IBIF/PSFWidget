@@ -37,6 +37,10 @@ repos:
           - "scipy>=1.13"
           - "scipy-stubs"
           - "tifffile>=2026.3.3"
+          - "openpyxl>=3.1"
+          - "reportlab>=4.0"
+          - "types-openpyxl"
+          - "types-reportlab"
 
   - repo: local
     hooks:

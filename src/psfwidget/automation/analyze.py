@@ -162,8 +162,12 @@ def _write_csv(path: Path, fields: tuple[str, ...], rows: list[dict[str, Any]]) 
             writer.writerow({k: _number(v) if isinstance(v, float) else v for k, v in row.items()})
 
 
-def write_outputs(result: FieldResult, directory: Path, *, overwrite: bool = False) -> list[Path]:
+def write_outputs(
+    result: FieldResult, directory: Path, *, overwrite: bool = False, stem: str | None = None
+) -> list[Path]:
     """Write the four output files and return their paths.
+
+    ``stem`` replaces the default file-name stem (the source file name and selection).
 
     Raises
     ------
@@ -171,7 +175,7 @@ def write_outputs(result: FieldResult, directory: Path, *, overwrite: bool = Fal
         If a file exists and ``overwrite`` is false.
     """
     directory.mkdir(parents=True, exist_ok=True)
-    stem = output_stem(result)
+    stem = stem or output_stem(result)
     paths = {
         "beads": directory / f"{stem}_beads.csv",
         "summary": directory / f"{stem}_summary.csv",
@@ -252,3 +256,74 @@ def format_text(result: FieldResult) -> str:
         for warning in channel.warnings:
             lines.append(f"  note: {warning}")
     return "\n".join(lines)
+
+
+def write_xlsx(result: FieldResult, path: Path) -> Path:
+    """Write the analysis as an Excel workbook (REP-04).
+
+    Sheets: Summary, Channels, Beads, and Metadata. Needs openpyxl
+    (``pip install psfwidget[report]``).
+
+    Raises
+    ------
+    RuntimeError
+        If openpyxl is not installed.
+    """
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+    except ImportError as exc:  # pragma: no cover - depends on the environment
+        raise RuntimeError("XLSX export needs openpyxl: pip install 'psfwidget[report]'") from exc
+
+    def cell(value: Any) -> Any:
+        value = plain(value)
+        if isinstance(value, list | dict):
+            return json.dumps(value, ensure_ascii=False)
+        return value
+
+    workbook = Workbook()
+    sheets: list[tuple[str, tuple[str, ...], list[dict[str, Any]]]] = [
+        ("Summary", SUMMARY_FIELDS, [r for c in result.channels for r in summary_rows(c)]),
+        ("Channels", CHANNEL_FIELDS, [channel_row(c) for c in result.channels]),
+        (
+            "Beads",
+            ("channel", "channel_name", *BEAD_FIELDS),
+            [
+                {"channel": c.index, "channel_name": c.name} | b.to_row()
+                for c in result.channels
+                for b in c.beads
+            ],
+        ),
+    ]
+    first = True
+    for title, fields, rows in sheets:
+        sheet = workbook.active if first else workbook.create_sheet()
+        first = False
+        assert sheet is not None
+        sheet.title = title
+        sheet.append(list(fields))
+        for header in sheet[1]:
+            header.font = Font(bold=True)
+        for row in rows:
+            sheet.append([cell(row.get(field)) for field in fields])
+        sheet.freeze_panes = "A2"
+    meta = workbook.create_sheet("Metadata")
+    meta.append(["scope", "field", "value", "source", "note"])
+    for header in meta[1]:
+        header.font = Font(bold=True)
+    record = metadata_record(result.metadata)
+    for name, entry in record["values"].items():
+        meta.append(["acquisition", name, *_entry_cells(entry, cell)])
+    for channel in record["channels"]:
+        for name, entry in channel.items():
+            if name != "index":
+                meta.append([f"channel {channel['index']}", name, *_entry_cells(entry, cell)])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    workbook.save(path)
+    return path
+
+
+def _entry_cells(entry: dict[str, Any] | None, cell: Any) -> list[Any]:
+    if entry is None:
+        return [None, None, None]
+    return [cell(entry["value"]), entry["source"], entry["note"] or None]

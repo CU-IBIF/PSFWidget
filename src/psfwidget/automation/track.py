@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from psfwidget.profiles import load_profile
-from psfwidget.tracking.control import BaselineMethod, ControlSeries, control_series
+from psfwidget.tracking.control import BaselineMethod, ControlSeries, series_from_database
 from psfwidget.tracking.settings import TRACKABLE_METRICS, TrackingSettings
 from psfwidget.tracking.store import (
     Configuration,
@@ -68,14 +68,7 @@ def series_for(
     db: ResultsDatabase, configuration: Configuration, metric: str, settings: TrackingSettings
 ) -> ControlSeries:
     """Build the control series of one metric of one configuration."""
-    return control_series(
-        configuration,
-        metric,
-        db.points(configuration, metric),
-        db.events(configuration),
-        settings,
-        db.latest_spec_limits(configuration),
-    )
+    return series_from_database(db, configuration, metric, settings)
 
 
 def status_lines(
