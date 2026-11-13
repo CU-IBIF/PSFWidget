@@ -124,6 +124,7 @@ Legend: **U** = Unit, **I** = Integration, **S** = System, **V** = Validation, *
 | THE-07 | I, R | Report snapshot; visual review |
 | THE-08 | U, I | Mode detection on the NSPARC and Live-SR golden files; ratio tests against the base-modality model |
 | THE-09 | U, V | Image-scanning model FWHM vs. published reassignment factors; VAL-04 on NSPARC and Live-SR stacks |
+| THE-10 | U, R, V | Two-photon FWHM vs. hand calculation from Zipfel et al. (2003); refusal without excitation wavelength; citation review; VAL-04 on a multiphoton bead stack |
 | TRK-01, TRK-02 | I | DB persistence round-trip |
 | TRK-03, TRK-08 | I, R | LJ figure snapshot; visual review |
 | TRK-04, TRK-05 | U, V | Baseline and Westgard table tests; LJ-SIM; VAL-05 |
@@ -133,6 +134,7 @@ Legend: **U** = Unit, **I** = Integration, **S** = System, **V** = Validation, *
 | REP-01 … REP-07 | I, R, V | Report generation tests; VAL-07 |
 | REP-08 | I | Template override test |
 | AUT-01 … AUT-06 | S | CLI scenarios; watch-folder and scheduler soak; alert test |
+| AUT-07 | I, S | Backup checksum and retention tests; restore drill |
 | UI-01 … UI-04 | S, V | GUI script; pytest-qt smoke; VAL-06 |
 | UI-05 | R, I | API docs review; API usage tests |
 | NFR-01 | U | Fitting Monte Carlo |
@@ -145,6 +147,14 @@ Legend: **U** = Unit, **I** = Integration, **S** = System, **V** = Validation, *
 | NFR-08 | V | VAL-06 |
 | NFR-09 | R | Coverage report (CI gate ≥ 85%) and docs review |
 | NFR-10 | R | License audit (T0.5) + CI license check |
+| NFR-11 | R, S | Deployment review; check that a database path on a network share is refused or warned about; priority setting test |
+| QA-01 | I, R | Identity and UTC time on every record type; scheduled-run identity test |
+| QA-02 | I, S, V | Approval round trip; append-only enforcement on approvals; re-issue versioning; VAL-07 |
+| QA-03 | I | Profile and config hash recorded and changes detected |
+| QA-04 | I | Hash linkage; no-overwrite tests; backup verification |
+| QA-05 | S, R | Self-test passes on a clean install on each OS; IQ/OQ record reviewed |
+| QA-06 | I | Audit export for a date range |
+| QA-07 | R | Validation document set reviewed at release |
 
 The matrix will be maintained as a machine-readable file (`docs/traceability.csv`). Tests will reference requirement IDs with pytest markers (e.g. `@pytest.mark.req("MET-01")`), so the CI can generate a coverage-by-requirement report automatically.
 
