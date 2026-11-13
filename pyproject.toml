@@ -9,7 +9,7 @@ description = "PSF analysis, theoretical comparison, and Levey-Jennings tracking
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [{ name = "CU-IBIF" }]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -18,20 +18,24 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
-# Core runtime dependencies. Format readers, theory models, reporting, and the
-# GUI are optional extras so the headless core stays light (see docs/PLAN.md §4).
+# Core runtime dependencies: numerics and the four format readers (all BSD).
+# Theory models, reporting, and the GUI are optional extras so the headless
+# core stays light (see docs/PLAN.md §4 and docs/LICENSE_AUDIT.md).
 dependencies = [
-    "numpy>=1.26",
+    "czifile>=2026.4.11",
+    "liffile>=2026.4.11",
+    "nd2>=0.10.4",
+    "numpy>=2.1",
+    "tifffile>=2026.3.3",
 ]
 
 [project.optional-dependencies]
-# Populated as each work package lands (WP1, WP3, WP5, WP7).
-io = []
+# Populated as each work package lands (WP3, WP5, WP7).
 theory = []
 report = []
 napari = []
@@ -42,6 +46,7 @@ test = [
 dev = [
     "psfwidget[test]",
     "mypy>=1.10",
+    "packaging>=23.0",
     "pre-commit>=3.7",
     "ruff>=0.6",
 ]
@@ -62,7 +67,7 @@ packages = ["src/psfwidget"]
 # ---------------------------------------------------------------- ruff
 [tool.ruff]
 line-length = 99
-target-version = "py311"
+target-version = "py312"
 src = ["src", "tests", "tools"]
 
 [tool.ruff.lint]
@@ -85,18 +90,18 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["psfwidget", "traceability", "fetch_test_data"]
+known-first-party = ["psfwidget", "traceability", "fetch_test_data", "check_licenses"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["D"]
+"tests/**" = ["D", "E501"]  # tests embed long XML and text fixtures
 "tools/**" = ["D"]
 
 # ---------------------------------------------------------------- mypy
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 files = ["src", "tests", "tools"]
 mypy_path = "src"

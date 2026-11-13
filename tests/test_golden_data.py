@@ -46,11 +46,12 @@ def test_manifest_is_valid_and_complete() -> None:
         assert entry.license, entry.name
         assert entry.attribution, entry.name
         assert entry.expected.get("shape"), entry.name
+        assert len(entry.expected["channels"]) == entry.expected["shape"][0], entry.name
 
 
-def test_manifest_total_size_is_within_budget() -> None:
-    total = sum(e.size_bytes for e in fetch_test_data.load_manifest().values())
-    assert total < 50 * 1024 * 1024  # GOLD-IO budget, docs/VV_PLAN.md §3
+def test_public_files_are_within_download_budget() -> None:
+    public = [e for e in fetch_test_data.load_manifest().values() if e.is_public]
+    assert sum(e.size_bytes for e in public) < 100 * 1024 * 1024  # docs/VV_PLAN.md §3
 
 
 @pytest.mark.parametrize("name", ALL_NAMES)

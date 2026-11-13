@@ -1,0 +1,31 @@
+[instrument]
+id = "axr-nsparc"
+name = "Nikon AX R with NSPARC"
+
+[bead]
+diameter_nm = 100
+product = "TetraSpeck 0.1 um"
+
+[[objective]]
+id = "60x-oil-1.42"
+match = "60x OIL"
+
+[[channel]]
+id = "blue"
+match = { excitation_nm = 405 }
+emission_nm = 430
+
+[[channel]]
+id = "green"
+match = { excitation_nm = 488 }
+emission_nm = 515
+
+[[channel]]
+id = "orange"
+match = { excitation_nm = 561 }
+emission_nm = 580
+
+[[channel]]
+id = "far-red"
+match = { excitation_nm = 638 }
+emission_nm = 680

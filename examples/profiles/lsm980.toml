@@ -1,0 +1,33 @@
+[instrument]
+id = "lsm980"
+name = "Zeiss LSM 980"
+
+[bead]
+diameter_nm = 100
+product = "TetraSpeck 0.1 um"
+
+[[objective]]
+id = "63x-oil-1.40"
+match = "63x/1.40"
+
+# Channels are matched by laser line. emission_nm is the bead dye's emission
+# peak, which replaces the dye entered in ZEN.
+[[channel]]
+id = "blue"
+match = { excitation_nm = 405 }
+emission_nm = 430
+
+[[channel]]
+id = "green"
+match = { excitation_nm = 488 }
+emission_nm = 515
+
+[[channel]]
+id = "orange"
+match = { excitation_nm = 561 }
+emission_nm = 580
+
+[[channel]]
+id = "far-red"
+match = { excitation_nm = 639 }
+emission_nm = 680

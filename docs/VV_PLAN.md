@@ -36,7 +36,7 @@ The structure follows a V-model, adapted for a research and core facility tool. 
 | Background, SBR, and SNR | Known background mean and noise | Within 2% / statistical tolerance |
 | Detection and filters | Synthetic fields with known bead positions, plus injected doublets, edge beads, and saturated beads | Recall ≥ 98%, precision ≥ 98% on valid beads; 100% correct rejection reason for injected defects |
 | Theoretical formulas | Compare against hand-calculated values from cited references for a table of (λ, NA, n, pinhole) | Exact agreement to 4 significant figures |
-| Theoretical PSF model | Compare `psfmodels` output FWHM to analytic values in the aberration-free case | Within 3% |
+| Theoretical PSF model | Compare the model's FWHM to analytic values in the aberration-free case, and to `MicroscPSF-Py` | Within 3% |
 | Westgard engine | Table-driven tests: hand-built sequences that should and should not trigger each rule (1₂ₛ, 1₃ₛ, 2₂ₛ, R₄ₛ, 4₁ₛ, 10ₓ), including boundaries, excluded points, and re-baselines | 100% of cases match expected flags |
 | Baseline statistics | Known datasets | Mean and SD match `numpy` reference to 1e-12 |
 | Metadata resolver | Precedence (file < profile < user override), source tagging, missing-parameter errors | All cases pass |
@@ -86,7 +86,7 @@ The structure follows a V-model, adapted for a research and core facility tool. 
 | **SYN-A** | Synthetic Gaussian bead fields; grid of FWHM, SNR, sampling, and offsets | T0.4 generator (seeded) | Generated in CI, not stored |
 | **SYN-B** | Synthetic theoretical-PSF bead fields (Gibson-Lanni/vectorial) with tilt, curvature, chromatic shift, and RI mismatch | T0.4 generator | Generated in CI |
 | **SYN-C** | Defect fields: doublets, aggregates, saturation, edge beads, hot pixels | T0.4 generator | Generated in CI |
-| **GOLD-IO** | Small real files per format, multi-series and multichannel variants | Facility instruments / public samples (license checked) | Not in git. Listed in `tests/data/manifest.json` with SHA-256; public files download on demand, others are local-only. < 50 MB total |
+| **GOLD-IO** | Small real files per format, multi-series and multichannel variants | Facility instruments / public samples (license checked) | Not in git. Listed in `tests/data/manifest.json` with SHA-256. Public files (< 100 MB in total) download on demand and are cached in CI; facility files are local-only |
 | **REF-1** | Full-size real bead fields for VAL-01, VAL-03, VAL-04 | Facility acquisition per SOP | External storage with SHA-256 manifest |
 | **REF-2** | Deliberately perturbed acquisitions for VAL-02 | Facility acquisition | External storage with manifest |
 | **LJ-SIM** | Simulated longitudinal series with injected shifts, trends, and increased variance | Generator | Generated in CI |

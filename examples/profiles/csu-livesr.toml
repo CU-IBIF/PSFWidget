@@ -1,0 +1,27 @@
+[instrument]
+id = "csu-livesr"
+name = "Nikon Ti2 with CSU spinning disk and Live-SR"
+
+[bead]
+diameter_nm = 100
+product = "TetraSpeck 0.1 um"
+
+[[objective]]
+id = "60x-oil-1.40"
+match = "60x Oil"
+
+[[channel]]
+id = "green"
+match = { excitation_nm = 488 }
+emission_nm = 515
+
+[[channel]]
+id = "orange"
+match = { excitation_nm = 550 }
+emission_nm = 580
+
+# The file records no emission wavelength for this channel.
+[[channel]]
+id = "far-red"
+match = { excitation_nm = 640 }
+emission_nm = 680

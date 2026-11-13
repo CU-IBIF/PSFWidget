@@ -17,7 +17,7 @@ absent is skipped locally. In CI a missing public file fails the run.
 
 ## Public files
 
-Downloaded from the [OME sample image collection](https://downloads.openmicroscopy.org/images/ND2/).
+Downloaded from the [OME sample image collection](https://downloads.openmicroscopy.org/images/).
 All are licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and are used unmodified.
 
 | File | Author | Used for |
@@ -25,9 +25,11 @@ All are licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and a
 | `BF007.nd2` | Maxime Woringer | A single 2D plane with complete optics metadata; must be rejected as not a 3D stack |
 | `Exception_2.nd2` | Jonas Dorn | A 3D stack with uncalibrated pixel size; missing-metadata handling |
 | `header_test2.nd2` | Jonas Dorn | A time series of calibrated z-stacks; timepoint selection |
+| `PR2729_frameOrderCombinedScanTypes.lif` | Michael Goelzer | A time-lapse mosaic z-stack; timepoint and tile selection, non-sequential channels |
+| `Plate1-Blue-A-25-Scene-1-P1-F5-01.czi` | Ledesma-Fernandez et al. (IDR idr0011) | A widefield 3-channel z-stack with no refractive index or laser lines |
 
-None of these is a bead image. The facility ND2 files below cover real
-multichannel bead data; a multi-position ND2 is still missing.
+None of these is a bead image. The facility files below cover real bead
+data; a multi-position ND2 is still missing.
 
 ## Local-only files
 
@@ -55,5 +57,6 @@ including CI.
 1. Check the licence allows redistribution and record it in the manifest.
 2. Inspect the embedded metadata for personal data before publishing.
 3. Add a manifest entry with the hash, size, and the expected reader values,
-   taken from the acquisition software and not from the reader under test.
-4. Keep the total under 50 MB.
+   taken from the acquisition software or the raw reader library, not from
+   PSFWidget. `tests/test_io_golden.py` compares every key under `expected`.
+4. Keep the public files under 100 MB in total; CI downloads them.
