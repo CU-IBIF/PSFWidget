@@ -1,9 +1,9 @@
 """Command-line entry point (``psfwidget``).
 
-Commands so far: ``info``, ``analyze`` (with ``--db`` to record results), and
-``track`` (status, charts, events, exclusions, export, backup, audit). The
-ingest and report commands (T6.1, AUT-01) are added as their work packages
-land.
+Commands: ``info``, ``analyze`` (with ``--db`` to record results and
+``--report`` for HTML/PDF reports), ``track`` (status, charts, events,
+exclusions, export, backup, audit), ``report trend``, and the automation
+commands ``run``, ``watch``, and ``check-config`` (AUT-01).
 """
 
 from __future__ import annotations
@@ -18,6 +18,8 @@ from typing import Any
 from psfwidget import __version__
 from psfwidget.analysis import FieldResult, analyze_stack
 from psfwidget.automation import analyze, info, track
+from psfwidget.automation import commands as automation_commands
+from psfwidget.automation.config import ConfigError
 from psfwidget.io import (
     ImageStack,
     InvalidMetadataError,
@@ -28,6 +30,8 @@ from psfwidget.io import (
 )
 from psfwidget.profiles import InstrumentProfile, ProfileError, load_profile
 from psfwidget.profiles.spec import Status
+from psfwidget.report.publish import REPORT_FORMATS, write_report
+from psfwidget.report.status import MetricCheck, session_checks
 from psfwidget.settings import AnalysisSettings
 from psfwidget.tracking.chart import ChartError
 from psfwidget.tracking.schema import SchemaError
@@ -112,9 +116,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="record even if the same file and series is already in the database",
     )
     run.add_argument("--user", help="name recorded in the audit log (default: login name)")
+    run.add_argument(
+        "--report",
+        metavar="FORMATS",
+        help="also write a session report: html, pdf, or html,pdf (needs psfwidget[report])",
+    )
+    run.add_argument("--page", choices=["letter", "a4"], default="letter", help="PDF page size")
+    run.add_argument("--xlsx", action="store_true", help="also write an Excel workbook")
     run.set_defaults(run=_run_analyze)
 
     track.add_parser(commands)
+    automation_commands.add_parsers(commands)
     return parser
 
 
@@ -214,23 +226,38 @@ def _run_analyze(args: argparse.Namespace) -> int:
         raise ValueError(
             "--db files results under an instrument; give --profile (or --set instrument_id=...)"
         )
+    report_formats = (
+        automation_commands.formats(args.report, REPORT_FORMATS) if args.report else None
+    )
     spec = profile.spec if profile is not None else None
     result = analyze_stack(stack, settings, spec, channels=args.channels)
-    written = analyze.write_outputs(result, Path(args.out), overwrite=args.overwrite)
+    out = Path(args.out)
+    written = analyze.write_outputs(result, out, overwrite=args.overwrite)
     print(analyze.format_text(result))
+    session_id, checks = _record(result, args, profile) if args.db else (None, None)
+    if args.xlsx:
+        written.append(analyze.write_xlsx(result, out / f"{analyze.output_stem(result)}.xlsx"))
+    if report_formats:
+        from psfwidget.report.session import build_session_report
+
+        report, _ = build_session_report(
+            result, stack=stack, checks=checks, session_id=session_id, operator=args.user
+        )
+        written += write_report(
+            report, out / f"{analyze.output_stem(result)}_report", report_formats, args.page
+        )
     print("\nWrote " + ", ".join(str(p) for p in written))
-    if args.db:
-        _record(result, args, profile)
     failed = any(c.spec is not None and c.spec.status is Status.FAIL for c in result.channels)
     return EXIT_SPEC_FAIL if args.fail_on_spec and failed else EXIT_OK
 
 
 def _record(
     result: FieldResult, args: argparse.Namespace, profile: InstrumentProfile | None
-) -> None:
+) -> tuple[int, dict[int, list[MetricCheck]]]:
     settings = profile.tracking if profile is not None else TrackingSettings()
     with ResultsDatabase(args.db) as db:
         session_id = db.record(result, user=args.user, allow_duplicate=args.record_again)
+        checks = session_checks(db, result, session_id, settings)
         print(f"\nRecorded as session {session_id} in {args.db}\n")
         keys = {channel_key(result.metadata.channels[c.index]) for c in result.channels}
         configurations = [
@@ -241,6 +268,7 @@ def _record(
         ]
         lines, _ = track.status_lines(db, configurations, settings)
     print("\n".join(lines).rstrip())
+    return session_id, checks
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -262,6 +290,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ValueError,
         SchemaError,
         ChartError,
+        ConfigError,
         sqlite3.DatabaseError,
     ) as exc:
         print(f"psfwidget: error: {exc}", file=sys.stderr)
