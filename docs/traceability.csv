@@ -31,7 +31,7 @@ MET-11,S,"**Field-dependent maps**: FWHM, intensity, and z-centroid vs. (x, y) p
 MET-12,S,**Field illumination uniformity**: integrated intensity vs. position (center-to-edge ratio).,"U, V",SYN-B tilt and curvature; VAL-02 tilted slide
 MET-13,S,"**Chromatic registration** for multichannel bead data (e.g. TetraSpeck): lateral and axial centroid shifts between channels, in nm.","U, V",SYN-B chromatic shift; TetraSpeck REF-1
 MET-14,S,"**Averaged empirical PSF**: sub-pixel registration and averaging of accepted beads; export as OME-TIFF with metadata, suitable for deconvolution.","U, I",Averaged PSF of SYN-B ≈ ground truth (NCC ≥ 0.98); OME-TIFF round-trip
-MET-15,S,"**Bead size correction**: optional correction of FWHM for finite bead diameter (quadrature subtraction or model-based), with the correction method recorded.",U,Correction formula tests; Nyquist warning tests
+MET-15,S,"**Bead size correction**: optional correction of FWHM for finite bead diameter (quadrature subtraction or model-based), with the correction method recorded. *Implemented:* the bead is replaced by the Gaussian of equal variance (FWHM 0.527 × diameter) and subtracted in quadrature; on by default when the diameter is known.",U,Correction formula tests; Nyquist warning tests
 MET-16,M,**Sampling check**: warn when voxel size exceeds Nyquist for the theoretical PSF.,U,Correction formula tests; Nyquist warning tests
 MET-17,C,**Encircled or ensquared energy** (fraction of energy within a radius of 1× and 2× the theoretical FWHM).,U,Analytic Airy encircled-energy / OTF cutoff tests
 MET-18,C,**MTF / OTF estimate** from the averaged PSF (lateral cutoff frequency vs. theoretical).,U,Analytic Airy encircled-energy / OTF cutoff tests
@@ -73,7 +73,7 @@ UI-02,S,The GUI shall provide a **tracking view** to browse instruments and conf
 UI-03,S,The GUI shall provide an editor for instrument profiles and spec limits.,"S, V",GUI script; pytest-qt smoke; VAL-06
 UI-04,M,Long-running operations shall show progress and shall not freeze the UI (worker threads).,"S, V",GUI script; pytest-qt smoke; VAL-06
 UI-05,M,A documented **Python API** shall expose all core functions.,"R, I",API docs review; API usage tests
-NFR-01,M,"**Accuracy:** on synthetic Gaussian or theoretical PSFs sampled at or above Nyquist with SNR ≥ 20, the FWHM error shall be ≤ 3% (mean) and ≤ 5% (95th percentile).",U,Fitting Monte Carlo
+NFR-01,M,"**Accuracy:** on synthetic Gaussian or theoretical PSFs sampled at or above Nyquist with SNR ≥ 20, the per-bead FWHM bias shall be ≤ 1%, and the error of the median FWHM of a field of 10 beads shall be ≤ 3% (mean) and ≤ 5% (95th percentile). *Amended 2026-11-13:* the original target applied the 3%/5% limits to single beads, which photon noise rules out at SNR 20; the field median is the value that is tracked. Per-bead precision is published in `docs/validation/fitting_accuracy.md`.",U,Fitting Monte Carlo
 NFR-02,M,"**Agreement:** on reference bead datasets, FWHM results shall agree with an established tool (MetroloJ_QC and/or PSFj) within 5% or within the inter-bead SD, whichever is larger.",V,VAL-01
 NFR-03,M,**Reproducibility:** re-analysis of the same file with the same parameters and version shall give bit-identical results.,I,Reproducibility test
 NFR-04,S,"**Performance:** a 1024×1024×100 single-channel field with about 50 beads shall be analyzed in under 60 s on a 4-core, 16 GB workstation (excluding the vectorial PSF model).",S,Benchmark

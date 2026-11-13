@@ -48,7 +48,33 @@ All notable changes to this project are documented here. The format follows
   metadata, where each value came from, and whether the stack is ready
   for analysis.
 
+- Bead measurement (M2):
+  - `psfwidget.analysis.analyze_stack` and the `psfwidget analyze` command,
+    writing per-bead, summary, and per-channel CSV files and a JSON record;
+  - bead detection with hot-pixel removal; rejection of beads near the
+    edge, overlapping, saturated (including saturation inferred from a
+    clipping plateau), faint, poorly fitted, or outlying, each with a reason;
+  - FWHM from 1D Gaussian fits along x, y, and z and from 2D fits in the XY,
+    XZ, and YZ planes, with fit quality and uncertainty;
+  - integrated intensity, peak, background, SBR, SNR, and ellipticity;
+  - bead-size correction;
+  - a measurement box that adapts when beads are much wider than theory,
+    and is clipped at the image edge for short stacks;
+  - summary statistics per channel.
+- Theoretical PSF (THE-01, THE-03, THE-08): published formulas for
+  widefield and confocal, and a numerical scalar model for any pinhole size,
+  which the measured/theoretical ratios use. Resolution-enhanced modes are
+  compared with their base modality.
+- Spec limits (THE-06): `[spec]` table in instrument profiles, evaluated per
+  channel; `--fail-on-spec` exit status.
+- Undersampling warnings (MET-16).
+- `tools/fitting_accuracy.py` and `docs/validation/fitting_accuracy.md`:
+  Monte Carlo bias and precision of the FWHM measurement.
+
 ### Changed
+- NFR-01 now applies its 3%/5% limits to the median of a 10-bead field, and
+  adds a per-bead bias limit of 1%.
+- `scipy` is a core dependency.
 - Minimum Python is 3.12 (required by the BSD reader libraries); CI runs
   3.12-3.14.
 - Theoretical PSF models will be implemented in PSFWidget. `psfmodels` is

@@ -1,4 +1,6 @@
-"""PSF metrics: profile and Gaussian fits, intensity, asymmetry, field maps (WP2).
+"""PSF metrics: profile and plane fits, intensity, quality, and summaries (WP2).
 
-Requirements: MET-01 to MET-13, MET-15 to MET-18. Not yet implemented.
+Implemented: MET-01, MET-02, MET-04 to MET-08, MET-10, MET-15. MET-16 is in
+:mod:`psfwidget.analysis`. Not yet implemented: MET-03, MET-09, MET-11 to
+MET-14, MET-17, MET-18.
 """

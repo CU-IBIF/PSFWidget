@@ -23,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
-# Core runtime dependencies: numerics and the four format readers (all BSD).
+# Core runtime dependencies: numerics, fitting, and the four format readers (all BSD).
 # Theory models, reporting, and the GUI are optional extras so the headless
 # core stays light (see docs/PLAN.md §4 and docs/LICENSE_AUDIT.md).
 dependencies = [
@@ -31,6 +31,7 @@ dependencies = [
     "liffile>=2026.4.11",
     "nd2>=0.10.4",
     "numpy>=2.1",
+    "scipy>=1.13",
     "tifffile>=2026.3.3",
 ]
 
@@ -49,6 +50,7 @@ dev = [
     "packaging>=23.0",
     "pre-commit>=3.7",
     "ruff>=0.6",
+    "scipy-stubs",
 ]
 
 [project.scripts]
@@ -88,6 +90,9 @@ ignore = [
     "D105",  # magic methods
     "D107",  # __init__
 ]
+
+# Mathematical notation in docstrings and in formula strings shown to users.
+allowed-confusables = ["−", "×", "ρ", "σ"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["psfwidget", "traceability", "fetch_test_data", "check_licenses"]

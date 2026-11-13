@@ -38,7 +38,7 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 |---|---|---|
 | Language | Python ≥ 3.12 | Standard for bio-image analysis; napari ecosystem. The current BSD reader libraries (`czifile`, `liffile`, `tifffile`) require 3.12 or newer |
 | File I/O | Direct BSD-licensed readers: `nd2`, `liffile`, `czifile`, `tifffile` | `bioio-czi` and `readlif` (used by `bioio-lif`) are GPL-3, which conflicts with NFR-10. The BSD readers were checked against the facility CZI and LIF files (see §7) |
-| Numerics | `numpy`, `scipy`, `scikit-image`, `lmfit` | Robust fitting and uncertainty estimates |
+| Numerics | `numpy`, `scipy` | Levenberg-Marquardt fits with analytic Jacobians give the fit uncertainties; `scikit-image` and `lmfit` turned out not to be needed |
 | Theoretical PSF | Models implemented in PSFWidget (analytical formulas, then scalar Gibson-Lanni, then vectorial), cross-checked against `MicroscPSF-Py` (MIT) | `psfmodels` is GPL-3 (see `docs/LICENSE_AUDIT.md`) |
 | Storage | SQLite through SQLAlchemy | Single file, portable, no server needed |
 | Plotting | `matplotlib` for static report figures; `plotly` for interactive HTML | Static figures for PDF, interactive charts for HTML |
@@ -112,7 +112,7 @@ All metrics are computed per bead and summarized per field as n, mean, SD, media
 | MET-12 | **Field illumination uniformity**: integrated intensity vs. position (center-to-edge ratio). | S |
 | MET-13 | **Chromatic registration** for multichannel bead data (e.g. TetraSpeck): lateral and axial centroid shifts between channels, in nm. | S |
 | MET-14 | **Averaged empirical PSF**: sub-pixel registration and averaging of accepted beads; export as OME-TIFF with metadata, suitable for deconvolution. | S |
-| MET-15 | **Bead size correction**: optional correction of FWHM for finite bead diameter (quadrature subtraction or model-based), with the correction method recorded. | S |
+| MET-15 | **Bead size correction**: optional correction of FWHM for finite bead diameter (quadrature subtraction or model-based), with the correction method recorded. *Implemented:* the bead is replaced by the Gaussian of equal variance (FWHM 0.527 × diameter) and subtracted in quadrature; on by default when the diameter is known. | S |
 | MET-16 | **Sampling check**: warn when voxel size exceeds Nyquist for the theoretical PSF. | M |
 | MET-17 | **Encircled or ensquared energy** (fraction of energy within a radius of 1× and 2× the theoretical FWHM). | C |
 | MET-18 | **MTF / OTF estimate** from the averaged PSF (lateral cutoff frequency vs. theoretical). | C |
@@ -186,7 +186,7 @@ All metrics are computed per bead and summarized per field as n, mean, SD, media
 
 | ID | Requirement | Pri |
 |---|---|---|
-| NFR-01 | **Accuracy:** on synthetic Gaussian or theoretical PSFs sampled at or above Nyquist with SNR ≥ 20, the FWHM error shall be ≤ 3% (mean) and ≤ 5% (95th percentile). | M |
+| NFR-01 | **Accuracy:** on synthetic Gaussian or theoretical PSFs sampled at or above Nyquist with SNR ≥ 20, the per-bead FWHM bias shall be ≤ 1%, and the error of the median FWHM of a field of 10 beads shall be ≤ 3% (mean) and ≤ 5% (95th percentile). *Amended 2026-11-13:* the original target applied the 3%/5% limits to single beads, which photon noise rules out at SNR 20; the field median is the value that is tracked. Per-bead precision is published in `docs/validation/fitting_accuracy.md`. | M |
 | NFR-02 | **Agreement:** on reference bead datasets, FWHM results shall agree with an established tool (MetroloJ_QC and/or PSFj) within 5% or within the inter-bead SD, whichever is larger. | M |
 | NFR-03 | **Reproducibility:** re-analysis of the same file with the same parameters and version shall give bit-identical results. | M |
 | NFR-04 | **Performance:** a 1024×1024×100 single-channel field with about 50 beads shall be analyzed in under 60 s on a 4-core, 16 GB workstation (excluding the vectorial PSF model). | S |
@@ -245,24 +245,24 @@ Task IDs map to requirements (in brackets) for traceability.
 - T1.6 Instrument profile schema and loader [IMP-10].
 
 ### WP2: Bead detection and metrics
-- T2.1 Candidate detection (LoG/DoG + peak finding, sub-pixel centroid) [DET-01].
-- T2.2 Filters: border, overlap, saturation, SNR, outliers; rejection reasons [DET-02 … DET-06, DET-08].
-- T2.3 1D Gaussian profile fitting X/Y/Z [MET-01, MET-10].
-- T2.4 2D Gaussian fits for XY/XZ/YZ planes (rotated elliptical) [MET-02, MET-08].
+- T2.1 Candidate detection (LoG/DoG + peak finding, sub-pixel centroid) [DET-01]. **Done:** matched Gaussian filter after an in-plane median filter for hot pixels; sub-voxel centres from the fits.
+- T2.2 Filters: border, overlap, saturation, SNR, outliers; rejection reasons [DET-02 … DET-06, DET-08]. **Done**, plus inference of the saturation level from a clipping plateau when the file does not state its bit depth.
+- T2.3 1D Gaussian profile fitting X/Y/Z [MET-01, MET-10]. **Done** (3×3 line bundles; R², reduced χ², and FWHM standard error).
+- T2.4 2D Gaussian fits for XY/XZ/YZ planes (rotated elliptical) [MET-02, MET-08]. **Done.**
 - T2.5 3D Gaussian fit [MET-03].
-- T2.6 Intensity metrics: integrated density, peak, background, SBR/SNR [MET-04 … MET-07].
+- T2.6 Intensity metrics: integrated density, peak, background, SBR/SNR [MET-04 … MET-07]. **Done**, except normalisation to exposure or gain (MET-04), which needs exposure metadata the readers do not extract yet.
 - T2.7 Axial asymmetry metrics [MET-09].
 - T2.8 Field maps, tilt and curvature surface fits, illumination uniformity [MET-11, MET-12].
 - T2.9 Chromatic registration [MET-13].
-- T2.10 Bead size correction and Nyquist check [MET-15, MET-16].
+- T2.10 Bead size correction and Nyquist check [MET-15, MET-16]. **Done.**
 - T2.11 Averaged PSF (registration, averaging, OME-TIFF export) [MET-14].
 - T2.12 Encircled energy and MTF (stretch) [MET-17, MET-18].
 
 ### WP3: Theoretical PSF and comparison
-- T3.1 Analytical FWHM formulas (widefield and confocal, with pinhole in Airy units) with citations [THE-01].
+- T3.1 Analytical FWHM formulas (widefield and confocal, with pinhole in Airy units) with citations [THE-01]. **Done**, together with a numerical scalar model (any pinhole size) that the ratios use; see `psfwidget/theory/`.
 - T3.2 Gibson-Lanni and vectorial PSF models at the acquisition sampling, implemented in PSFWidget [THE-02].
 - T3.3 Ratios, Strehl estimate, similarity score [THE-03 … THE-05].
-- T3.4 Spec limit configuration and pass/fail evaluation [THE-06].
+- T3.4 Spec limit configuration and pass/fail evaluation [THE-06]. **Done** (`[spec]` table in instrument profiles).
 - T3.5 Comparison figures [THE-07].
 - T3.6 Resolution-enhanced modes: detect the mode from metadata or the profile, compare against the base-modality model, and add an image-scanning-microscopy model [THE-08, THE-09].
 
@@ -285,7 +285,7 @@ Task IDs map to requirements (in brackets) for traceability.
 - T5.6 Branding and template override [REP-08].
 
 ### WP6: Automation
-- T6.1 CLI commands: `analyze`, `ingest`, `report session|trend`, `baseline`, `event add`, `db export|import` [AUT-01].
+- T6.1 CLI commands: `analyze`, `ingest`, `report session|trend`, `baseline`, `event add`, `db export|import` [AUT-01]. **`info` and `analyze` done.**
 - T6.2 Config file schema and validation [AUT-05].
 - T6.3 Watch-folder ingestion with deduplication and profile matching [AUT-02].
 - T6.4 Scheduler (built-in), plus documented cron and Windows Task Scheduler recipes [AUT-03].
@@ -322,7 +322,9 @@ Durations are indicative estimates for roughly one developer, with facility staf
 **Progress (2026-11-13):**
 
 - **M0 is complete** apart from one data gap: no multi-position ND2 file yet.
-- **M1 (import) is implemented.** All four formats load with correct voxel size and metadata on the reference set, with instrument profiles and a `psfwidget info` command. Open items: chunked loading within a channel (T1.4), and CI on Windows and macOS has not yet run this code.
+- **M1 (import) is complete.** All four formats load with correct voxel size and metadata on the reference set; CI passes on Windows, macOS, and Linux.
+- **M2 (core metrics) is implemented.** `psfwidget analyze` detects beads, measures FWHM in X/Y/Z and the XY/XZ/YZ planes, integrated intensity, SBR, SNR, and ellipticity, compares with theory, checks spec limits, and writes CSV and JSON. NFR-01 (as amended) is met on synthetic data, and NFR-04 is met (31 s for a 1024 × 1024 × 100 field with 50 beads on 4 cores). Open within M2's scope: exposure normalisation of intensity (MET-04), the 3D Gaussian fit (MET-03, a Should), and pixel-integration bias for camera data (about +4% at the Nyquist limit, documented in the accuracy report).
+- **Early finding on facility data:** the SP8 beads are about three times longer axially than theory, with a secondary lobe below focus, consistent with spherical aberration (for example a refractive-index or coverslip mismatch).
 
 **Critical path:** reference data (T0.3) → import (WP1) → metrics (WP2) → tracking (WP4) → automation (WP6) → validation (M6). LJ charts become meaningful only after about 20 sessions, so **baseline data collection should begin at M2** with the CLI, before the GUI exists.
 
@@ -340,6 +342,7 @@ Durations are indicative estimates for roughly one developer, with facility staf
 | Vectorial PSF computation is slow | Performance | Cache theoretical PSFs per configuration; analytical fallback |
 | GPL-licensed dependency adopted unknowingly | Licensing conflict | T0.5 audit; CI license check. **Found 2026-11-11:** `bioio-czi` 4.1.0 (GPL-3, depends on `aicspylibczi`, GPL-3) and `readlif` 0.6.6 (GPL-3). Replaced in §1.3 by `czifile` and `liffile` (BSD-3) |
 | Test files carry personal data in embedded metadata (account names, serial numbers) | Publishing personal data in a public repository | Golden files stay out of git; inspect metadata before publishing any file (`tests/data/README.md`) |
+| Real PSF much wider than theory (aberration), so a box sized from theory truncates the bead | Biased FWHM | The measurement box is re-sized from the measured median FWHM (up to 4× theory) and the channel re-measured; noted in the results |
 | Vendor metadata quirks (Leica stores a negative z step; Leica sequential scans store one setting block per sequence plus stale blocks, each listing all four detector slots, so channel wavelengths must come from the active detector and laser of the matching `Seq.` block. Nikon AX files report the lower edge of the detection band as the emission wavelength and record no pinhole with the NSPARC detector. A Nikon spinning-disk file gave the wrong excitation and no emission for one channel in the structured metadata while the free-text description was right. The NIS-Elements OME-TIFF export rounds pixel size to six significant figures) | Wrong voxel size or flipped stacks | Reader normalizes sign and records it; golden-file expectations cover each quirk found |
 | Scheduled jobs fail silently on facility PCs | Missed QC | Run logs, status files, "last successful run" shown in the trend report |
 

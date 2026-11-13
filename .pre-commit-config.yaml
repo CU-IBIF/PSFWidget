@@ -33,6 +33,8 @@ repos:
           - "numpy>=2.1"
           - "packaging"
           - "pytest>=8.0"
+          - "scipy>=1.13"
+          - "scipy-stubs"
           - "tifffile>=2026.3.3"
 
   - repo: local

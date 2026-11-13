@@ -10,6 +10,7 @@ from typing import Any
 from psfwidget.io.model import (
     ACQUISITION_FIELDS,
     CHANNEL_FIELDS,
+    AcquisitionMetadata,
     ImageStack,
     SeriesInfo,
     Sourced,
@@ -33,9 +34,23 @@ def _entry(item: Sourced[Any] | None) -> dict[str, Any] | None:
     return {"value": _plain(item.value), "source": item.source, "note": item.note}
 
 
+def describe_metadata(meta: AcquisitionMetadata) -> dict[str, Any]:
+    """Return metadata values with their origins, ready for JSON."""
+    return {
+        "values": {name: _entry(getattr(meta, name)) for name in ACQUISITION_FIELDS},
+        "channels": [
+            {"index": channel.index}
+            | {name: _entry(getattr(channel, name)) for name in CHANNEL_FIELDS}
+            for channel in meta.channels
+        ],
+        "warnings": list(meta.warnings),
+    }
+
+
 def describe(stack: ImageStack, series: list[SeriesInfo]) -> dict[str, Any]:
     """Return a JSON-ready description of a stack and its file."""
-    meta, source = stack.metadata, stack.provenance
+    source = stack.provenance
+    described = describe_metadata(stack.metadata)
     problems = stack.problems()
     return {
         "file": {
@@ -61,13 +76,9 @@ def describe(stack: ImageStack, series: list[SeriesInfo]) -> dict[str, Any]:
             "X": stack.shape[3],
         },
         "dtype": str(stack.dtype),
-        "metadata": {name: _entry(getattr(meta, name)) for name in ACQUISITION_FIELDS},
-        "channels": [
-            {"index": channel.index}
-            | {name: _entry(getattr(channel, name)) for name in CHANNEL_FIELDS}
-            for channel in meta.channels
-        ],
-        "warnings": list(meta.warnings),
+        "metadata": described["values"],
+        "channels": described["channels"],
+        "warnings": described["warnings"],
         "problems": problems,
         "analyzable": not problems,
     }

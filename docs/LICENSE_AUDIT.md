@@ -1,6 +1,6 @@
 # Dependency licence audit (T0.5, NFR-10)
 
-**Date:** 2026-11-13
+**Date:** 2026-11-13 (updated for M2 the same day)
 **Method:** each package was installed from PyPI and its licence read from the
 package metadata. `tools/check_licenses.py` repeats the check on the installed
 dependency tree in CI and fails on any GPL or AGPL licence.
@@ -23,6 +23,7 @@ first draft of the plan are GPL and have been replaced or deferred.
 | `liffile` | 2026.11.8 | BSD-3-Clause | Leica LIF reader |
 | `czifile` | 2026.11.8 | BSD-3-Clause | Zeiss CZI reader |
 | `tifffile` | 2026.11.12 | BSD-3-Clause | TIFF and OME-TIFF reader |
+| `scipy` | 1.18.1 | BSD-3-Clause | Fitting, filtering, Bessel functions (WP2, WP3) |
 
 `czifile`, `liffile`, and `tifffile` require Python 3.12 or newer, which
 sets the project's minimum Python version.
@@ -31,9 +32,8 @@ sets the project's minimum Python version.
 
 | Package | Version checked | Licence | Planned for | Verdict |
 |---|---|---|---|---|
-| `scipy` | 1.17.1 | BSD-3-Clause | Fitting, filters (WP2) | OK |
-| `scikit-image` | 0.26.0 | BSD-3-Clause | Detection (WP2) | OK |
-| `lmfit` | 1.3.4 | BSD-3-Clause | Fitting with uncertainties (WP2) | OK |
+| `scikit-image` | 0.26.0 | BSD-3-Clause | Not needed so far (WP2 used `scipy`) | OK |
+| `lmfit` | 1.3.4 | BSD-3-Clause | Not needed so far (WP2 used `scipy`) | OK |
 | `SQLAlchemy` | 2.1.8 | MIT | Results database (WP4) | OK |
 | `alembic` | 1.20.1 | MIT | Database migrations (WP4) | OK |
 | `matplotlib` | 3.11.2 | PSF-based | Static figures (WP4, WP5) | OK |

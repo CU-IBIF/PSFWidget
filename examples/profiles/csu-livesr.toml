@@ -9,6 +9,9 @@ product = "TetraSpeck 0.1 um"
 [[objective]]
 id = "60x-oil-1.40"
 match = "60x Oil"
+# Converts the 50 µm disk pinhole to Airy units. The ND2 records it; the
+# OME-TIFF export does not.
+magnification = 60
 
 [[channel]]
 id = "green"

@@ -33,7 +33,7 @@ The pre-commit hooks run the same tools on each commit.
 ```
 src/psfwidget/      package (headless core + napari GUI layer); see docs/PLAN.md §4
 tests/              pytest suite
-tools/              developer scripts (traceability, test data, licence check)
+tools/              developer scripts (traceability, test data, licence check, accuracy report)
 examples/profiles/  example instrument profiles
 docs/               plan, V&V plan, traceability matrix
 ```
