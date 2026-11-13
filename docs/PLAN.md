@@ -42,8 +42,8 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 | Theoretical PSF | Models implemented in PSFWidget (analytical formulas, then scalar Gibson-Lanni, then vectorial), cross-checked against `MicroscPSF-Py` (MIT) | `psfmodels` is GPL-3 (see `docs/LICENSE_AUDIT.md`) |
 | Storage | SQLite through Python's built-in `sqlite3` | Single file, portable, no server needed. *Changed in M3* from SQLAlchemy + Alembic: the schema is small, a version table covers migrations, and two dependencies are avoided. Append-only rules are enforced by SQLite triggers |
 | Plotting | `matplotlib` for static report figures (optional `report` extra); `plotly` for interactive HTML | Static figures for PDF, interactive charts for HTML |
-| Reports | Jinja2 HTML templates → PDF with `weasyprint` | One template produces both outputs |
-| Scheduling | Built-in scheduler (`APScheduler`) **and** a CLI that OS schedulers can call (cron, Windows Task Scheduler) | Works on facility PCs without a service running |
+| Reports | A block-based report model rendered to self-contained HTML and to PDF with `reportlab` (BSD); XLSX with `openpyxl` (MIT) | *Changed in M4* from Jinja2 + `weasyprint`: one block list produces both outputs without templates, and reportlab installs from wheels on every OS, whereas weasyprint needs the Pango system libraries, which are awkward on Windows |
+| Scheduling | Built-in scheduler (`psfwidget watch`) **and** a CLI that OS schedulers can call (`psfwidget run`, from cron or Windows Task Scheduler) | Works on facility PCs without a service running. *Changed in M4* from `APScheduler`: job state (last run, files handled) is kept in a file in the output folder, so a run started by cron and one started by the built-in loop agree on what is due, with no extra dependency |
 | GUI | napari plugin (npe2) | Fits the repository name and gives a 3D viewer for free |
 | Packaging/CI | `pyproject.toml`, `pytest`, GitHub Actions, `pre-commit` (ruff, mypy) | |
 
@@ -210,8 +210,8 @@ psfwidget/
 ├── theory/        # Analytical FWHM formulas, Gibson-Lanni / vectorial PSF wrappers, comparison
 ├── average/       # Sub-pixel registration + averaged PSF export
 ├── tracking/      # SQLAlchemy models, baselines, Westgard engine, events
-├── report/        # Jinja2 templates, figure generation, HTML/PDF/CSV/XLSX exporters, path templating
-├── automation/    # Watch-folder ingestion, scheduler, run logs, CLI (typer/click)
+├── report/        # Report model, figures, HTML/PDF renderers, status logic, path templating, publishing
+├── automation/    # CLI (argparse), config file, schedules, watch-folder runs, run logs, alerts
 ├── napari/        # Dock widgets (analysis, tracking, profiles) – thin layer over the core
 └── api.py         # Public, stable Python API
 ```
@@ -277,19 +277,19 @@ Task IDs map to requirements (in brackets) for traceability.
 - T4.8 Backup and export/import [TRK-10]. **Backup and CSV export done**; merging another database (import) is not implemented.
 
 ### WP5: Reporting and export
-- T5.1 Figure library (bead overview, orthogonal views, profile fits, field maps, LJ) [REP-01, REP-02].
-- T5.2 Jinja2 templates for session and trend reports; HTML (self-contained) and PDF output [REP-01 … REP-03].
-- T5.3 CSV/XLSX/OME-TIFF exporters [REP-04].
-- T5.4 Output path templating and collision handling [REP-05].
-- T5.5 Provenance block and status logic [REP-06, REP-07].
-- T5.6 Branding and template override [REP-08].
+- T5.1 Figure library (bead overview, orthogonal views, profile fits, field maps, LJ) [REP-01, REP-02]. **Done** apart from field maps, which come with the field-map metrics in M5.
+- T5.2 Session and trend reports; HTML (self-contained) and PDF output [REP-01 … REP-03]. **Done** with a block-based report model instead of Jinja2 templates (see §1.3). Charts in the HTML are static images; interactive charts are deferred to the GUI work (M5).
+- T5.3 CSV/XLSX/OME-TIFF exporters [REP-04]. **CSV and XLSX done.** The OME-TIFF export of the averaged PSF is **moved to M5**, with the averaged PSF itself (T2.11, MET-14).
+- T5.4 Output path templating and collision handling [REP-05]. **Done:** templates such as `{instrument}/{yyyy}/{date}_{file_stem}_s{series}`; existing files are never overwritten (`_2`, `_3`, … is added).
+- T5.5 Provenance block and status logic [REP-06, REP-07]. **Done.** A channel FAILs if no bead is accepted, a spec limit fails, or a Westgard rejection rule is broken; a Westgard warning gives WARNING; a session with no spec limits and no control limits yet is NOT EVALUATED rather than PASS.
+- T5.6 Branding and template override [REP-08]. **Done** for facility name, logo, and footer from the automation config. Overriding the report layout itself is not offered.
 
 ### WP6: Automation
-- T6.1 CLI commands: `analyze`, `ingest`, `report session|trend`, `baseline`, `event add`, `db export|import` [AUT-01]. **`info` and `analyze` done.**
-- T6.2 Config file schema and validation [AUT-05].
-- T6.3 Watch-folder ingestion with deduplication and profile matching [AUT-02].
-- T6.4 Scheduler (built-in), plus documented cron and Windows Task Scheduler recipes [AUT-03].
-- T6.5 Run logging, error isolation, alert or status files [AUT-04, AUT-06].
+- T6.1 CLI commands [AUT-01]. **Done:** `info`; `analyze` (with `--db`, `--report html,pdf`, `--xlsx`); `track` (status, chart, event, exclude, include, export, backup, audit); `report trend`; `run`, `watch`, and `check-config`. Ingestion runs through `run`; database import is still open (TRK-10).
+- T6.2 Config file schema and validation [AUT-05]. **Done:** TOML, unknown keys and wrong types rejected with the table and key named, paths relative to the config file.
+- T6.3 Watch-folder ingestion with deduplication and profile matching [AUT-02]. **Done:** one profile per watched folder, file patterns, optional recursion, a settle time so files still being written are left alone, deduplication by file hash against the database, and a ledger so unchanged files (including ones that failed) are not re-read every run. Matching profiles by file-name pattern within one folder is not offered; use one folder per instrument.
+- T6.4 Scheduler [AUT-03]. **Done:** plain-word schedules (`every 15 minutes`, `daily 07:30`, `weekly monday 07:30`, `monthly 1 07:30`), the built-in `watch` loop, and cron and Task Scheduler recipes in the README. Full cron expressions are not accepted. A lock file stops overlapping runs.
+- T6.5 Run logging, error isolation, alert or status files [AUT-04, AUT-06]. **Done:** a running log, one JSON summary per run, per-file error isolation, `STATUS.json` after every run, and `ALERT.txt` while a latest session FAILs or a run had errors.
 
 ### WP7: napari GUI
 - T7.1 Analysis widget: load, metadata panel, detect, review beads (points layer), metrics table, report button [UI-01, DET-07, UI-04].
@@ -316,7 +316,7 @@ Durations are indicative estimates for roughly one developer, with facility staf
 | **M2: Core metrics (MVP analysis)** | WP2 Musts + T3.1, T3.3 (ratios), T3.4 | FWHM X/Y/Z and XY/XZ/YZ, integrated intensity, SBR/SNR, and ratios meet NFR-01 on synthetic data; CLI `analyze` writes CSV | Week 10 |
 | **M3: Tracking and LJ** | WP4 | Sessions persist; baselines and Westgard rules pass rule-engine tests; LJ charts render with events | Week 13 |
 | **M4: Reporting and automation (alpha)** | WP5, WP6 | Session and trend reports in HTML and PDF; scheduled watch-folder run works end to end unattended for 1 week on a test machine | Week 17 |
-| **M5: GUI and Shoulds (beta)** | WP7, remaining Shoulds in WP2 and WP3 (field maps, chromatic, averaged PSF, vectorial model, Strehl, image-scanning model) | GUI usability session completed; beta deployed on 1–2 facility microscopes | Week 22 |
+| **M5: GUI and Shoulds (beta)** | WP7, remaining Shoulds in WP2 and WP3 (field maps, chromatic, averaged PSF with its OME-TIFF export, vectorial model, Strehl, image-scanning model) | GUI usability session completed; beta deployed on 1–2 facility microscopes | Week 22 |
 | **M6: Validation and v1.0 release** | WP8, V&V execution | All Must requirements verified; NFR-02 agreement study passed; ≥ 4 weeks of parallel run against the current QC method; V&V summary report signed off | Week 28 |
 
 **Progress (2026-11-13):**
@@ -325,6 +325,7 @@ Durations are indicative estimates for roughly one developer, with facility staf
 - **M1 (import) is complete.** All four formats load with correct voxel size and metadata on the reference set; CI passes on Windows, macOS, and Linux.
 - **M2 (core metrics) is implemented.** `psfwidget analyze` detects beads, measures FWHM in X/Y/Z and the XY/XZ/YZ planes, integrated intensity, SBR, SNR, and ellipticity, compares with theory, checks spec limits, and writes CSV and JSON. NFR-01 (as amended) is met on synthetic data, and NFR-04 is met (31 s for a 1024 × 1024 × 100 field with 50 beads on 4 cores). Open within M2's scope: exposure normalisation of intensity (MET-04), the 3D Gaussian fit (MET-03, a Should), and pixel-integration bias for camera data (about +4% at the Nyquist limit, documented in the accuracy report).
 - **M3 (tracking) is implemented.** `psfwidget analyze --db` records results in an append-only SQLite database filed by instrument, objective, channel, and modality. `psfwidget track` reports each configuration's latest session against Westgard rules, draws Levey-Jennings charts with events and spec limits, records events (optionally resetting the baseline), excludes and re-includes sessions with a reason, exports CSV, backs up the database, and prints the audit log. Not done: merging databases (TRK-10 import) and interactive charts (WP5).
+- **M4 (reporting and automation) is implemented.** Session reports (bead overview, XY/XZ/YZ views, profile fits against theory, spec and Westgard checks, bead table, provenance) and trend reports (latest status, violations, events, Levey-Jennings charts) are written as HTML and PDF, with CSV and XLSX exports, under configurable folder templates. `psfwidget run` and `psfwidget watch` process watched folders on a schedule, write weekly trend reports, log every run, and raise `ALERT.txt`. A simulated four weeks of daily acquisitions runs unattended in the test suite. Deferred to M5: the averaged-PSF OME-TIFF export (REP-04, with MET-14). Still to do for the exit criterion: one week unattended on a facility machine.
 - **Early finding on facility data:** the SP8 beads are about three times longer axially than theory, with a secondary lobe below focus, consistent with spherical aberration (for example a refractive-index or coverslip mismatch).
 
 **Critical path:** reference data (T0.3) → import (WP1) → metrics (WP2) → tracking (WP4) → automation (WP6) → validation (M6). LJ charts become meaningful only after about 20 sessions, so **baseline data collection should begin at M2** with the CLI, before the GUI exists.

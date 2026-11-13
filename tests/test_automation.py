@@ -9,6 +9,7 @@ import json
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -18,6 +19,7 @@ from psfwidget import synthetic
 from psfwidget.automation import cli, runner
 from psfwidget.automation.config import ConfigError, load_config, parse_config
 from psfwidget.automation.schedule import ScheduleError, parse_schedule
+from psfwidget.tracking.store import ResultsDatabase
 
 T0 = datetime(2026, 3, 2, 6, 0, tzinfo=UTC)  # a Monday
 
@@ -151,7 +153,7 @@ def test_load_config_resolves_relative_paths(tmp_path: Path) -> None:
         ({"branding": {"logo": "nope.png"}}, "logo"),
     ],
 )
-def test_config_errors_are_clear(tmp_path: Path, data: dict, message: str) -> None:
+def test_config_errors_are_clear(tmp_path: Path, data: dict[str, Any], message: str) -> None:
     (tmp_path / "scope.toml").write_text(PROFILE, encoding="utf-8")
     with pytest.raises(ConfigError, match=message.replace("[", r"\[").replace("]", r"\]")):
         parse_config(data, tmp_path / "automation.toml")
@@ -295,8 +297,8 @@ def test_four_weeks_unattended(tmp_path: Path) -> None:
             if os.path.getmtime(incoming / f"day{day:02d}.tif") <= clock.timestamp():
                 runs += len(runner.run_due(config, now=clock))
             clock += timedelta(hours=4)
-    with runner.ResultsDatabase(config.database) as db:
-        assert len(db.sessions()) == 29
+    with ResultsDatabase(config.database) as db:
+        assert db.session_count(db.configurations()[0]) == 29
     trends = sorted(config.output.root.glob("scope/trend/*_trend.html"))
     assert len(trends) == 4  # four Mondays after the first one
     status = json.loads(config.status_file.read_text("utf-8"))
@@ -333,3 +335,11 @@ def test_watch_loop_runs_until_stopped(tmp_path: Path) -> None:
     runner.watch(config, poll_seconds=30, iterations=3, on_run=seen.append, sleep=sleeps.append)
     assert len(seen) == 1  # ingest ran once; not due again within the loop
     assert sleeps == [30, 30]
+
+
+@pytest.mark.req("AUT-05")
+def test_example_config_is_valid() -> None:
+    example = Path(__file__).parents[1] / "examples" / "automation" / "qc.toml"
+    config = load_config(example)
+    assert [w.profile.instrument_id for w in config.watches] == ["sp8", "axr-nsparc"]
+    assert config.trend_report.kind == "weekly"
