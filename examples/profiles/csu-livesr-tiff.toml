@@ -1,0 +1,42 @@
+# For plain TIFF exports from the spinning disk. They keep the voxel size but
+# nothing else, so this profile supplies the optics and matches channels by
+# their position in the file. Check the channel order of your export.
+
+[instrument]
+id = "csu-livesr"
+name = "Nikon Ti2 with CSU spinning disk and Live-SR"
+modality = "spinning_disk"
+resolution_enhancement = "Live-SR"
+pinhole_um = 50
+
+[bead]
+diameter_nm = 100
+product = "TetraSpeck 0.1 um"
+
+[[objective]]
+id = "60x-oil-1.40"
+name = "Plan Apo λ 60x Oil"
+numerical_aperture = 1.4
+immersion_ri = 1.515
+magnification = 60
+
+[[channel]]
+id = "orange"
+match = { index = 0 }
+name = "TRITC_SR"
+excitation_nm = 550
+emission_nm = 580
+
+[[channel]]
+id = "green"
+match = { index = 1 }
+name = "GFP_SR"
+excitation_nm = 488
+emission_nm = 515
+
+[[channel]]
+id = "far-red"
+match = { index = 2 }
+name = "Cy5_SR"
+excitation_nm = 640
+emission_nm = 680

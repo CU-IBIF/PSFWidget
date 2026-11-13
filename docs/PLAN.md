@@ -39,7 +39,7 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 | Language | Python ≥ 3.12 | Standard for bio-image analysis; napari ecosystem. The current BSD reader libraries (`czifile`, `liffile`, `tifffile`) require 3.12 or newer |
 | File I/O | Direct BSD-licensed readers: `nd2`, `liffile`, `czifile`, `tifffile` | `bioio-czi` and `readlif` (used by `bioio-lif`) are GPL-3, which conflicts with NFR-10. The BSD readers were checked against the facility CZI and LIF files (see §7) |
 | Numerics | `numpy`, `scipy`, `scikit-image`, `lmfit` | Robust fitting and uncertainty estimates |
-| Theoretical PSF | `psfmodels` (Gibson-Lanni and vectorial), with built-in analytical formulas as fallback | Validated models plus a dependency-free fallback |
+| Theoretical PSF | Models implemented in PSFWidget (analytical formulas, then scalar Gibson-Lanni, then vectorial), cross-checked against `MicroscPSF-Py` (MIT) | `psfmodels` is GPL-3 (see `docs/LICENSE_AUDIT.md`) |
 | Storage | SQLite through SQLAlchemy | Single file, portable, no server needed |
 | Plotting | `matplotlib` for static report figures; `plotly` for interactive HTML | Static figures for PDF, interactive charts for HTML |
 | Reports | Jinja2 HTML templates → PDF with `weasyprint` | One template produces both outputs |
@@ -233,14 +233,14 @@ Task IDs map to requirements (in brackets) for traceability.
 - T0.1 Repository scaffolding: `pyproject.toml`, src layout, ruff, mypy, pre-commit, and a GitHub Actions matrix (Windows, macOS, Linux; Python 3.12–3.14).
 - T0.2 Contributor docs, coding standards, branching and release policy.
 - T0.3 Collect a **reference dataset** of real bead stacks in each format from facility instruments, with known acquisition parameters. Small files are listed in `tests/data/manifest.json` and kept out of git; full-size files stay in external storage with checksums. **Status (2026-11-12):** bead files received for all four formats: CZI (LSM 980), LIF (SP8), ND2 (AX R NSPARC and CSU spinning disk), and an OME-TIFF export of the spinning-disk stack. Public OME samples cover the remaining ND2 reader cases. A plain ImageJ TIFF of the same stack covers the missing-metadata case. All facility stacks use the same 100 nm TetraSpeck slide. Still missing: a multi-position ND2.
-- T0.4 Synthetic data generator: Gaussian and theoretical PSF bead fields with known ground truth, noise (Poisson and Gaussian read noise), background, tilt, and saturation. *(Serves NFR-01 and many V&V tests.)*
-- T0.5 License audit of candidate dependencies [NFR-10].
+- T0.4 Synthetic data generator: Gaussian and theoretical PSF bead fields with known ground truth, noise (Poisson and Gaussian read noise), background, tilt, and saturation. *(Serves NFR-01 and many V&V tests.)* **Done (2026-11-13)** for Gaussian fields and defects (`psfwidget.synthetic`); theoretical-PSF fields follow with WP3.
+- T0.5 License audit of candidate dependencies [NFR-10]. **Done (2026-11-13):** `docs/LICENSE_AUDIT.md`, with `tools/check_licenses.py` enforcing it in CI.
 
 ### WP1: Data import
 - T1.1 `ImageStack` data model and `MetadataResolver` (file → profile → user override precedence, with source tagging) [IMP-04, IMP-05, IMP-06].
 - T1.2 Readers for ND2, LIF, CZI, and TIFF/OME-TIFF using `nd2`, `liffile`, `czifile`, and `tifffile` [IMP-01].
 - T1.3 Multi-series, multichannel, time, and tile selection [IMP-02, IMP-03, IMP-07].
-- T1.4 Lazy or chunked loading [IMP-08].
+- T1.4 Lazy or chunked loading [IMP-08]. **Partly done:** pixel data is read one channel at a time, on request. A single channel larger than memory is not yet chunked.
 - T1.5 File hashing and provenance [IMP-09].
 - T1.6 Instrument profile schema and loader [IMP-10].
 
@@ -260,7 +260,7 @@ Task IDs map to requirements (in brackets) for traceability.
 
 ### WP3: Theoretical PSF and comparison
 - T3.1 Analytical FWHM formulas (widefield and confocal, with pinhole in Airy units) with citations [THE-01].
-- T3.2 Gibson-Lanni / vectorial PSF wrapper at the acquisition sampling [THE-02].
+- T3.2 Gibson-Lanni and vectorial PSF models at the acquisition sampling, implemented in PSFWidget [THE-02].
 - T3.3 Ratios, Strehl estimate, similarity score [THE-03 … THE-05].
 - T3.4 Spec limit configuration and pass/fail evaluation [THE-06].
 - T3.5 Comparison figures [THE-07].
@@ -318,6 +318,11 @@ Durations are indicative estimates for roughly one developer, with facility staf
 | **M4: Reporting and automation (alpha)** | WP5, WP6 | Session and trend reports in HTML and PDF; scheduled watch-folder run works end to end unattended for 1 week on a test machine | Week 17 |
 | **M5: GUI and Shoulds (beta)** | WP7, remaining Shoulds in WP2 and WP3 (field maps, chromatic, averaged PSF, vectorial model, Strehl, image-scanning model) | GUI usability session completed; beta deployed on 1–2 facility microscopes | Week 22 |
 | **M6: Validation and v1.0 release** | WP8, V&V execution | All Must requirements verified; NFR-02 agreement study passed; ≥ 4 weeks of parallel run against the current QC method; V&V summary report signed off | Week 28 |
+
+**Progress (2026-11-13):**
+
+- **M0 is complete** apart from one data gap: no multi-position ND2 file yet.
+- **M1 (import) is implemented.** All four formats load with correct voxel size and metadata on the reference set, with instrument profiles and a `psfwidget info` command. Open items: chunked loading within a channel (T1.4), and CI on Windows and macOS has not yet run this code.
 
 **Critical path:** reference data (T0.3) → import (WP1) → metrics (WP2) → tracking (WP4) → automation (WP6) → validation (M6). LJ charts become meaningful only after about 20 sessions, so **baseline data collection should begin at M2** with the CLI, before the GUI exists.
 

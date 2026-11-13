@@ -96,7 +96,7 @@ known-first-party = ["psfwidget", "traceability", "fetch_test_data", "check_lice
 convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["D"]
+"tests/**" = ["D", "E501"]  # tests embed long XML and text fixtures
 "tools/**" = ["D"]
 
 # ---------------------------------------------------------------- mypy

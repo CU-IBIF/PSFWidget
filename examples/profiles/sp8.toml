@@ -1,0 +1,23 @@
+[instrument]
+id = "sp8"
+name = "Leica SP8"
+
+[bead]
+diameter_nm = 100
+product = "TetraSpeck 0.1 um"
+
+[[objective]]
+id = "63x-oil-1.40"
+match = "63x/1.40"
+
+# The file gives only the detection band, which is far wider than the dye's
+# emission. emission_nm is the bead dye's emission peak.
+[[channel]]
+id = "green"
+match = { excitation_nm = 488 }
+emission_nm = 515
+
+[[channel]]
+id = "orange"
+match = { excitation_nm = 552 }
+emission_nm = 580
