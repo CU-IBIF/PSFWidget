@@ -27,6 +27,7 @@ jobs:
       - run: ruff format --check .
       - run: mypy
       - run: python tools/traceability.py --check
+      - run: python tools/check_licenses.py
 
   test:
     name: Test (${{ matrix.os }}, py${{ matrix.python }})
@@ -35,7 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]  # NFR-05
-        python: ["3.11", "3.12", "3.13"]
+        python: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7

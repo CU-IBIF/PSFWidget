@@ -19,7 +19,7 @@ PSFWidget is a microscope quality-control tool for point spread functions (PSFs)
 
 ## Development
 
-You need Python 3.11 or newer.
+You need Python 3.12 or newer.
 
 ```bash
 python -m pip install -e ".[dev]"

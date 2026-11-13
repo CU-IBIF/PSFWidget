@@ -26,7 +26,14 @@ repos:
       - id: mypy
         pass_filenames: false
         args: []  # use [tool.mypy] in pyproject.toml
-        additional_dependencies: ["numpy>=1.26", "pytest>=8.0"]
+        additional_dependencies:
+          - "czifile>=2026.4.11"
+          - "liffile>=2026.4.11"
+          - "nd2>=0.10.4"
+          - "numpy>=2.1"
+          - "packaging"
+          - "pytest>=8.0"
+          - "tifffile>=2026.3.3"
 
   - repo: local
     hooks:

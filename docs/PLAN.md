@@ -36,7 +36,7 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 
 | Concern | Proposed choice | Rationale |
 |---|---|---|
-| Language | Python ≥ 3.11 | Standard for bio-image analysis; napari ecosystem. Python 3.10 reached end of life in October 2026 |
+| Language | Python ≥ 3.12 | Standard for bio-image analysis; napari ecosystem. The current BSD reader libraries (`czifile`, `liffile`, `tifffile`) require 3.12 or newer |
 | File I/O | Direct BSD-licensed readers: `nd2`, `liffile`, `czifile`, `tifffile` | `bioio-czi` and `readlif` (used by `bioio-lif`) are GPL-3, which conflicts with NFR-10. The BSD readers were checked against the facility CZI and LIF files (see §7) |
 | Numerics | `numpy`, `scipy`, `scikit-image`, `lmfit` | Robust fitting and uncertainty estimates |
 | Theoretical PSF | `psfmodels` (Gibson-Lanni and vectorial), with built-in analytical formulas as fallback | Validated models plus a dependency-free fallback |
@@ -230,7 +230,7 @@ psfwidget/
 Task IDs map to requirements (in brackets) for traceability.
 
 ### WP0: Project foundation
-- T0.1 Repository scaffolding: `pyproject.toml`, src layout, ruff, mypy, pre-commit, and a GitHub Actions matrix (Windows, macOS, Linux; Python 3.11–3.13).
+- T0.1 Repository scaffolding: `pyproject.toml`, src layout, ruff, mypy, pre-commit, and a GitHub Actions matrix (Windows, macOS, Linux; Python 3.12–3.14).
 - T0.2 Contributor docs, coding standards, branching and release policy.
 - T0.3 Collect a **reference dataset** of real bead stacks in each format from facility instruments, with known acquisition parameters. Small files are listed in `tests/data/manifest.json` and kept out of git; full-size files stay in external storage with checksums. **Status (2026-11-12):** bead files received for all four formats: CZI (LSM 980), LIF (SP8), ND2 (AX R NSPARC and CSU spinning disk), and an OME-TIFF export of the spinning-disk stack. Public OME samples cover the remaining ND2 reader cases. A plain ImageJ TIFF of the same stack covers the missing-metadata case. All facility stacks use the same 100 nm TetraSpeck slide. Still missing: a multi-position ND2.
 - T0.4 Synthetic data generator: Gaussian and theoretical PSF bead fields with known ground truth, noise (Poisson and Gaussian read noise), background, tilt, and saturation. *(Serves NFR-01 and many V&V tests.)*

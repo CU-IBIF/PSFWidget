@@ -2,7 +2,7 @@
 
 ## Development setup
 
-You need Python 3.11 or newer.
+You need Python 3.12 or newer.
 
 ```bash
 git clone https://github.com/CU-IBIF/PSFWidget.git
