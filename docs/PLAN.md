@@ -40,8 +40,8 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 | File I/O | Direct BSD-licensed readers: `nd2`, `liffile`, `czifile`, `tifffile` | `bioio-czi` and `readlif` (used by `bioio-lif`) are GPL-3, which conflicts with NFR-10. The BSD readers were checked against the facility CZI and LIF files (see §7) |
 | Numerics | `numpy`, `scipy` | Levenberg-Marquardt fits with analytic Jacobians give the fit uncertainties; `scikit-image` and `lmfit` turned out not to be needed |
 | Theoretical PSF | Models implemented in PSFWidget (analytical formulas, then scalar Gibson-Lanni, then vectorial), cross-checked against `MicroscPSF-Py` (MIT) | `psfmodels` is GPL-3 (see `docs/LICENSE_AUDIT.md`) |
-| Storage | SQLite through SQLAlchemy | Single file, portable, no server needed |
-| Plotting | `matplotlib` for static report figures; `plotly` for interactive HTML | Static figures for PDF, interactive charts for HTML |
+| Storage | SQLite through Python's built-in `sqlite3` | Single file, portable, no server needed. *Changed in M3* from SQLAlchemy + Alembic: the schema is small, a version table covers migrations, and two dependencies are avoided. Append-only rules are enforced by SQLite triggers |
+| Plotting | `matplotlib` for static report figures (optional `report` extra); `plotly` for interactive HTML | Static figures for PDF, interactive charts for HTML |
 | Reports | Jinja2 HTML templates → PDF with `weasyprint` | One template produces both outputs |
 | Scheduling | Built-in scheduler (`APScheduler`) **and** a CLI that OS schedulers can call (cron, Windows Task Scheduler) | Works on facility PCs without a service running |
 | GUI | napari plugin (npe2) | Fits the repository name and gives a 3D viewer for free |
@@ -267,14 +267,14 @@ Task IDs map to requirements (in brackets) for traceability.
 - T3.6 Resolution-enhanced modes: detect the mode from metadata or the profile, compare against the base-modality model, and add an image-scanning-microscopy model [THE-08, THE-09].
 
 ### WP4: Tracking database and SPC
-- T4.1 SQLAlchemy schema and Alembic migrations [TRK-01, TRK-02].
-- T4.2 Persistence of sessions, fields, beads, and summaries, with parameters and versions [TRK-01].
-- T4.3 Baseline computation (first N sessions, date range, manual target) [TRK-04].
-- T4.4 Westgard rule engine (pure functions, configurable per metric) [TRK-05].
-- T4.5 Events, re-baselining, exclusions, and audit trail [TRK-06, TRK-07, NFR-07].
-- T4.6 Levey-Jennings plotting (static and interactive), with spec-limit overlay and event markers [TRK-03, TRK-08].
-- T4.7 Drift and trend summary [TRK-09].
-- T4.8 Backup and export/import [TRK-10].
+- T4.1 Database schema and version check [TRK-01, TRK-02]. **Done** with `sqlite3`; migrations will be added when the schema first changes.
+- T4.2 Persistence of sessions, fields, beads, and summaries, with parameters and versions [TRK-01]. **Done.**
+- T4.3 Baseline computation (first N sessions, date range, manual target) [TRK-04]. **Done.** Fewer than 5 valid sessions give no limits; fewer than N give provisional limits.
+- T4.4 Westgard rule engine (pure functions, configurable per metric) [TRK-05]. **Done.**
+- T4.5 Events, re-baselining, exclusions, and audit trail [TRK-06, TRK-07, NFR-07]. **Done.**
+- T4.6 Levey-Jennings plotting (static and interactive), with spec-limit overlay and event markers [TRK-03, TRK-08]. **Static charts done** (PNG, SVG, PDF); interactive charts come with the HTML reports in WP5.
+- T4.7 Drift and trend summary [TRK-09]. **Done** (least-squares slope over the last 10 sessions of the current baseline).
+- T4.8 Backup and export/import [TRK-10]. **Backup and CSV export done**; merging another database (import) is not implemented.
 
 ### WP5: Reporting and export
 - T5.1 Figure library (bead overview, orthogonal views, profile fits, field maps, LJ) [REP-01, REP-02].
@@ -324,6 +324,7 @@ Durations are indicative estimates for roughly one developer, with facility staf
 - **M0 is complete** apart from one data gap: no multi-position ND2 file yet.
 - **M1 (import) is complete.** All four formats load with correct voxel size and metadata on the reference set; CI passes on Windows, macOS, and Linux.
 - **M2 (core metrics) is implemented.** `psfwidget analyze` detects beads, measures FWHM in X/Y/Z and the XY/XZ/YZ planes, integrated intensity, SBR, SNR, and ellipticity, compares with theory, checks spec limits, and writes CSV and JSON. NFR-01 (as amended) is met on synthetic data, and NFR-04 is met (31 s for a 1024 × 1024 × 100 field with 50 beads on 4 cores). Open within M2's scope: exposure normalisation of intensity (MET-04), the 3D Gaussian fit (MET-03, a Should), and pixel-integration bias for camera data (about +4% at the Nyquist limit, documented in the accuracy report).
+- **M3 (tracking) is implemented.** `psfwidget analyze --db` records results in an append-only SQLite database filed by instrument, objective, channel, and modality. `psfwidget track` reports each configuration's latest session against Westgard rules, draws Levey-Jennings charts with events and spec limits, records events (optionally resetting the baseline), excludes and re-includes sessions with a reason, exports CSV, backs up the database, and prints the audit log. Not done: merging databases (TRK-10 import) and interactive charts (WP5).
 - **Early finding on facility data:** the SP8 beads are about three times longer axially than theory, with a secondary lobe below focus, consistent with spherical aberration (for example a refractive-index or coverslip mismatch).
 
 **Critical path:** reference data (T0.3) → import (WP1) → metrics (WP2) → tracking (WP4) → automation (WP6) → validation (M6). LJ charts become meaningful only after about 20 sessions, so **baseline data collection should begin at M2** with the CLI, before the GUI exists.

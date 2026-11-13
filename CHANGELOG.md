@@ -70,11 +70,30 @@ All notable changes to this project are documented here. The format follows
 - Undersampling warnings (MET-16).
 - `tools/fitting_accuracy.py` and `docs/validation/fitting_accuracy.md`:
   Monte Carlo bias and precision of the FWHM measurement.
+- Tracking (M3):
+  - results database (`sqlite3`), append-only by trigger, with an audit
+    log of every record, exclusion, inclusion, and event (TRK-01, NFR-07);
+  - results filed by instrument, objective, channel, and modality (TRK-02);
+  - baselines from the first N sessions, a date range, or targets, with
+    provisional limits while collecting (TRK-04);
+  - Westgard rules 1_2s, 1_3s, 2_2s, R_4s, 4_1s, 10_x, configurable per
+    metric in a profile's `[tracking]` table (TRK-05);
+  - events that annotate charts and can start a new baseline (TRK-06);
+  - exclusion and re-inclusion of sessions with a reason (TRK-07);
+  - Levey-Jennings charts (PNG, SVG, PDF) with limits, events, exclusions,
+    rule violations, and spec limits (TRK-03, TRK-08);
+  - drift per month over recent sessions (TRK-09);
+  - CSV export and database backup (TRK-10);
+  - `psfwidget analyze --db` and `psfwidget track list|status|chart|event|
+    exclude|include|export|backup|audit`;
+  - `tools/demo_tracking.py`, which builds a demonstration database from
+    simulated weekly sessions.
 
 ### Changed
 - NFR-01 now applies its 3%/5% limits to the median of a 10-bead field, and
   adds a per-bead bias limit of 1%.
-- `scipy` is a core dependency.
+- `scipy` is a core dependency; `matplotlib` is in the optional `report` extra.
+- Storage uses the built-in `sqlite3` instead of SQLAlchemy and Alembic.
 - Minimum Python is 3.12 (required by the BSD reader libraries); CI runs
   3.12-3.14.
 - Theoretical PSF models will be implemented in PSFWidget. `psfmodels` is

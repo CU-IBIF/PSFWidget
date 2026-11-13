@@ -24,6 +24,9 @@ A profile is a TOML file::
     [spec]                      # optional acceptance limits (THE-06)
     lateral_ratio_max = 1.3
 
+    [tracking]                  # optional; see psfwidget.tracking.settings
+    baseline_sessions = 20
+
 Profile values take precedence over values read from the file and are in
 turn overridden by values the user enters.
 """
@@ -43,6 +46,7 @@ from psfwidget.io.metadata import (
 )
 from psfwidget.io.model import AcquisitionMetadata, ChannelMetadata, Modality
 from psfwidget.profiles.spec import SpecLimits, parse_spec
+from psfwidget.tracking.settings import TrackingSettings, parse_tracking
 
 EXCITATION_MATCH_TOLERANCE_NM = 5.0
 
@@ -59,7 +63,7 @@ _CHANNEL_KEYS = {
     "pinhole_um",
 }
 _CHANNEL_MATCH_KEYS = {"name", "excitation_nm", "index"}
-_TOP_LEVEL_KEYS = {"instrument", "bead", "objective", "channel", "spec"}
+_TOP_LEVEL_KEYS = {"instrument", "bead", "objective", "channel", "spec", "tracking"}
 
 
 class ProfileError(ValueError):
@@ -127,6 +131,7 @@ class InstrumentProfile:
     objectives: tuple[ObjectivePreset, ...] = ()
     channels: tuple[ChannelPreset, ...] = ()
     spec: SpecLimits = field(default_factory=SpecLimits)
+    tracking: TrackingSettings = field(default_factory=TrackingSettings)
 
     def select_objective(
         self, objective_name: str | None, objective_id: str | None = None
@@ -327,6 +332,13 @@ def parse_profile(data: dict[str, Any], where: str = "profile") -> InstrumentPro
         spec = parse_spec(spec_table, where)
     except ValueError as exc:
         raise ProfileError(str(exc)) from exc
+    tracking_table = data.get("tracking", {})
+    if not isinstance(tracking_table, dict):
+        raise ProfileError(f"{where}: [tracking] must be a table")
+    try:
+        tracking = parse_tracking(tracking_table, where)
+    except ValueError as exc:
+        raise ProfileError(str(exc)) from exc
 
     product = bead.get("product")
     if product is not None and not isinstance(product, str):
@@ -350,6 +362,7 @@ def parse_profile(data: dict[str, Any], where: str = "profile") -> InstrumentPro
         objectives=tuple(objectives),
         channels=tuple(channels),
         spec=spec,
+        tracking=tracking,
     )
 
 

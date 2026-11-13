@@ -29,6 +29,7 @@ repos:
         additional_dependencies:
           - "czifile>=2026.4.11"
           - "liffile>=2026.4.11"
+          - "matplotlib>=3.8"
           - "nd2>=0.10.4"
           - "numpy>=2.1"
           - "packaging"

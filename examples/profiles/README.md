@@ -51,3 +51,19 @@ min_beads = 5             # accepted beads needed for a result
 The examples set no limits; these numbers are placeholders, not
 recommendations. `psfwidget analyze --fail-on-spec` exits with status 3 when a
 channel fails.
+
+## Tracking settings
+
+A profile can also say which metrics are tracked and with which Westgard
+rules (defaults: the plan's metric list, all six rules, a 20-session
+baseline):
+
+```toml
+[tracking]
+baseline_sessions = 20
+metrics = ["fwhm_x_um", "fwhm_y_um", "fwhm_z_um", "ratio_z", "integrated_intensity"]
+rules = ["1_2s", "1_3s", "2_2s", "R_4s", "4_1s", "10_x"]
+
+[tracking.metric_rules]       # override the rules for single metrics
+integrated_intensity = ["1_3s"]
+```

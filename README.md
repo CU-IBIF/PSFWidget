@@ -7,10 +7,11 @@ PSFWidget is a microscope quality-control tool for point spread functions (PSFs)
 - track performance over time on Levey-Jennings charts;
 - produce scheduled, distributable reports.
 
-> **Status:** Pre-alpha. File import (M1) and bead measurement (M2) work:
-> PSFWidget reads bead stacks in all four formats, measures each bead, and
-> compares the results with a theoretical PSF. Tracking over time (M3) and
-> reports (M4) are next.
+> **Status:** Pre-alpha. File import (M1), bead measurement (M2), and
+> tracking over time (M3) work: PSFWidget reads bead stacks in all four
+> formats, measures each bead, compares the results with a theoretical PSF,
+> and tracks them on Levey-Jennings charts with Westgard rules. Reports and
+> scheduled runs (M4) are next.
 
 ## Planning documents
 
@@ -73,6 +74,42 @@ for channel in result.channels:
 
 How accurate the FWHM measurement is on synthetic beads is documented in
 [docs/validation/fitting_accuracy.md](docs/validation/fitting_accuracy.md).
+
+### Tracking performance over time
+
+Add `--db` to record each analysis in a results database, filed by
+instrument, objective, channel, and modality (the instrument comes from the
+profile):
+
+```bash
+psfwidget analyze beads.nd2 --profile examples/profiles/axr-nsparc.toml --db qc.sqlite --out results/
+```
+
+After recording, it prints how the session compares with each channel's
+control limits. Control limits come from the first 20 sessions by default
+(provisional until then), and each session is checked against the Westgard
+rules 1₂ₛ (warning), 1₃ₛ, 2₂ₛ, R₄ₛ, 4₁ₛ, and 10ₓ (rejection).
+
+```bash
+psfwidget track status --db qc.sqlite                       # latest session vs limits
+psfwidget track chart  --db qc.sqlite --out charts/         # Levey-Jennings charts
+psfwidget track event  --db qc.sqlite --instrument axr --kind service \
+    --description "laser realigned" --rebaseline            # new limits from here on
+psfwidget track exclude --db qc.sqlite 17 --reason "dirty slide"
+psfwidget track export --db qc.sqlite --out qc.csv
+psfwidget track audit  --db qc.sqlite                       # who changed what, when
+```
+
+Nothing in the database is ever edited or deleted. Exclusions, re-inclusions,
+and events are added as new rows and recorded in the audit log.
+
+![Levey-Jennings chart of simulated weekly sessions](docs/images/levey_jennings_example.png)
+
+*Simulated weekly sessions from `python tools/demo_tracking.py OUT_DIR`: a
+stable baseline, an excluded dirty-slide session, a drift caught by the
+Westgard rules, and a service visit that starts new (provisional) limits.*
+
+Charts need matplotlib: `pip install "psfwidget[report]"`.
 
 ## Development
 

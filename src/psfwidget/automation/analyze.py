@@ -14,15 +14,13 @@ import csv
 import json
 import math
 from dataclasses import asdict
-from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import Any
 
 from psfwidget.analysis import ChannelResult, FieldResult
-from psfwidget.automation.info import describe_metadata
 from psfwidget.metrics.bead import BEAD_FIELDS
 from psfwidget.metrics.summary import SUMMARY_METRICS
+from psfwidget.serialize import metadata_record, plain
 
 CHANNEL_FIELDS: tuple[str, ...] = (
     "channel",
@@ -124,23 +122,6 @@ def summary_rows(channel: ChannelResult) -> list[dict[str, Any]]:
     return rows
 
 
-def _plain(value: Any) -> Any:
-    """Convert dataclass trees to JSON-ready values."""
-    if isinstance(value, Enum):
-        return value.value
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, float) and not math.isfinite(value):
-        return str(value)
-    if isinstance(value, dict):
-        return {str(k): _plain(v) for k, v in value.items()}
-    if isinstance(value, list | tuple):
-        return [_plain(v) for v in value]
-    return value
-
-
 def run_record(result: FieldResult) -> dict[str, Any]:
     """Return a complete, JSON-ready record of an analysis."""
     channels = []
@@ -165,12 +146,12 @@ def run_record(result: FieldResult) -> dict[str, Any]:
         "software": {"name": "psfwidget", "version": result.software_version},
         "analysed_utc": result.analysed_utc,
         "provenance": asdict(result.provenance),
-        "metadata": describe_metadata(result.metadata),
+        "metadata": metadata_record(result.metadata),
         "settings": result.settings.to_dict(),
         "spec_limits": asdict(result.spec_limits),
         "channels": channels,
     }
-    return dict(_plain(record))
+    return dict(plain(record))
 
 
 def _write_csv(path: Path, fields: tuple[str, ...], rows: list[dict[str, Any]]) -> None:

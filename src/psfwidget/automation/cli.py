@@ -1,21 +1,23 @@
 """Command-line entry point (``psfwidget``).
 
-Commands so far: ``info`` and ``analyze``. The ingest, report, baseline,
-event, and database commands (T6.1, AUT-01) are added as their work packages
+Commands so far: ``info``, ``analyze`` (with ``--db`` to record results), and
+``track`` (status, charts, events, exclusions, export, backup, audit). The
+ingest and report commands (T6.1, AUT-01) are added as their work packages
 land.
 """
 
 from __future__ import annotations
 
 import argparse
+import sqlite3
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from psfwidget import __version__
-from psfwidget.analysis import analyze_stack
-from psfwidget.automation import analyze, info
+from psfwidget.analysis import FieldResult, analyze_stack
+from psfwidget.automation import analyze, info, track
 from psfwidget.io import (
     ImageStack,
     InvalidMetadataError,
@@ -27,6 +29,10 @@ from psfwidget.io import (
 from psfwidget.profiles import InstrumentProfile, ProfileError, load_profile
 from psfwidget.profiles.spec import Status
 from psfwidget.settings import AnalysisSettings
+from psfwidget.tracking.chart import ChartError
+from psfwidget.tracking.schema import SchemaError
+from psfwidget.tracking.settings import TrackingSettings
+from psfwidget.tracking.store import ResultsDatabase, channel_key
 
 EXIT_OK = 0
 EXIT_NOT_READY = 1
@@ -95,7 +101,20 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=f"exit with status {EXIT_SPEC_FAIL} if any channel fails its spec limits",
     )
+    run.add_argument(
+        "--db",
+        metavar="FILE",
+        help="also record the results in this results database (created if missing)",
+    )
+    run.add_argument(
+        "--record-again",
+        action="store_true",
+        help="record even if the same file and series is already in the database",
+    )
+    run.add_argument("--user", help="name recorded in the audit log (default: login name)")
     run.set_defaults(run=_run_analyze)
+
+    track.add_parser(commands)
     return parser
 
 
@@ -189,13 +208,39 @@ def _run_analyze(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return EXIT_NOT_READY
+    if args.db and args.no_hash:
+        raise ValueError("--db needs the file hash; leave out --no-hash")
+    if args.db and (profile is None and stack.metadata.instrument_id is None):
+        raise ValueError(
+            "--db files results under an instrument; give --profile (or --set instrument_id=...)"
+        )
     spec = profile.spec if profile is not None else None
     result = analyze_stack(stack, settings, spec, channels=args.channels)
     written = analyze.write_outputs(result, Path(args.out), overwrite=args.overwrite)
     print(analyze.format_text(result))
     print("\nWrote " + ", ".join(str(p) for p in written))
+    if args.db:
+        _record(result, args, profile)
     failed = any(c.spec is not None and c.spec.status is Status.FAIL for c in result.channels)
     return EXIT_SPEC_FAIL if args.fail_on_spec and failed else EXIT_OK
+
+
+def _record(
+    result: FieldResult, args: argparse.Namespace, profile: InstrumentProfile | None
+) -> None:
+    settings = profile.tracking if profile is not None else TrackingSettings()
+    with ResultsDatabase(args.db) as db:
+        session_id = db.record(result, user=args.user, allow_duplicate=args.record_again)
+        print(f"\nRecorded as session {session_id} in {args.db}\n")
+        keys = {channel_key(result.metadata.channels[c.index]) for c in result.channels}
+        configurations = [
+            c
+            for c in db.configurations()
+            if c.instrument_id == result.metadata.instrument_id.value  # type: ignore[union-attr]
+            and c.channel_key in keys
+        ]
+        lines, _ = track.status_lines(db, configurations, settings)
+    print("\n".join(lines).rstrip())
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -215,6 +260,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         InvalidMetadataError,
         ProfileError,
         ValueError,
+        SchemaError,
+        ChartError,
+        sqlite3.DatabaseError,
     ) as exc:
         print(f"psfwidget: error: {exc}", file=sys.stderr)
         return EXIT_ERROR

@@ -3,48 +3,11 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
-from enum import Enum
 from typing import Any
 
-from psfwidget.io.model import (
-    ACQUISITION_FIELDS,
-    CHANNEL_FIELDS,
-    AcquisitionMetadata,
-    ImageStack,
-    SeriesInfo,
-    Sourced,
-)
-
-
-def _plain(value: object) -> Any:
-    """Convert a metadata value to something JSON can hold."""
-    if isinstance(value, Enum):
-        return value.value
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, tuple):
-        return [_plain(item) for item in value]
-    return value
-
-
-def _entry(item: Sourced[Any] | None) -> dict[str, Any] | None:
-    if item is None:
-        return None
-    return {"value": _plain(item.value), "source": item.source, "note": item.note}
-
-
-def describe_metadata(meta: AcquisitionMetadata) -> dict[str, Any]:
-    """Return metadata values with their origins, ready for JSON."""
-    return {
-        "values": {name: _entry(getattr(meta, name)) for name in ACQUISITION_FIELDS},
-        "channels": [
-            {"index": channel.index}
-            | {name: _entry(getattr(channel, name)) for name in CHANNEL_FIELDS}
-            for channel in meta.channels
-        ],
-        "warnings": list(meta.warnings),
-    }
+from psfwidget.io.model import ImageStack, SeriesInfo
+from psfwidget.serialize import metadata_record as describe_metadata
+from psfwidget.serialize import plain
 
 
 def describe(stack: ImageStack, series: list[SeriesInfo]) -> dict[str, Any]:
@@ -85,12 +48,12 @@ def describe(stack: ImageStack, series: list[SeriesInfo]) -> dict[str, Any]:
 
 
 def _text(value: object) -> str:
-    plain = _plain(value)
-    if isinstance(plain, float):
-        return f"{plain:.6g}"
-    if isinstance(plain, list):
-        return " - ".join(_text(item) for item in plain)
-    return str(plain)
+    converted = plain(value)
+    if isinstance(converted, float):
+        return f"{converted:.6g}"
+    if isinstance(converted, list):
+        return " - ".join(_text(item) for item in converted)
+    return str(converted)
 
 
 def _rows(entries: dict[str, dict[str, Any] | None], indent: str) -> list[str]:

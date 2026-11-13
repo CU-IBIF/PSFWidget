@@ -49,7 +49,7 @@ The structure follows a V-model, adapted for a research and core facility tool. 
 | Readers ↔ data model | **Golden files**: ≥ 2 small real files per format (ND2, LIF, CZI, TIFF, OME-TIFF), including multi-series and multichannel. Expected shape, dtype, voxel size, channel names, and wavelengths are stored as JSON fixtures | Exact match to fixtures |
 | Cross-format consistency | Same acquisition exported in several formats (e.g. CZI → OME-TIFF) | Identical pixel data and voxel size; metrics agree to bit level |
 | Full pipeline on synthetic field | load → detect → measure → compare → persist → report | All stages succeed; DB rows equal in-memory results; report contains all required sections |
-| Database | Schema migration up and down; round-trip export/import; append-only audit | No data loss; audit entries created for every exclusion or re-baseline |
+| Database | Record and read back; schema version check; append-only enforcement on every history table (UPDATE and DELETE refused); CSV export and backup round trip | No data loss; audit entries created for every record, exclusion, inclusion, and event |
 | Report rendering | HTML and PDF generation from fixture results; snapshot test of the HTML structure; PDF page count and text extraction checks | Required sections present (REP-01, REP-02, REP-06, REP-07) |
 | Reproducibility | Run the same file twice | Bit-identical results (NFR-03) |
 
@@ -89,7 +89,7 @@ The structure follows a V-model, adapted for a research and core facility tool. 
 | **GOLD-IO** | Small real files per format, multi-series and multichannel variants | Facility instruments / public samples (license checked) | Not in git. Listed in `tests/data/manifest.json` with SHA-256. Public files (< 100 MB in total) download on demand and are cached in CI; facility files are local-only |
 | **REF-1** | Full-size real bead fields for VAL-01, VAL-03, VAL-04 | Facility acquisition per SOP | External storage with SHA-256 manifest |
 | **REF-2** | Deliberately perturbed acquisitions for VAL-02 | Facility acquisition | External storage with manifest |
-| **LJ-SIM** | Simulated longitudinal series with injected shifts, trends, and increased variance | Generator | Generated in CI |
+| **LJ-SIM** | Simulated longitudinal series with injected shifts, trends, and increased variance | Hand-built series in `tests/test_control.py` and `tests/test_westgard.py`; full pipeline in `tools/demo_tracking.py` | Generated in CI |
 
 All synthetic generators use fixed seeds. Each external dataset has a manifest (file, hash, instrument, objective, settings, expected outcome).
 
