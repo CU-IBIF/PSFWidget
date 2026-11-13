@@ -1,6 +1,6 @@
 # Dependency licence audit (T0.5, NFR-10)
 
-**Date:** 2026-11-13 (updated for M2 the same day)
+**Date:** 2026-11-13 (updated for M2 and M3 the same day)
 **Method:** each package was installed from PyPI and its licence read from the
 package metadata. `tools/check_licenses.py` repeats the check on the installed
 dependency tree in CI and fails on any GPL or AGPL licence.
@@ -24,6 +24,7 @@ first draft of the plan are GPL and have been replaced or deferred.
 | `czifile` | 2026.11.8 | BSD-3-Clause | Zeiss CZI reader |
 | `tifffile` | 2026.11.12 | BSD-3-Clause | TIFF and OME-TIFF reader |
 | `scipy` | 1.18.1 | BSD-3-Clause | Fitting, filtering, Bessel functions (WP2, WP3) |
+| `matplotlib` | 3.11.2 | PSF-based | Levey-Jennings charts (WP4); optional `report` extra. Its dependencies (`pillow` MIT-CMU, `fonttools` MIT, `contourpy` BSD-3, `kiwisolver` BSD, `cycler` BSD, `pyparsing` MIT, `python-dateutil` BSD-3) all pass the check |
 
 `czifile`, `liffile`, and `tifffile` require Python 3.12 or newer, which
 sets the project's minimum Python version.
@@ -34,9 +35,8 @@ sets the project's minimum Python version.
 |---|---|---|---|---|
 | `scikit-image` | 0.26.0 | BSD-3-Clause | Not needed so far (WP2 used `scipy`) | OK |
 | `lmfit` | 1.3.4 | BSD-3-Clause | Not needed so far (WP2 used `scipy`) | OK |
-| `SQLAlchemy` | 2.1.8 | MIT | Results database (WP4) | OK |
-| `alembic` | 1.20.1 | MIT | Database migrations (WP4) | OK |
-| `matplotlib` | 3.11.2 | PSF-based | Static figures (WP4, WP5) | OK |
+| `SQLAlchemy` | 2.1.8 | MIT | Not needed (WP4 uses the built-in `sqlite3`) | OK |
+| `alembic` | 1.20.1 | MIT | Not needed (WP4 uses the built-in `sqlite3`) | OK |
 | `plotly` | 7.1.0 | MIT | Interactive charts (WP5) | OK |
 | `Jinja2` | 3.1.6 | BSD-3-Clause | Report templates (WP5) | OK |
 | `weasyprint` | 70.0 | BSD-3-Clause | PDF output (WP5) | OK. Its dependency `pyphen` is offered under GPL-2+, LGPL-2+, or MPL-1.1; the LGPL or MPL option applies |

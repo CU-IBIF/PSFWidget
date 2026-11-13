@@ -38,14 +38,16 @@ dependencies = [
 [project.optional-dependencies]
 # Populated as each work package lands (WP3, WP5, WP7).
 theory = []
-report = []
+report = [
+    "matplotlib>=3.8",
+]
 napari = []
 test = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
 ]
 dev = [
-    "psfwidget[test]",
+    "psfwidget[report,test]",
     "mypy>=1.10",
     "packaging>=23.0",
     "pre-commit>=3.7",
@@ -95,7 +97,7 @@ ignore = [
 allowed-confusables = ["−", "×", "ρ", "σ"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["psfwidget", "traceability", "fetch_test_data", "check_licenses"]
+known-first-party = ["psfwidget", "traceability", "fetch_test_data", "check_licenses", "fitting_accuracy", "demo_tracking"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

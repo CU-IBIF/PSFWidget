@@ -42,7 +42,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m pip install -e ".[test]"
+      - run: python -m pip install -e ".[report,test]"
       - name: Cache golden test files
         uses: actions/cache@v6
         with:
