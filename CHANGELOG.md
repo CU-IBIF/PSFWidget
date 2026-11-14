@@ -124,6 +124,8 @@ All notable changes to this project are documented here. The format follows
     `psfwidget.profiles.write`);
   - npe2 plugin manifest and a synthetic bead sample (T7.4);
   - a GUI job in CI (headless napari under a virtual display).
+- 3D Gaussian fit of each bead (M5, MET-03): FWHM x, y, z and R²,
+  summarised and tracked.
 - Image-scanning (pixel-reassignment) theory for NSPARC, Live-SR, and
   similar modes (M5, THE-09), with lateral and axial ratios reported and
   tracked.

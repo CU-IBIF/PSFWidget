@@ -37,6 +37,9 @@ BASELINE_SHADE = "#f0efec"
 
 METRIC_LABELS: dict[str, str] = {
     "fwhm_x_um": "FWHM x (µm)",
+    "fwhm_x_3d_um": "FWHM x, 3D fit (µm)",
+    "fwhm_y_3d_um": "FWHM y, 3D fit (µm)",
+    "fwhm_z_3d_um": "FWHM z, 3D fit (µm)",
     "tilt_deg": "Focus-plane tilt (°)",
     "focal_range_um": "Focus range across the field (µm)",
     "curvature_sag_um": "Field-curvature sag at the corner (µm)",

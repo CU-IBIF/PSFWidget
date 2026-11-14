@@ -271,7 +271,7 @@ Task IDs map to requirements (in brackets) for traceability.
 - T2.2 Filters: border, overlap, saturation, SNR, outliers; rejection reasons [DET-02 … DET-06, DET-08]. **Done**, plus inference of the saturation level from a clipping plateau when the file does not state its bit depth.
 - T2.3 1D Gaussian profile fitting X/Y/Z [MET-01, MET-10]. **Done** (3×3 line bundles; R², reduced χ², and FWHM standard error).
 - T2.4 2D Gaussian fits for XY/XZ/YZ planes (rotated elliptical) [MET-02, MET-08]. **Done.**
-- T2.5 3D Gaussian fit [MET-03].
+- T2.5 3D Gaussian fit [MET-03]. **Done:** an axis-aligned 3D Gaussian fitted to each bead's box (Levenberg–Marquardt), with bead-size-corrected FWHM x, y, z and R², summarised and tracked alongside the 1D values; a bead whose 3D fit fails keeps its 1D results with a note.
 - T2.6 Intensity metrics: integrated density, peak, background, SBR/SNR [MET-04 … MET-07]. **Done**, except normalisation to exposure or gain (MET-04), which needs exposure metadata the readers do not extract yet.
 - T2.7 Axial asymmetry metrics [MET-09]. **Done** on the averaged PSF of each channel (skewness of the axial energy profile and energy above / below focus), reported and tracked; per-bead values are not computed. The SP8 test stack gives an energy ratio of 0.7 to 0.8, matching its lobe below focus.
 - T2.8 Field maps, tilt and curvature surface fits, illumination uniformity [MET-11, MET-12]. **Done** as fitted values (focus-plane tilt and focus range, curvature sag at the field corner, corner-to-centre bead intensity), shown in the session report, written to the channel CSV, and tracked like the bead summaries. On the LSM 980 TetraSpeck stack: about 0.4° tilt and 80–90 nm sag. A field-map figure is still to come.
