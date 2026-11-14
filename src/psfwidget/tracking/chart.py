@@ -43,6 +43,8 @@ METRIC_LABELS: dict[str, str] = {
     "uniformity_corner_ratio": "Bead intensity, corner / centre",
     "chromatic_lateral_nm": "Lateral chromatic shift (nm)",
     "chromatic_axial_nm": "Axial chromatic shift (nm)",
+    "strehl": "Strehl ratio estimate (averaged PSF / theory)",
+    "psf_similarity": "Similarity to theory (Pearson r)",
     "fwhm_y_um": "FWHM y (µm)",
     "fwhm_z_um": "FWHM z (µm)",
     "fwhm_x_raw_um": "FWHM x, uncorrected (µm)",

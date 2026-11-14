@@ -123,6 +123,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument("--page", choices=["letter", "a4"], default="letter", help="PDF page size")
     run.add_argument("--xlsx", action="store_true", help="also write an Excel workbook")
+    run.add_argument(
+        "--psf",
+        action="store_true",
+        help="also write each channel's averaged PSF as OME-TIFF, for deconvolution",
+    )
     run.set_defaults(run=_run_analyze)
 
     track.add_parser(commands)
@@ -236,6 +241,8 @@ def _run_analyze(args: argparse.Namespace) -> int:
     written = analyze.write_outputs(result, out, overwrite=args.overwrite)
     print(analyze.format_text(result))
     session_id, checks = _record(result, args, profile) if args.db else (None, None)
+    if args.psf:
+        written += _write_psfs(result, stack, out)
     if args.xlsx:
         written.append(analyze.write_xlsx(result, out / f"{analyze.output_stem(result)}.xlsx"))
     if report_formats:
@@ -250,6 +257,47 @@ def _run_analyze(args: argparse.Namespace) -> int:
     print("\nWrote " + ", ".join(str(p) for p in written))
     failed = any(c.spec is not None and c.spec.status is Status.FAIL for c in result.channels)
     return EXIT_SPEC_FAIL if args.fail_on_spec and failed else EXIT_OK
+
+
+def _write_psfs(result: FieldResult, stack: ImageStack, out: Path) -> list[Path]:
+    from dataclasses import asdict
+
+    from psfwidget.analysis import averaged_psf
+    from psfwidget.average import AverageError, write_ome_tiff
+
+    written: list[Path] = []
+    for channel in result.channels:
+        try:
+            average, used, _ = averaged_psf(
+                stack.channel(channel.index),
+                channel.beads,
+                stack.voxel_size_um,
+                channel.expected_fwhm_um,
+                result.settings,
+            )
+        except AverageError as exc:
+            print(f"Channel {channel.index}: no averaged PSF: {exc}", file=sys.stderr)
+            continue
+        name = f"{analyze.output_stem(result)}_ch{channel.index}_psf.ome.tif"
+        written += write_ome_tiff(
+            average,
+            out / name,
+            voxel_size_um=stack.voxel_size_um,
+            name=f"{result.provenance.path.name} channel {channel.index} averaged PSF",
+            details={
+                "source_file": result.provenance.path.name,
+                "source_sha256": result.provenance.sha256,
+                "series": result.provenance.series_index,
+                "channel": channel.index,
+                "channel_name": channel.name,
+                "n_beads": used,
+                "voxel_size_um": stack.voxel_size_um,
+                "comparison": None if channel.psf is None else asdict(channel.psf),
+                "software_version": result.software_version,
+                "settings": result.settings.to_dict(),
+            },
+        )
+    return written
 
 
 def _record(

@@ -15,6 +15,7 @@ from typing import Any
 import numpy as np
 
 from psfwidget import __version__
+from psfwidget.average import AverageError, PSFComparison, average_beads, box_shape, compare
 from psfwidget.detect.finder import Candidate, Detection, find_candidates, remove_hot_pixels
 from psfwidget.io.model import AcquisitionMetadata, ChannelMetadata, ImageStack, Provenance
 from psfwidget.metrics.bead import (
@@ -43,6 +44,7 @@ from psfwidget.theory.model import (
     channel_theory,
     nyquist_voxel_um,
 )
+from psfwidget.theory.psf3d import theoretical_psf
 
 NM_PER_UM = 1000.0
 MAX_BOX_ADAPTATIONS = 2
@@ -78,6 +80,8 @@ class ChannelResult:
     """Tilt, curvature, and uniformity (MET-11, MET-12)."""
     chromatic: ChromaticShift | None = None
     """Shift relative to the first analysed channel (MET-13); ``None`` for that channel."""
+    psf: PSFComparison | None = None
+    """Averaged PSF compared with theory (MET-14, THE-04, THE-05)."""
 
     @property
     def channel_metrics(self) -> dict[str, float]:
@@ -86,6 +90,9 @@ class ChannelResult:
         if self.chromatic is not None:
             values["chromatic_lateral_nm"] = self.chromatic.lateral_nm
             values["chromatic_axial_nm"] = self.chromatic.dz_nm
+        if self.psf is not None:
+            values["strehl"] = self.psf.strehl
+            values["psf_similarity"] = self.psf.similarity
         return values
 
     @property
@@ -320,6 +327,13 @@ def analyze_channel(
         beads = flag_outliers(beads, settings.outlier_mad, settings.min_beads_for_outliers)
     summary = summarize(beads)
     accepted = sum(1 for b in beads if b.accepted)
+    psf = None
+    if settings.compare_averaged_psf and theory is not None:
+        psf, note = _psf_comparison(
+            volume, beads, voxel, expected, theory, bead_diameter, settings
+        )
+        if note:
+            warnings.append(note)
     if not detection.candidates:
         warnings.append("no beads were detected")
     elif accepted == 0:
@@ -337,7 +351,71 @@ def analyze_channel(
         rejections=rejection_counts(beads),
         spec=None if spec_limits.empty else evaluate(spec_limits, summary, accepted),
         warnings=tuple(warnings),
+        psf=psf,
     )
+
+
+def averaged_psf(
+    volume: np.ndarray[Any, Any],
+    beads: Sequence[BeadResult],
+    voxel: tuple[float, float, float],
+    expected: tuple[float, float],
+    settings: AnalysisSettings,
+) -> tuple[np.ndarray[Any, Any], int, tuple[int, int, int]]:
+    """Return the averaged PSF of the accepted beads, the bead count, and its box half-size.
+
+    Raises
+    ------
+    psfwidget.average.AverageError
+        If too few beads can be averaged.
+    """
+    half = half_box(voxel, expected, settings)
+    average, used = average_beads(volume, tuple(beads), voxel, half)
+    return average, used, half
+
+
+def _psf_comparison(
+    volume: np.ndarray[Any, Any],
+    beads: Sequence[BeadResult],
+    voxel: tuple[float, float, float],
+    expected: tuple[float, float],
+    theory: Theory,
+    bead_diameter_um: float | None,
+    settings: AnalysisSettings,
+) -> tuple[PSFComparison | None, str | None]:
+    try:
+        average, used, half = averaged_psf(volume, beads, voxel, expected, settings)
+    except AverageError as exc:
+        return None, f"no averaged PSF: {exc}"
+    reference = theoretical_psf(theory, voxel, box_shape(half), bead_diameter_um=bead_diameter_um)
+    return compare(average, reference, used, voxel), None
+
+
+def refresh_psf_comparisons(result: FieldResult, stack: ImageStack) -> FieldResult:
+    """Recompute the averaged-PSF comparison of each channel (after a manual review)."""
+    if not result.settings.compare_averaged_psf:
+        return result
+    voxel = stack.voxel_size_um
+    diameter = (
+        None
+        if result.metadata.bead_diameter_nm is None
+        else result.metadata.bead_diameter_nm.value / NM_PER_UM
+    )
+    channels = []
+    for channel in result.channels:
+        psf = None
+        if channel.theory is not None:
+            psf, _ = _psf_comparison(
+                stack.channel(channel.index),
+                channel.beads,
+                voxel,
+                channel.expected_fwhm_um,
+                channel.theory,
+                diameter,
+                result.settings,
+            )
+        channels.append(replace(channel, psf=psf))
+    return replace(result, channels=tuple(channels))
 
 
 def analyze_stack(

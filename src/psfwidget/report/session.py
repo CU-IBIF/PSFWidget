@@ -135,7 +135,7 @@ def _tracking_table(checks: Sequence[MetricCheck]) -> doc.Table:
 
 
 def _field_values(channel: ChannelResult) -> doc.KeyValues | None:
-    """Tilt, curvature, uniformity (MET-11, MET-12) and chromatic shift (MET-13)."""
+    """Tilt, curvature, uniformity, chromatic shift, and the averaged-PSF comparison."""
     rows: list[tuple[str, str]] = []
     field = channel.field
     if field is not None and field.tilt_deg is not None:
@@ -165,6 +165,22 @@ def _field_values(channel: ChannelResult) -> doc.KeyValues | None:
         )
     if field is not None:
         rows += [("Note", note) for note in field.notes]
+    psf = channel.psf
+    if psf is not None:
+        rows.append(
+            (
+                "Averaged PSF",
+                f"{psf.n_beads} beads; FWHM z {psf.fwhm_um[0] * 1000:.0f} "
+                f"nm, y {psf.fwhm_um[1] * 1000:.0f} nm, x {psf.fwhm_um[2] * 1000:.0f} nm",
+            )
+        )
+        rows.append(
+            (
+                "Strehl ratio estimate",
+                f"{psf.strehl:.2f} (peak of the averaged PSF / theoretical peak at equal energy)",
+            )
+        )
+        rows.append(("Similarity to theory", f"{psf.similarity:.3f} (Pearson r)"))
     shift = channel.chromatic
     if shift is not None:
         rows.append(

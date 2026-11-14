@@ -22,7 +22,12 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from psfwidget.analysis import ChannelResult, FieldResult, analyze_stack
+from psfwidget.analysis import (
+    ChannelResult,
+    FieldResult,
+    analyze_stack,
+    refresh_psf_comparisons,
+)
 from psfwidget.io import (
     ImageStack,
     SeriesInfo,
@@ -274,7 +279,9 @@ class AnalysisSession:
             raise ValueError("analyse the stack first")
         decisions = {c: dict(d) for c, d in self.decisions.items()}
         decisions.setdefault(channel, {})[bead_id] = Decision(accept, reason, reviewer)
-        self.result = review(self.automatic, decisions)
+        reviewed = review(self.automatic, decisions)
+        assert self.stack is not None
+        self.result = refresh_psf_comparisons(reviewed, self.stack)
         self.decisions = decisions
         self.session_id = None
         return self.result

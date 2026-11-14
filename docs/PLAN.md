@@ -277,13 +277,13 @@ Task IDs map to requirements (in brackets) for traceability.
 - T2.8 Field maps, tilt and curvature surface fits, illumination uniformity [MET-11, MET-12]. **Done** as fitted values (focus-plane tilt and focus range, curvature sag at the field corner, corner-to-centre bead intensity), shown in the session report, written to the channel CSV, and tracked like the bead summaries. On the LSM 980 TetraSpeck stack: about 0.4° tilt and 80–90 nm sag. A field-map figure is still to come.
 - T2.9 Chromatic registration [MET-13]. **Done:** beads matched across channels by mutual nearest neighbour; median x, y, z shift of each channel from the first analysed channel, in nm, reported and tracked. On the LSM 980 TetraSpeck stack, AF647 is 45 nm lateral and −137 nm axial from AF488.
 - T2.10 Bead size correction and Nyquist check [MET-15, MET-16]. **Done.**
-- T2.11 Averaged PSF (registration, averaging, OME-TIFF export) [MET-14].
+- T2.11 Averaged PSF (registration, averaging, OME-TIFF export) [MET-14]. **Done:** accepted beads registered by sub-voxel spline shifts, background-subtracted, energy-normalised, and averaged; `psfwidget analyze --psf` writes a 32-bit OME-TIFF with physical voxel sizes and a JSON provenance file. Needs at least 3 beads whose box fits in the stack (the 13-plane LSM 980 test stack is too short).
 - T2.12 Encircled energy and MTF (stretch) [MET-17, MET-18].
 
 ### WP3: Theoretical PSF and comparison
 - T3.1 Analytical FWHM formulas (widefield and confocal, with pinhole in Airy units) with citations [THE-01]. **Done**, together with a numerical scalar model (any pinhole size) that the ratios use; see `psfwidget/theory/`.
 - T3.2 Gibson-Lanni and vectorial PSF models at the acquisition sampling, implemented in PSFWidget [THE-02].
-- T3.3 Ratios, Strehl estimate, similarity score [THE-03 … THE-05].
+- T3.3 Ratios, Strehl estimate, similarity score [THE-03 … THE-05]. **Done:** the theoretical bead image on the acquisition grid (`psfwidget.theory.psf3d`: scalar model for each modality, pinhole convolution, bead sphere, voxel integration) is compared with the averaged PSF: Strehl estimate = peak ratio at equal energy, similarity = Pearson r; both reported and tracked. Beads rendered from the theoretical PSF give a Strehl of 1.00 ± 0.08; the SP8 test stack gives 0.12 and r = 0.70, consistent with its spherical aberration.
 - T3.4 Spec limit configuration and pass/fail evaluation [THE-06]. **Done** (`[spec]` table in instrument profiles).
 - T3.5 Comparison figures [THE-07].
 - T3.7 Multiphoton (two-photon) theory from the excitation wavelength, and extraction of the multiphoton laser wavelength from ND2, LIF, and CZI metadata [THE-10]. **Done** apart from LIF detection: a `multiphoton` modality with the Zipfel et al. (2003) formulas and a squared-excitation scalar model (the two agree within 7% for NA 0.8–1.4); analysis needs `excitation_nm` instead of `emission_nm` for multiphoton channels; ND2 (`multiphoton` flag), CZI, and OME-TIFF (`MultiPhotonMicroscopy`) set the modality from the file. Leica LIF files need `modality = "multiphoton"` in the profile until a multiphoton LIF file is available to check (see `examples/profiles/multiphoton-template.toml`).
@@ -302,7 +302,7 @@ Task IDs map to requirements (in brackets) for traceability.
 ### WP5: Reporting and export
 - T5.1 Figure library (bead overview, orthogonal views, profile fits, field maps, LJ) [REP-01, REP-02]. **Done** apart from field maps, which come with the field-map metrics in M5.
 - T5.2 Session and trend reports; HTML (self-contained) and PDF output [REP-01 … REP-03]. **Done** with a block-based report model instead of Jinja2 templates (see §1.3). Charts in the HTML are static images; interactive charts are deferred to the GUI work (M5).
-- T5.3 CSV/XLSX/OME-TIFF exporters [REP-04]. **CSV and XLSX done.** The OME-TIFF export of the averaged PSF is **moved to M5**, with the averaged PSF itself (T2.11, MET-14).
+- T5.3 CSV/XLSX/OME-TIFF exporters [REP-04]. **Done:** CSV and XLSX in M4; the averaged-PSF OME-TIFF in M5 (T2.11).
 - T5.4 Output path templating and collision handling [REP-05]. **Done:** templates such as `{instrument}/{yyyy}/{date}_{file_stem}_s{series}`; existing files are never overwritten (`_2`, `_3`, … is added).
 - T5.5 Provenance block and status logic [REP-06, REP-07]. **Done.** A channel FAILs if no bead is accepted, a spec limit fails, or a Westgard rejection rule is broken; a Westgard warning gives WARNING; a session with no spec limits and no control limits yet is NOT EVALUATED rather than PASS.
 - T5.6 Branding and template override [REP-08]. **Done** for facility name, logo, and footer from the automation config. Overriding the report layout itself is not offered.

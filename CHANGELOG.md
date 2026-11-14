@@ -124,6 +124,11 @@ All notable changes to this project are documented here. The format follows
     `psfwidget.profiles.write`);
   - npe2 plugin manifest and a synthetic bead sample (T7.4);
   - a GUI job in CI (headless napari under a virtual display).
+- Averaged PSF and comparison with theory (M5, MET-14, THE-04, THE-05,
+  REP-04): sub-voxel registration and averaging of accepted beads, the
+  theoretical bead image on the acquisition grid, a Strehl ratio estimate
+  and a similarity score (reported and tracked), and `analyze --psf` for
+  OME-TIFF export with provenance.
 - Field metrics (M5, MET-11 to MET-13): focus-plane tilt and focus range,
   field-curvature sag, corner-to-centre illumination uniformity, and
   chromatic shifts between channels; in reports, the channel CSV, and the
