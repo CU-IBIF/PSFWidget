@@ -33,6 +33,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from psfwidget.automation.glp import DEFAULT_MEANING
 from psfwidget.napari.session import AnalysisSession, default_user
 
 ACCEPTED_COLOUR = "#0ca30c"
@@ -181,8 +182,29 @@ class AnalysisWidget(QWidget):
         self.message_label = QLabel()
         self.message_label.setWordWrap(True)
         self.message_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        out_form.addRow(self.message_label)
         layout.addWidget(outputs)
+
+        # ---------------------------------------------------- review and approval
+        approval = QGroupBox("6. Review and approval (signature in the database)")
+        approval_form = QFormLayout(approval)
+        self.report_combo = QComboBox()
+        choose = QPushButton("Choose…")
+        choose.clicked.connect(self._choose_report)
+        approval_form.addRow("Report", _row(self.report_combo, choose))
+        self.meaning_edit = QLineEdit(DEFAULT_MEANING)
+        approval_form.addRow("Meaning", self.meaning_edit)
+        self.comment_edit = QLineEdit()
+        self.comment_edit.setPlaceholderText("optional comment")
+        approval_form.addRow("Comment", self.comment_edit)
+        self.approve_button = QPushButton("Approve")
+        self.approve_button.clicked.connect(lambda: self.approve_report(approved=True))
+        self.reject_button = QPushButton("Reject")
+        self.reject_button.clicked.connect(lambda: self.approve_report(approved=False))
+        self.verify_button = QPushButton("Check signature")
+        self.verify_button.clicked.connect(self.check_signature)
+        approval_form.addRow(_row(self.approve_button, self.reject_button, self.verify_button))
+        layout.addWidget(approval)
+        layout.addWidget(self.message_label)
         layout.addStretch()
         self._update_buttons()
 
@@ -520,8 +542,76 @@ class AnalysisWidget(QWidget):
         def work() -> list[Path]:
             return self.session.write_report(folder, formats, database=database, operator=operator)
 
-        self._run(
-            work,
-            lambda files: self._say("Wrote " + ", ".join(str(f) for f in files)),
-            "Writing the report",
+        self._run(work, self._reports_written, "Writing the report")
+
+    def _reports_written(self, files: list[Path]) -> None:
+        for path in files:
+            self._add_report(path)
+        self._say("Wrote " + ", ".join(str(f) for f in files))
+
+    def _add_report(self, path: Path) -> None:
+        if self.report_combo.findData(str(path)) < 0:
+            self.report_combo.insertItem(0, path.name, str(path))
+        self.report_combo.setCurrentIndex(self.report_combo.findData(str(path)))
+
+    def _choose_report(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Report to sign", "", "Reports (*.pdf *.html);;All files (*)"
+        )
+        if path:
+            self._add_report(Path(path))
+
+    def _approval_inputs(self) -> tuple[Path, str] | None:
+        report = self.report_combo.currentData()
+        database = self.database_edit.text().strip()
+        if not report or not database:
+            self._say("Choose a report and a results database first.", error=True)
+            return None
+        return Path(report), database
+
+    def approve_report(self, *, approved: bool) -> None:
+        """Sign the chosen report as approved or rejected (QA-02)."""
+        inputs = self._approval_inputs()
+        if inputs is None:
+            return
+        report, database = inputs
+        try:
+            record = self.session.approve(
+                report,
+                database,
+                approved=approved,
+                meaning=self.meaning_edit.text(),
+                comment=self.comment_edit.text(),
+                reviewer=self.reviewer_edit.text(),
+            )
+        except Exception as exc:
+            self._say(str(exc), error=True)
+            return
+        self._say(
+            f"{report.name} {record['decision']} by {record['user']} at {record['utc']} "
+            f"(revision {record['revision']}); signature saved in the database and next to "
+            "the report."
+        )
+
+    def check_signature(self) -> None:
+        """Show whether the chosen report is signed and unchanged since signing."""
+        inputs = self._approval_inputs()
+        if inputs is None:
+            return
+        report, database = inputs
+        try:
+            found = self.session.signatures(report, database)
+        except Exception as exc:
+            self._say(str(exc), error=True)
+            return
+        if not found:
+            self._say(
+                f"{report.name} is not signed, or has changed since it was signed.", error=True
+            )
+            return
+        self._say(
+            "; ".join(
+                f"{a['decision']} by {a['user']} at {a['utc']} (revision {a['revision']})"
+                for a in found
+            )
         )

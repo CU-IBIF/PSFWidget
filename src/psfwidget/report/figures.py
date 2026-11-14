@@ -322,3 +322,85 @@ def profile_fits(
 def is_finite(value: float | None) -> bool:
     """Whether ``value`` is a finite number."""
     return value is not None and math.isfinite(value)
+
+
+DIVERGING = ("#1c5cab", "#86b6ef", "#f0efec", "#ef9a9a", "#b52b2b")
+"""Blue to red through a neutral gray midpoint (focus below / above the median)."""
+SEQUENTIAL = ("#cde2fb", "#86b6ef", "#3987e5", "#1c5cab", "#0d366b")
+"""One-hue blue ramp, light to dark (magnitude)."""
+
+
+def field_map(beads: Sequence[BeadResult], field_size_um: tuple[float, float]) -> bytes | None:
+    """Return a PNG of the bead focus offsets and lateral FWHM across the field (MET-11).
+
+    ``None`` if fewer than 3 accepted beads have a position.
+    """
+    from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
+
+    used = [
+        b
+        for b in beads
+        if b.accepted
+        and None not in (b.centre_x_um, b.centre_y_um, b.centre_z_um)
+        and b.fwhm_x_um is not None
+        and b.fwhm_y_um is not None
+    ]
+    if len(used) < 3:
+        return None
+    x = np.array([b.centre_x_um for b in used], dtype=np.float64)
+    y = np.array([b.centre_y_um for b in used], dtype=np.float64)
+    z = np.array([b.centre_z_um for b in used], dtype=np.float64)
+    focus_nm = (z - np.median(z)) * 1000.0
+    lateral_nm = np.array([(b.fwhm_x_um + b.fwhm_y_um) / 2 for b in used]) * 1000.0  # type: ignore[operator]
+    width, height = field_size_um
+    spread = float(max(np.abs(focus_nm).max(), 1.0))
+    panels = (
+        (
+            "Focus relative to the median (nm)",
+            focus_nm,
+            LinearSegmentedColormap.from_list("diverging", DIVERGING),
+            TwoSlopeNorm(vcenter=0.0, vmin=-spread, vmax=spread),
+        ),
+        (
+            "Lateral FWHM, mean of x and y (nm)",
+            lateral_nm,
+            LinearSegmentedColormap.from_list("sequential", SEQUENTIAL),
+            None,
+        ),
+    )
+    figure = _figure(9.0, 3.9)
+    for index, (title, values, cmap, norm) in enumerate(panels):
+        axes = figure.add_subplot(1, 2, index + 1)
+        axes.set_facecolor(SURFACE)
+        axes.add_patch(_field_outline(width, height))
+        points = axes.scatter(
+            x,
+            y,
+            c=values,
+            cmap=cmap,
+            norm=norm,
+            s=70,
+            edgecolors=SURFACE,
+            linewidths=1.5,
+            zorder=3,
+        )
+        axes.set_xlim(0, width)
+        axes.set_ylim(height, 0)  # image orientation: y down
+        axes.set_aspect("equal")
+        axes.set_title(title, color=INK, fontsize=9)
+        axes.set_xlabel("x (µm)", color=INK_SECONDARY, fontsize=8)
+        axes.set_ylabel("y (µm)", color=INK_SECONDARY, fontsize=8)
+        axes.tick_params(colors=INK_MUTED, labelsize=7)
+        for spine in axes.spines.values():
+            spine.set_color(GRID)
+        bar = figure.colorbar(points, ax=axes, fraction=0.046, pad=0.03)
+        bar.ax.tick_params(colors=INK_MUTED, labelsize=7)
+        bar.outline.set_edgecolor(GRID)
+    figure.subplots_adjust(left=0.07, right=0.95, bottom=0.14, top=0.9, wspace=0.35)
+    return _png(figure)
+
+
+def _field_outline(width: float, height: float) -> Any:
+    from matplotlib.patches import Rectangle
+
+    return Rectangle((0, 0), width, height, fill=False, edgecolor=GRID, linewidth=1, zorder=1)

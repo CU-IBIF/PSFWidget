@@ -139,7 +139,26 @@ def test_analysis_widget_end_to_end(
     widget.pdf_box.setChecked(False)
     widget.write_report()
     _wait(qtbot, widget, lambda: "Wrote" in widget.message_label.text())
-    assert list((tmp_path / "reports").glob("*_report.html"))
+    report = next((tmp_path / "reports").glob("*_report.html"))
+    assert widget.report_combo.currentData() == str(report)
+
+    # Sign the report in the GUI (QA-02); a rejection is a second revision.
+    widget.comment_edit.setText("checked against the bead table")
+    widget.approve_report(approved=True)
+    assert "approved by ab" in widget.message_label.text()
+    widget.check_signature()
+    assert "approved by ab" in widget.message_label.text()
+    approvals = widget.session.signatures(report, tmp_path / "qc.sqlite")
+    assert approvals[0]["session_id"] == widget.session.session_id
+    assert approvals[0]["comment"] == "checked against the bead table"
+    widget.approve_report(approved=False)
+    assert "revision 2" in widget.message_label.text()
+    report.write_text("edited", encoding="utf-8")
+    widget.check_signature()
+    assert "changed since it was signed" in widget.message_label.text()
+    widget.reviewer_edit.setText("")
+    widget.approve_report(approved=True)
+    assert "reviewer's name" in widget.message_label.text()
     widget.view_3d.setChecked(True)
     assert viewer.dims.ndisplay == 3
 

@@ -126,6 +126,10 @@ class AnalysisSession:
         self.result: FieldResult | None = None
         """The result after review; what is reported and recorded."""
         self.session_id: int | None = None
+        self.reports: list[Path] = []
+        """Report files written in this session, newest last."""
+        self.report_sessions: dict[Path, int | None] = {}
+        """The session id each written report was made for (``None`` if not recorded)."""
 
     # ------------------------------------------------------------ loading
 
@@ -447,9 +451,57 @@ class AnalysisSession:
         )
         folder = Path(folder)
         folder.mkdir(parents=True, exist_ok=True)
-        return write_report(
+        written = write_report(
             report, folder / f"{output_stem(result)}_report", frozenset(formats), page_size
         )
+        for path in written:
+            self.reports.append(path)
+            self.report_sessions[path] = self.session_id
+        return written
+
+    def approve(
+        self,
+        report: str | Path,
+        database: str | Path,
+        *,
+        approved: bool,
+        meaning: str,
+        comment: str,
+        reviewer: str,
+    ) -> dict[str, Any]:
+        """Sign a report as approved or rejected (QA-02); return the approval record.
+
+        A report written in this session is tied to its recorded session.
+
+        Raises
+        ------
+        psfwidget.tracking.store.TrackingError
+            If the reviewer, meaning, report, or session is missing.
+        """
+        from psfwidget.automation.glp import approve
+        from psfwidget.tracking.store import TrackingError
+
+        if not reviewer.strip():
+            raise TrackingError("an approval needs the reviewer's name")
+        path = Path(report)
+        record, _ = approve(
+            database,
+            path,
+            approved=approved,
+            meaning=meaning,
+            comment=comment,
+            user=reviewer.strip(),
+            session_id=self.report_sessions.get(path),
+        )
+        return record
+
+    @staticmethod
+    def signatures(report: str | Path, database: str | Path) -> list[dict[str, Any]]:
+        """Return the approvals that match a report's current content (empty if none)."""
+        from psfwidget.tracking.store import ResultsDatabase
+
+        with ResultsDatabase(database) as db:
+            return db.approvals_for(Path(report))
 
     def _require_result(self) -> FieldResult:
         if self.result is None:

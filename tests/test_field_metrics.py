@@ -146,3 +146,27 @@ def test_tilted_two_channel_field_end_to_end(tmp_path: Path) -> None:
         configuration = next(c for c in db.configurations() if c.channel_key.endswith("580"))
         points = db.points(configuration, "chromatic_axial_nm")
         assert points[0].value == pytest.approx(other.chromatic.dz_nm)
+
+
+@pytest.mark.req("MET-11", "REP-01")
+def test_field_map_figure() -> None:
+    from psfwidget.report.figures import field_map
+
+    beads = [
+        BeadResult(
+            bead_id=i,
+            z_px=0,
+            y_px=0,
+            x_px=0,
+            centre_x_um=x,
+            centre_y_um=y,
+            centre_z_um=0.01 * x,
+            fwhm_x_um=0.22,
+            fwhm_y_um=0.23,
+        )
+        for i, (x, y) in enumerate([(1, 1), (9, 1), (5, 9), (2, 7)])
+    ]
+    png = field_map(beads, (10.0, 10.0))
+    assert png is not None
+    assert png.startswith(b"\x89PNG")
+    assert field_map(beads[:2], (10.0, 10.0)) is None

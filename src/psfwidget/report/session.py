@@ -209,6 +209,24 @@ def _field_values(channel: ChannelResult) -> doc.KeyValues | None:
     return doc.KeyValues(tuple(rows)) if rows else None
 
 
+def _field_map(channel: ChannelResult) -> doc.Figure | None:
+    """Return the field-map figure (MET-11) when matplotlib and the beads allow it."""
+    if channel.field is None:
+        return None
+    try:
+        from psfwidget.report.figures import field_map
+    except ImportError:  # pragma: no cover - reports without the figures extra
+        return None
+    png = field_map(channel.beads, channel.field.field_size_um)
+    if png is None:
+        return None
+    return doc.Figure(
+        png,
+        "Accepted beads across the field. Left: focus position relative to the median bead "
+        "(blue below, red above), showing tilt and curvature. Right: lateral FWHM.",
+    )
+
+
 def _spec_table(channel: ChannelResult) -> doc.Table | None:
     if channel.spec is None:
         return None
@@ -426,6 +444,9 @@ def build_session_report(
         if geometry is not None:
             blocks.append(doc.Heading("Field geometry and registration", 3))
             blocks.append(geometry)
+            figure = _field_map(channel)
+            if figure is not None:
+                blocks.append(figure)
         spec = _spec_table(channel)
         if spec is not None:
             blocks.append(spec)

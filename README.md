@@ -234,7 +234,10 @@ Then open *Plugins → PSFWidget*:
   select them in the *bead review* points layer, give a reason and your name,
   and press *Exclude selected beads* or *Include selected beads*: the metrics
   and spec checks update, and the decision is kept with the bead. *Record in
-  database* and *Write report* save the reviewed result.
+  database* and *Write report* save the reviewed result. Under *Review and
+  approval*, *Approve* or *Reject* signs the report (yours, or any report file
+  you choose) with your name, the meaning, and a comment; *Check signature*
+  shows whether it is signed and unchanged.
 - **PSF tracking (Levey-Jennings)**: choose a results database to see each
   configuration's latest state and its charts. Hover over a point for the
   session; click it to select it, then exclude or include it with a reason.

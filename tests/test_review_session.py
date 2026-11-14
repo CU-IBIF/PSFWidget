@@ -137,6 +137,11 @@ def test_session_layers_and_outputs(session: AnalysisSession, tmp_path: Path) ->
     assert f"Session {session_id}" in files[0].read_text("utf-8") or str(session_id) in files[
         0
     ].read_text("utf-8")
+    record = session.approve(
+        files[0], database, approved=True, meaning="reviewed", comment="", reviewer="ab"
+    )
+    assert record["session_id"] == session_id
+    assert session.signatures(files[0], database)[0]["user"] == "ab"
 
 
 @pytest.mark.req("DET-07")
