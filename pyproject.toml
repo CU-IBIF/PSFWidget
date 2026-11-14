@@ -118,6 +118,13 @@ strict = true
 files = ["src", "tests", "tools"]
 mypy_path = "src"
 
+[[tool.mypy.overrides]]
+# The GUI dependencies are optional; napari ships no type information, and
+# qtpy is typed only when a Qt binding is installed.
+module = ["napari", "napari.*", "qtpy", "qtpy.*", "pytestqt", "pytestqt.*"]
+ignore_missing_imports = true
+follow_untyped_imports = false
+
 # ---------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
 minversion = "8.0"
@@ -125,7 +132,17 @@ testpaths = ["tests"]
 pythonpath = ["tools"]
 addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
 xfail_strict = true
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # napari and its dependencies (GUI tests only); not PSFWidget's code.
+    "ignore::DeprecationWarning:pydantic.*",
+    "ignore:.*is deprecated.*Pydantic V2:DeprecationWarning",
+    "ignore::DeprecationWarning:napari.*",
+    "ignore::DeprecationWarning:vispy.*",
+    "ignore::DeprecationWarning:npe2.*",
+    "ignore::DeprecationWarning:pint.*",
+    "ignore::FutureWarning:napari.*",
+]
 
 # ---------------------------------------------------------------- coverage
 [tool.coverage.run]
