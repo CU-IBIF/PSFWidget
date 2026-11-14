@@ -244,11 +244,32 @@ def draw(series: ControlSeries, path: str | Path, *, dpi: int = 150) -> Path:
     """
     try:
         from matplotlib.backends.backend_agg import FigureCanvasAgg
-        from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
         from matplotlib.figure import Figure
-        from matplotlib.lines import Line2D
     except ImportError as exc:  # pragma: no cover - depends on the environment
         raise ChartError("charts need matplotlib: pip install 'psfwidget[report]'") from exc
+
+    figure = Figure(figsize=(10, 4.6), facecolor=SURFACE)
+    FigureCanvasAgg(figure)
+    render(series, figure)
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(target, dpi=dpi, facecolor=SURFACE)
+    return target
+
+
+def render(series: ControlSeries, figure: Any) -> tuple[Any, list[ControlPoint]]:
+    """Draw a Levey-Jennings chart on a matplotlib ``figure`` (cleared first).
+
+    Returns the axes and the plotted points (sessions with a value) in time
+    order, so an interactive view can map clicks back to sessions.
+
+    Raises
+    ------
+    ChartError
+        If no session has a value for the metric.
+    """
+    from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
+    from matplotlib.lines import Line2D
 
     valued = [p for p in series.points if p.session.value is not None]
     if not valued:
@@ -258,8 +279,8 @@ def draw(series: ControlSeries, path: str | Path, *, dpi: int = 150) -> Path:
     spread = max(times) - min(times)
     pad = max(spread / 40, timedelta(hours=12))
 
-    figure = Figure(figsize=(10, 4.6), facecolor=SURFACE)
-    FigureCanvasAgg(figure)
+    figure.clear()
+    figure.set_facecolor(SURFACE)
     axes = figure.add_axes((0.08, 0.23, 0.8, 0.63), facecolor=SURFACE)
     for side in ("top", "right"):
         axes.spines[side].set_visible(False)
@@ -457,8 +478,4 @@ def draw(series: ControlSeries, path: str | Path, *, dpi: int = 150) -> Path:
         figure.text(0.08, 0.015, notes, fontsize=7.5, color=INK_SECONDARY, ha="left", va="bottom")
     for text in legend.get_texts():
         text.set_color(INK_SECONDARY)
-
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(target, dpi=dpi, facecolor=SURFACE)
-    return target
+    return axes, valued
