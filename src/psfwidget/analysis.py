@@ -93,6 +93,9 @@ class ChannelResult:
         if self.psf is not None:
             values["strehl"] = self.psf.strehl
             values["psf_similarity"] = self.psf.similarity
+            values["axial_skewness"] = self.psf.axial_skewness
+            if math.isfinite(self.psf.axial_asymmetry):
+                values["axial_asymmetry"] = self.psf.axial_asymmetry
         return values
 
     @property

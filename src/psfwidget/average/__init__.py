@@ -50,6 +50,10 @@ class PSFComparison:
     similarity: float
     fwhm_um: tuple[float, float, float]
     """FWHM ``(z, y, x)`` of the averaged PSF through its centre."""
+    axial_skewness: float = 0.0
+    """Skewness of the axial energy profile (MET-09); 0 for a symmetric PSF."""
+    axial_asymmetry: float = 1.0
+    """Energy above focus (higher z) divided by energy below (MET-09); 1 when symmetric."""
 
 
 def box_shape(half: tuple[int, int, int]) -> tuple[int, int, int]:
@@ -169,7 +173,29 @@ def compare(
         average[centre[0], centre[1], :],
     )
     fwhm = tuple(_fwhm(p, s) for p, s in zip(profiles, voxel_size_um, strict=True))
-    return PSFComparison(n_beads, strehl, similarity, (fwhm[0], fwhm[1], fwhm[2]))
+    skewness, asymmetry = axial_asymmetry(average)
+    return PSFComparison(
+        n_beads, strehl, similarity, (fwhm[0], fwhm[1], fwhm[2]), skewness, asymmetry
+    )
+
+
+def axial_asymmetry(average: NDArray[np.float64]) -> tuple[float, float]:
+    """Return the skewness of the axial energy profile and the above/below energy ratio.
+
+    The profile is the energy in each z plane (negative values from noise
+    after background subtraction are set to 0). Spherical aberration, e.g. a
+    refractive-index mismatch, makes it asymmetric (MET-09). "Above" is higher
+    z in the stack's order.
+    """
+    profile = np.clip(average.sum(axis=(1, 2)), 0.0, None)
+    centre = profile.size // 2
+    z = np.arange(profile.size, dtype=np.float64) - centre
+    weights = profile / profile.sum()
+    mean = float((weights * z).sum())
+    variance = float((weights * (z - mean) ** 2).sum())
+    skewness = float((weights * (z - mean) ** 3).sum() / variance**1.5) if variance > 0 else 0.0
+    above, below = float(profile[centre + 1 :].sum()), float(profile[:centre].sum())
+    return skewness, above / below if below > 0 else math.inf
 
 
 def write_ome_tiff(

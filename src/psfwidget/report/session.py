@@ -181,6 +181,13 @@ def _field_values(channel: ChannelResult) -> doc.KeyValues | None:
             )
         )
         rows.append(("Similarity to theory", f"{psf.similarity:.3f} (Pearson r)"))
+        rows.append(
+            (
+                "Axial asymmetry",
+                f"skewness {psf.axial_skewness:+.2f}, energy above / "
+                f"below focus {psf.axial_asymmetry:.2f} (0 and 1 when symmetric)",
+            )
+        )
     shift = channel.chromatic
     if shift is not None:
         rows.append(

@@ -167,3 +167,18 @@ def test_cli_writes_averaged_psfs(tmp_path: Path) -> None:
     assert details["n_beads"] >= 8
     assert details["comparison"]["strehl"] > 0
     assert tifffile.imread(tiff).ndim == 3
+
+
+@pytest.mark.req("MET-09")
+def test_axial_asymmetry() -> None:
+    from psfwidget.average import axial_asymmetry
+
+    z = np.arange(21) - 10.0
+    symmetric = np.exp(-(z**2) / 8)[:, None, None] * np.ones((1, 3, 3))
+    skewness, ratio = axial_asymmetry(symmetric / symmetric.sum())
+    assert skewness == pytest.approx(0.0, abs=1e-9)
+    assert ratio == pytest.approx(1.0)
+    tail = np.where(z > 0, np.exp(-(z**2) / 30), np.exp(-(z**2) / 4))[:, None, None]
+    skewness, ratio = axial_asymmetry(tail * np.ones((1, 3, 3)))
+    assert skewness > 0.3
+    assert ratio > 1.5
