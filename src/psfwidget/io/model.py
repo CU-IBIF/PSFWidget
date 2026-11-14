@@ -26,6 +26,8 @@ class Modality(StrEnum):
     CONFOCAL = "confocal"
     """Point-scanning confocal."""
     SPINNING_DISK = "spinning_disk"
+    MULTIPHOTON = "multiphoton"
+    """Two-photon excitation with non-descanned detection (THE-10)."""
 
 
 @dataclass(frozen=True)
@@ -108,6 +110,15 @@ REQUIRED_ACQUISITION_FIELDS: tuple[str, ...] = (
 """Fields without which a stack cannot be analysed (IMP-06)."""
 
 REQUIRED_CHANNEL_FIELDS: tuple[str, ...] = ("emission_nm",)
+MULTIPHOTON_CHANNEL_FIELDS: tuple[str, ...] = ("excitation_nm",)
+"""Multiphoton theory depends on the excitation (laser) wavelength, not the emission."""
+
+
+def required_channel_fields(metadata: AcquisitionMetadata) -> tuple[str, ...]:
+    """Return the channel fields analysis needs for this acquisition's modality."""
+    if metadata.modality is not None and metadata.modality.value is Modality.MULTIPHOTON:
+        return MULTIPHOTON_CHANNEL_FIELDS
+    return REQUIRED_CHANNEL_FIELDS
 
 
 @dataclass(frozen=True)
@@ -239,7 +250,7 @@ def missing_required(metadata: AcquisitionMetadata) -> list[str]:
         where = f"channel {channel.index}" + (f" ({label})" if label else "")
         missing.extend(
             f"missing {name} for {where}"
-            for name in REQUIRED_CHANNEL_FIELDS
+            for name in required_channel_fields(metadata)
             if getattr(channel, name) is None
         )
     return missing

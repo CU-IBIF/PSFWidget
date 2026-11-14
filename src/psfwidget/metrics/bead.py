@@ -19,6 +19,7 @@ from psfwidget.metrics.gaussian import (
     bead_corrected_fwhm,
     fit_gaussian_1d,
     fit_gaussian_2d,
+    fit_gaussian_3d,
 )
 from psfwidget.settings import AnalysisSettings
 
@@ -81,6 +82,11 @@ class BeadResult:
     ratio_x: float | None = None
     ratio_y: float | None = None
     ratio_z: float | None = None
+    fwhm_x_3d_um: float | None = None
+    """FWHM from the 3D Gaussian fit, bead-size corrected like the 1D values (MET-03)."""
+    fwhm_y_3d_um: float | None = None
+    fwhm_z_3d_um: float | None = None
+    r2_3d: float | None = None
 
     @property
     def accepted(self) -> bool:
@@ -295,7 +301,19 @@ def measure_bead(volume: NDArray[np.generic], bead: BeadResult, geometry: Geomet
         )
     except FitError as exc:
         return bead.reject(f"fit failed: {exc}")
-    return _with_fits(bead, fits_1d, (fit_xy, fit_xz, fit_yz), geometry)
+    bead = _with_fits(bead, fits_1d, (fit_xy, fit_xz, fit_yz), geometry)
+    try:
+        fit_3d = fit_gaussian_3d(
+            (coordinates[0], coordinates[1], coordinates[2]),
+            box,
+            fwhm_guess_um=(axial, lateral, lateral),
+        )
+    except FitError:
+        return replace(bead, notes=(*bead.notes, "3D Gaussian fit did not converge"))
+    correct = geometry.settings.bead_size_correction
+    diameter = geometry.bead_diameter_um if correct else None
+    fz, fy, fx = (bead_corrected_fwhm(f, diameter) for f in fit_3d.fwhm_um)
+    return replace(bead, fwhm_x_3d_um=fx, fwhm_y_3d_um=fy, fwhm_z_3d_um=fz, r2_3d=fit_3d.r_squared)
 
 
 def _with_fits(

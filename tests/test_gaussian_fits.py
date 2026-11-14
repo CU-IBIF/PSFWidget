@@ -131,3 +131,27 @@ def test_bead_size_correction() -> None:
     assert bead_corrected_fwhm(0.200, None) == 0.200
     assert bead_corrected_fwhm(0.200, 0.0) == 0.200
     assert math.isnan(bead_corrected_fwhm(0.05, 0.100))
+
+
+@pytest.mark.req("MET-03")
+def test_3d_gaussian_fit_recovers_width_and_centre() -> None:
+    from psfwidget.metrics.gaussian import fit_gaussian_3d
+    from psfwidget.synthetic import FWHM_PER_SIGMA
+
+    z = np.arange(21, dtype=np.float64) * 0.15
+    y = np.arange(25, dtype=np.float64) * 0.05
+    x = np.arange(25, dtype=np.float64) * 0.05
+    centre, fwhm = (1.52, 0.61, 0.58), (0.6, 0.22, 0.25)
+    sigma = [f / FWHM_PER_SIGMA for f in fwhm]
+    box = 100.0 + 1000.0 * (
+        np.exp(-0.5 * ((z - centre[0]) / sigma[0]) ** 2)[:, None, None]
+        * np.exp(-0.5 * ((y - centre[1]) / sigma[1]) ** 2)[None, :, None]
+        * np.exp(-0.5 * ((x - centre[2]) / sigma[2]) ** 2)[None, None, :]
+    )
+    fit = fit_gaussian_3d((z, y, x), box, fwhm_guess_um=(0.5, 0.2, 0.2))
+    assert fit.centre_um == pytest.approx(centre, abs=1e-6)
+    assert fit.fwhm_um == pytest.approx(fwhm, rel=1e-6)
+    assert fit.offset == pytest.approx(100.0)
+    assert fit.r_squared == pytest.approx(1.0)
+    with pytest.raises(FitError):
+        fit_gaussian_3d((z, y, x), np.full(box.shape, 5.0), fwhm_guess_um=(0.5, 0.2, 0.2))

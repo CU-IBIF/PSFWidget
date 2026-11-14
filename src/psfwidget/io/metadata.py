@@ -258,19 +258,29 @@ def plausibility_warnings(metadata: AcquisitionMetadata) -> list[str]:
             f"numerical aperture {na.value:g} exceeds the immersion refractive index "
             f"{ri.value:g}; one of them is wrong"
         )
+    multiphoton = metadata.modality is not None and (
+        metadata.modality.value is Modality.MULTIPHOTON
+    )
     for channel in metadata.channels:
-        found.extend(_channel_warnings(channel))
+        found.extend(_channel_warnings(channel, multiphoton))
     return found
 
 
-def _channel_warnings(channel: ChannelMetadata) -> list[str]:
+def _channel_warnings(channel: ChannelMetadata, multiphoton: bool = False) -> list[str]:
     found: list[str] = []
     where = f"channel {channel.index}"
-    for label, item in (("excitation", channel.excitation_nm), ("emission", channel.emission_nm)):
-        if item is not None and not 300.0 <= item.value <= 1100.0:
-            found.append(f"{where}: {label} wavelength {item.value:g} nm is outside 300-1100 nm")
+    excitation_limit = 1400.0 if multiphoton else 1100.0  # multiphoton lasers reach 1300 nm
+    for label, item, limit in (
+        ("excitation", channel.excitation_nm, excitation_limit),
+        ("emission", channel.emission_nm, 1100.0),
+    ):
+        if item is not None and not 300.0 <= item.value <= limit:
+            found.append(
+                f"{where}: {label} wavelength {item.value:g} nm is outside 300-{limit:g} nm"
+            )
     if (
-        channel.excitation_nm is not None
+        not multiphoton
+        and channel.excitation_nm is not None
         and channel.emission_nm is not None
         and channel.emission_nm.value <= channel.excitation_nm.value
     ):

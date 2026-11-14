@@ -223,12 +223,19 @@ def _run_backup(args: argparse.Namespace) -> int:
 
 
 def _run_audit(args: argparse.Namespace) -> int:
+    since = parse_time(args.since) if args.since else None
+    until = parse_time(args.until) if args.until else None
     with ResultsDatabase(args.db) as db:
-        for entry in db.audit_log():
+        if args.csv:
+            count = db.export_audit_csv(args.csv, since, until)
+            print(f"Wrote {count} audit entries to {args.csv}")
+            return EXIT_OK
+        for entry in db.audit_entries(since, until):
             details = ", ".join(
                 f"{k}={v}" for k, v in entry["details"].items() if v not in (None, [])
             )
-            print(f"{entry['utc']}  {entry['user']:<12} {entry['action']:<8} {details}")
+            host = f"@{entry['host']}" if entry["host"] else ""
+            print(f"{entry['utc']}  {entry['user'] + host:<24} {entry['action']:<16} {details}")
     return EXIT_OK
 
 
@@ -360,6 +367,9 @@ def add_parser(commands: Any) -> None:
     backup.add_argument("--out", required=True, help="new database file")
     backup.set_defaults(run=_run_backup)
 
-    audit = sub.add_parser("audit", help="print the audit log")
+    audit = sub.add_parser("audit", help="print or export the audit log (QA-06)")
     _database(audit)
+    audit.add_argument("--since", help="first date or time to include (ISO)")
+    audit.add_argument("--until", help="last date or time to include (ISO)")
+    audit.add_argument("--csv", metavar="FILE", help="write CSV instead of printing")
     audit.set_defaults(run=_run_audit)

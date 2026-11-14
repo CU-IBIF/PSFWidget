@@ -124,6 +124,7 @@ Legend: **U** = Unit, **I** = Integration, **S** = System, **V** = Validation, *
 | THE-07 | I, R | Report snapshot; visual review |
 | THE-08 | U, I | Mode detection on the NSPARC and Live-SR golden files; ratio tests against the base-modality model |
 | THE-09 | U, V | Image-scanning model FWHM vs. published reassignment factors; VAL-04 on NSPARC and Live-SR stacks |
+| THE-10 | U, R, V | Two-photon FWHM vs. hand calculation from Zipfel et al. (2003); refusal without excitation wavelength; citation review; VAL-04 on a multiphoton bead stack |
 | TRK-01, TRK-02 | I | DB persistence round-trip |
 | TRK-03, TRK-08 | I, R | LJ figure snapshot; visual review |
 | TRK-04, TRK-05 | U, V | Baseline and Westgard table tests; LJ-SIM; VAL-05 |
@@ -133,6 +134,7 @@ Legend: **U** = Unit, **I** = Integration, **S** = System, **V** = Validation, *
 | REP-01 … REP-07 | I, R, V | Report generation tests; VAL-07 |
 | REP-08 | I | Template override test |
 | AUT-01 … AUT-06 | S | CLI scenarios; watch-folder and scheduler soak; alert test |
+| AUT-07 | I, S | Backup checksum and retention tests; restore drill |
 | UI-01 … UI-04 | S, V | GUI script; pytest-qt smoke; VAL-06 |
 | UI-05 | R, I | API docs review; API usage tests |
 | NFR-01 | U | Fitting Monte Carlo |
@@ -145,6 +147,14 @@ Legend: **U** = Unit, **I** = Integration, **S** = System, **V** = Validation, *
 | NFR-08 | V | VAL-06 |
 | NFR-09 | R | Coverage report (CI gate ≥ 85%) and docs review |
 | NFR-10 | R | License audit (T0.5) + CI license check |
+| NFR-11 | R, S | Deployment review; check that a database path on a network share is refused or warned about; priority setting test |
+| QA-01 | I, R | Identity and UTC time on every record type; scheduled-run identity test |
+| QA-02 | I, S, V | Approval round trip; append-only enforcement on approvals; re-issue versioning; VAL-07 |
+| QA-03 | I | Profile and config hash recorded and changes detected |
+| QA-04 | I | Hash linkage; no-overwrite tests; backup verification |
+| QA-05 | S, R | Self-test passes on a clean install on each OS; IQ/OQ record reviewed |
+| QA-06 | I | Audit export for a date range |
+| QA-07 | R | Validation document set reviewed at release |
 
 The matrix will be maintained as a machine-readable file (`docs/traceability.csv`). Tests will reference requirement IDs with pytest markers (e.g. `@pytest.mark.req("MET-01")`), so the CI can generate a coverage-by-requirement report automatically.
 
@@ -164,6 +174,8 @@ The matrix will be maintained as a machine-readable file (`docs/traceability.csv
 
 
 **M4 status (2026-11-13).** Automated: report rendering (`tests/test_reports.py`: every block type in HTML and PDF, PDF character mapping, templates and collision handling, status logic, session report sections and provenance, XLSX sheets, trend report period filtering); automation (`tests/test_automation.py`: schedule parsing and due times, config validation messages, ingest with a corrupt file, a file still being written, a duplicate, and a missing folder, lock handling, CLI). The watch-folder scenario has no "unknown-profile file" case, because each watched folder has exactly one profile; a file whose metadata is incomplete even with that profile is skipped and listed in the run summary. A **compressed soak test** (`test_four_weeks_unattended`) simulates 29 days of daily acquisitions with the scheduler waking every 4 hours: every file is recorded once, four weekly trend reports are written, and the injected wide session raises `ALERT.txt`. Still open for the M4 gate: the real 7-day soak on a Windows and a Linux machine, and the PDF text-extraction check (PDFs are checked for validity and size only).
+
+**M5 GUI status (2026-11-14).** The GUI is tested in a headless napari viewer under a virtual display (`tests/test_gui_*.py`, CI job *GUI*): opening a file, editing metadata (including a rejected invalid value), analysis in a worker thread with the busy indicator (UI-04), bead exclusion and undo, recording, report writing, the 3D view, the tracking chart's hover and click mapping, exclusion with the audit entry, events, and the profile editor's load, validate, and save. The plugin manifest is validated with `npe2 validate`, and every widget and the sample data are opened through napari's plugin system. The core and the GUI-free session logic are measured in the main test matrix; the Qt widgets have their own coverage gate (85%) in the GUI job. The manual GUI test script and VAL-06 usability session are still to be done with facility staff.
 ---
 
 ## 6. Anomaly management

@@ -57,6 +57,8 @@ class AnalysisSettings:
     bead_size_correction: bool = True
     """Remove the bead's own width from FWHM values when its diameter is known (MET-15)."""
     nyquist_samples_per_fwhm: float = 2.3
+    compare_averaged_psf: bool = True
+    """Average the accepted beads and compare with the theoretical PSF (THE-04, THE-05)."""
     """Voxels needed across the theoretical FWHM to count as adequately sampled (MET-16)."""
 
     def __post_init__(self) -> None:

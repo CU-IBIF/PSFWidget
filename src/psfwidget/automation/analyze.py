@@ -19,6 +19,7 @@ from typing import Any
 
 from psfwidget.analysis import ChannelResult, FieldResult
 from psfwidget.metrics.bead import BEAD_FIELDS
+from psfwidget.metrics.field import CHANNEL_METRICS
 from psfwidget.metrics.summary import SUMMARY_METRICS
 from psfwidget.serialize import metadata_record, plain
 
@@ -42,6 +43,7 @@ CHANNEL_FIELDS: tuple[str, ...] = (
     "measurement_lateral_um",
     "measurement_axial_um",
     "spec_status",
+    *CHANNEL_METRICS,
     "warnings",
 )
 SUMMARY_FIELDS: tuple[str, ...] = (
@@ -105,6 +107,7 @@ def channel_row(channel: ChannelResult) -> dict[str, Any]:
         "measurement_lateral_um": channel.expected_fwhm_um[0],
         "measurement_axial_um": channel.expected_fwhm_um[1],
         "spec_status": None if channel.spec is None else channel.spec.status.value,
+        **{metric: channel.channel_metrics.get(metric) for metric in CHANNEL_METRICS},
         "warnings": "; ".join(channel.warnings),
     }
 

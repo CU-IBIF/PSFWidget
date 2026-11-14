@@ -74,6 +74,11 @@ class FakeDist:
         ),
         ({"License": "GPL v3\nmore text"}, ["GPL v3"], False),
         ({"License": "BSD 3-Clause License"}, ["BSD 3-Clause License"], True),
+        (
+            {"License": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"},
+            ["LGPL-3.0-only", "GPL-2.0-only", "GPL-3.0-only"],
+            True,
+        ),
         ({"License": "UNKNOWN"}, [], False),
         ({}, [], False),
     ],

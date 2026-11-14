@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
 
 from psfwidget import __version__
+from psfwidget.average import AverageError, PSFComparison, average_beads, box_shape, compare
 from psfwidget.detect.finder import Candidate, Detection, find_candidates, remove_hot_pixels
 from psfwidget.io.model import AcquisitionMetadata, ChannelMetadata, ImageStack, Provenance
 from psfwidget.metrics.bead import (
@@ -24,6 +25,13 @@ from psfwidget.metrics.bead import (
     far_from_border,
     half_box,
     measure_bead,
+)
+from psfwidget.metrics.field import (
+    MATCH_RADIUS_FWHM,
+    ChromaticShift,
+    FieldGeometry,
+    chromatic_shift,
+    field_geometry,
 )
 from psfwidget.metrics.gaussian import BEAD_FWHM_PER_DIAMETER
 from psfwidget.metrics.summary import Stats, flag_outliers, rejection_counts, summarize
@@ -36,6 +44,7 @@ from psfwidget.theory.model import (
     channel_theory,
     nyquist_voxel_um,
 )
+from psfwidget.theory.psf3d import theoretical_psf
 
 NM_PER_UM = 1000.0
 MAX_BOX_ADAPTATIONS = 2
@@ -67,6 +76,33 @@ class ChannelResult:
     rejections: dict[str, int]
     spec: SpecResult | None
     warnings: tuple[str, ...]
+    field: FieldGeometry | None = None
+    """Tilt, curvature, and uniformity (MET-11, MET-12)."""
+    chromatic: ChromaticShift | None = None
+    """Shift relative to the first analysed channel (MET-13); ``None`` for that channel."""
+    psf: PSFComparison | None = None
+    """Averaged PSF compared with theory (MET-14, THE-04, THE-05)."""
+
+    @property
+    def channel_metrics(self) -> dict[str, float]:
+        """Channel-level metrics (one value per session), tracked like bead summaries."""
+        values = {} if self.field is None else self.field.metrics()
+        if self.chromatic is not None:
+            values["chromatic_lateral_nm"] = self.chromatic.lateral_nm
+            values["chromatic_axial_nm"] = self.chromatic.dz_nm
+        theory = self.theory
+        lateral = [self.summary[k].median for k in ("fwhm_x_um", "fwhm_y_um") if k in self.summary]
+        if theory is not None and theory.ism_lateral_um and lateral:
+            values["ratio_lateral_ism"] = sum(lateral) / len(lateral) / theory.ism_lateral_um
+        if theory is not None and theory.ism_axial_um and "fwhm_z_um" in self.summary:
+            values["ratio_axial_ism"] = self.summary["fwhm_z_um"].median / theory.ism_axial_um
+        if self.psf is not None:
+            values["strehl"] = self.psf.strehl
+            values["psf_similarity"] = self.psf.similarity
+            values["axial_skewness"] = self.psf.axial_skewness
+            if math.isfinite(self.psf.axial_asymmetry):
+                values["axial_asymmetry"] = self.psf.axial_asymmetry
+        return values
 
     @property
     def accepted(self) -> tuple[BeadResult, ...]:
@@ -126,15 +162,15 @@ def _expected_fwhm(
     if theory is not None:
         lateral, axial = theory.lateral_um, theory.axial_um
     else:
-        assert channel.emission_nm is not None
         assert metadata.numerical_aperture is not None
         assert metadata.immersion_ri is not None
-        widefield = analytic.widefield(
-            channel.emission_nm.value,
-            metadata.numerical_aperture.value,
-            metadata.immersion_ri.value,
-        )
-        lateral, axial = widefield.lateral_um, widefield.axial_um
+        na, n = metadata.numerical_aperture.value, metadata.immersion_ri.value
+        if channel.emission_nm is not None:
+            rough = analytic.widefield(channel.emission_nm.value, na, n)
+        else:  # multiphoton: only the excitation wavelength is required
+            assert channel.excitation_nm is not None
+            rough = analytic.multiphoton(channel.excitation_nm.value, na, n)
+        lateral, axial = rough.lateral_um, rough.axial_um
     if metadata.bead_diameter_nm is not None:
         bead = BEAD_FWHM_PER_DIAMETER * metadata.bead_diameter_nm.value / NM_PER_UM
         lateral, axial = math.hypot(lateral, bead), math.hypot(axial, bead)
@@ -300,6 +336,13 @@ def analyze_channel(
         beads = flag_outliers(beads, settings.outlier_mad, settings.min_beads_for_outliers)
     summary = summarize(beads)
     accepted = sum(1 for b in beads if b.accepted)
+    psf = None
+    if settings.compare_averaged_psf and theory is not None:
+        psf, note = _psf_comparison(
+            volume, beads, voxel, expected, theory, bead_diameter, settings
+        )
+        if note:
+            warnings.append(note)
     if not detection.candidates:
         warnings.append("no beads were detected")
     elif accepted == 0:
@@ -317,7 +360,71 @@ def analyze_channel(
         rejections=rejection_counts(beads),
         spec=None if spec_limits.empty else evaluate(spec_limits, summary, accepted),
         warnings=tuple(warnings),
+        psf=psf,
     )
+
+
+def averaged_psf(
+    volume: np.ndarray[Any, Any],
+    beads: Sequence[BeadResult],
+    voxel: tuple[float, float, float],
+    expected: tuple[float, float],
+    settings: AnalysisSettings,
+) -> tuple[np.ndarray[Any, Any], int, tuple[int, int, int]]:
+    """Return the averaged PSF of the accepted beads, the bead count, and its box half-size.
+
+    Raises
+    ------
+    psfwidget.average.AverageError
+        If too few beads can be averaged.
+    """
+    half = half_box(voxel, expected, settings)
+    average, used = average_beads(volume, tuple(beads), voxel, half)
+    return average, used, half
+
+
+def _psf_comparison(
+    volume: np.ndarray[Any, Any],
+    beads: Sequence[BeadResult],
+    voxel: tuple[float, float, float],
+    expected: tuple[float, float],
+    theory: Theory,
+    bead_diameter_um: float | None,
+    settings: AnalysisSettings,
+) -> tuple[PSFComparison | None, str | None]:
+    try:
+        average, used, half = averaged_psf(volume, beads, voxel, expected, settings)
+    except AverageError as exc:
+        return None, f"no averaged PSF: {exc}"
+    reference = theoretical_psf(theory, voxel, box_shape(half), bead_diameter_um=bead_diameter_um)
+    return compare(average, reference, used, voxel), None
+
+
+def refresh_psf_comparisons(result: FieldResult, stack: ImageStack) -> FieldResult:
+    """Recompute the averaged-PSF comparison of each channel (after a manual review)."""
+    if not result.settings.compare_averaged_psf:
+        return result
+    voxel = stack.voxel_size_um
+    diameter = (
+        None
+        if result.metadata.bead_diameter_nm is None
+        else result.metadata.bead_diameter_nm.value / NM_PER_UM
+    )
+    channels = []
+    for channel in result.channels:
+        psf = None
+        if channel.theory is not None:
+            psf, _ = _psf_comparison(
+                stack.channel(channel.index),
+                channel.beads,
+                voxel,
+                channel.expected_fwhm_um,
+                channel.theory,
+                diameter,
+                result.settings,
+            )
+        channels.append(replace(channel, psf=psf))
+    return replace(result, channels=tuple(channels))
 
 
 def analyze_stack(
@@ -343,12 +450,48 @@ def analyze_stack(
     for index in selected:
         if not 0 <= index < stack.n_channels:
             raise IndexError(f"channel {index} out of range for {stack.n_channels} channel(s)")
-    return FieldResult(
-        provenance=stack.provenance,
-        metadata=stack.metadata,
-        settings=settings,
-        spec_limits=spec_limits,
-        software_version=__version__,
-        analysed_utc=datetime.now(UTC).replace(microsecond=0),
-        channels=tuple(analyze_channel(stack, index, settings, spec_limits) for index in selected),
+    _, _, height, width = stack.shape
+    _, voxel_y, voxel_x = stack.voxel_size_um
+    channels_done = tuple(
+        analyze_channel(stack, index, settings, spec_limits) for index in selected
     )
+    return add_field_metrics(
+        FieldResult(
+            provenance=stack.provenance,
+            metadata=stack.metadata,
+            settings=settings,
+            spec_limits=spec_limits,
+            software_version=__version__,
+            analysed_utc=datetime.now(UTC).replace(microsecond=0),
+            channels=channels_done,
+        ),
+        (width * voxel_x, height * voxel_y),
+    )
+
+
+def add_field_metrics(
+    result: FieldResult, field_size_um: tuple[float, float] | None = None
+) -> FieldResult:
+    """Return ``result`` with field geometry and chromatic shifts (re)computed.
+
+    ``field_size_um`` is the field width and height; if omitted, the size
+    stored with the channels' previous geometry is used (as after a review).
+    """
+    channels = []
+    for channel in result.channels:
+        size = field_size_um or (None if channel.field is None else channel.field.field_size_um)
+        geometry = None if size is None else field_geometry(channel.beads, size)
+        channels.append(replace(channel, field=geometry, chromatic=None))
+    if len(channels) > 1:
+        reference = channels[0]
+        radius = MATCH_RADIUS_FWHM * reference.expected_fwhm_um[0]
+        for number, channel in enumerate(channels[1:], start=1):
+            shift = chromatic_shift(
+                reference.beads,
+                channel.beads,
+                reference_index=reference.index,
+                other_index=channel.index,
+                match_radius_um=radius,
+            )
+            channels[number] = replace(channel, chromatic=shift)
+    return replace(result, channels=tuple(channels))

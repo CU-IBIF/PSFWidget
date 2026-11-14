@@ -1,0 +1,27 @@
+name: psfwidget
+display_name: PSFWidget
+contributions:
+  commands:
+    - id: psfwidget.analysis
+      title: PSF analysis
+      python_name: psfwidget.napari.analysis_widget:AnalysisWidget
+    - id: psfwidget.tracking
+      title: PSF tracking (Levey-Jennings)
+      python_name: psfwidget.napari.tracking_widget:TrackingWidget
+    - id: psfwidget.profile_editor
+      title: Instrument profile editor
+      python_name: psfwidget.napari.profile_editor:ProfileEditor
+    - id: psfwidget.sample_beads
+      title: Synthetic bead field
+      python_name: psfwidget.napari.sample:bead_field
+  widgets:
+    - command: psfwidget.analysis
+      display_name: PSF analysis
+    - command: psfwidget.tracking
+      display_name: PSF tracking (Levey-Jennings)
+    - command: psfwidget.profile_editor
+      display_name: Instrument profile editor
+  sample_data:
+    - command: psfwidget.sample_beads
+      key: beads
+      display_name: Synthetic 100 nm bead field (widefield, NA 1.4)

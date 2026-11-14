@@ -19,7 +19,7 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 
 - Import of 3D (and 3D multichannel) stacks from `.nd2`, `.lif`, `.czi`, and `.tif`/`.ome.tif`.
 - Automated bead detection, quality filtering, and per-bead metrics.
-- Theoretical PSF generation for widefield, point-scanning confocal, and spinning-disk confocal modalities.
+- Theoretical PSF generation for widefield, point-scanning confocal, spinning-disk confocal, and multiphoton (two-photon) modalities.
 - A persistent results database with LJ charts and rule-based flags.
 - HTML and PDF reports, plus CSV and XLSX exports.
 - Scheduled, unattended processing of a watch folder.
@@ -27,8 +27,8 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 
 ### 1.2 Out of scope (v1.0, candidates for later)
 
-- Light-sheet, SIM, and STED PSF models. (Image-scanning modes such as NSPARC and Live-SR are in scope; see THE-08 and THE-09.)
-- Email or Slack delivery of reports. v1.0 writes to folders only, so existing sharing tools handle distribution.
+- Light-sheet, SIM, and STED PSF models, and three-photon excitation. (Image-scanning modes such as NSPARC and Live-SR are in scope; see THE-08 and THE-09.)
+- Email, Teams, or Slack delivery of reports. v1.0 writes to network folders only (confirmed 2026-11-13); other channels would need IT involvement.
 - A multi-user web server or dashboard.
 - Deconvolution itself. v1.0 only exports averaged PSFs for use in deconvolution software.
 
@@ -130,6 +130,7 @@ All metrics are computed per bead and summarized per field as n, mean, SD, media
 | THE-07 | The system shall show side-by-side XY, XZ, and YZ views with overlaid profiles of the empirical vs. theoretical PSF. | M |
 | THE-08 | For configurations that use a resolution-enhancing mode (e.g. Nikon NSPARC SR, Live-SR), the system shall keep the theoretical comparison: it shall report measured/theoretical ratios against the model of the base modality (point-scanning or spinning-disk confocal) and label the result with the enhancement mode. | M |
 | THE-09 | For resolution-enhancing modes based on image scanning (pixel reassignment), the system shall also compute a theoretical PSF from an image-scanning-microscopy model and report ratios against it. | S |
+| THE-10 | For **multiphoton** (two-photon) configurations, the system shall compute the theoretical FWHM from the **excitation** wavelength with a two-photon model (squared excitation PSF, non-descanned detection, no pinhole), with citations, and shall refuse to compute it when the excitation wavelength is unknown. | M |
 
 ### 3.5 Tracking and statistical process control (TRK)
 
@@ -171,6 +172,7 @@ All metrics are computed per bead and summarized per field as n, mean, SD, media
 | AUT-04 | The system shall log every scheduled run (start, end, files processed, errors) and write a run summary file. Failures shall not stop the processing of other files. | M |
 | AUT-05 | The system shall take all automation settings from a version-controllable **config file** (YAML or TOML), validated on load with clear error messages. | M |
 | AUT-06 | The system shall write a flag or status file (e.g. `ALERT.txt` or a JSON status) to the output folder when a run produces FAIL or Westgard rejection results, so downstream tools can notify staff. | S |
+| AUT-07 | The system shall support a scheduled **database backup** to a configured (network) folder, verified by checksum, with old backups kept according to a retention setting. | M |
 
 ### 3.8 User interfaces (UI)
 
@@ -196,6 +198,26 @@ All metrics are computed per bead and summarized per field as n, mean, SD, media
 | NFR-08 | **Usability:** a new user can complete a session analysis from the GUI in 10 minutes or less using the quick-start guide. | S |
 | NFR-09 | **Maintainability:** ≥ 85% line coverage on the core package, typed public API, and documented modules. | S |
 | NFR-10 | **Licensing:** all dependencies are compatible with distribution under the repository's MIT license. GPL dependencies are flagged before adoption. | M |
+| NFR-11 | **Deployment:** the tool runs on each acquisition PC with its own local results database. Only reports, exports, status files, and backups are written to network folders; the database itself shall not be placed on a network share. Scheduled analysis shall run at reduced process priority so that it does not disturb acquisition. | M |
+
+
+### 3.10 Quality assurance for GLP conformance (QA)
+
+The tool is for internal facility QC, but its records and validation shall
+conform to the OECD Principles of Good Laboratory Practice and OECD GLP
+Advisory Document No. 17 (application of GLP principles to computerised
+systems). Records shall be ALCOA+: attributable, legible, contemporaneous,
+original, accurate, complete, consistent, enduring, and available.
+
+| ID | Requirement | Pri |
+|---|---|---|
+| QA-01 | **Attributable records:** every recorded session, event, exclusion, inclusion, report, and approval shall carry the identity of the person (or, for scheduled runs, the service account and host) and a UTC time stamp from the system clock. | M |
+| QA-02 | **Review and approval:** a session or trend report shall be able to be reviewed and approved or rejected by a named person with the meaning of the signature and an optional comment. Approvals are stored append-only in the database and in the audit trail; an approved report file is never regenerated in place, and a re-issued report gets a new version number that refers to the one it replaces. | M |
+| QA-03 | **Configuration control:** every result and run shall record the software version, the analysis settings, and the SHA-256 of the instrument profile and automation configuration used, so that any change to them is detectable. | M |
+| QA-04 | **Raw data linkage and retention:** each result shall keep the source file name, path, and SHA-256; reports and exports are never overwritten; backups are verified by checksum (AUT-07). | M |
+| QA-05 | **Installation and operational qualification:** a `psfwidget selftest` command shall run a built-in verification on synthetic data with known answers, record the environment (OS, Python, package versions, host), and write an IQ/OQ record for sign-off. | M |
+| QA-06 | **Audit trail review:** the audit trail shall be exportable for a date range as CSV and as a report for periodic review. | S |
+| QA-07 | **Validation records:** the validation plan, requirements, traceability matrix, test records, and validation summary report shall be kept under version control and released with each version (see `docs/VV_PLAN.md`). | M |
 
 ---
 
@@ -249,22 +271,23 @@ Task IDs map to requirements (in brackets) for traceability.
 - T2.2 Filters: border, overlap, saturation, SNR, outliers; rejection reasons [DET-02 … DET-06, DET-08]. **Done**, plus inference of the saturation level from a clipping plateau when the file does not state its bit depth.
 - T2.3 1D Gaussian profile fitting X/Y/Z [MET-01, MET-10]. **Done** (3×3 line bundles; R², reduced χ², and FWHM standard error).
 - T2.4 2D Gaussian fits for XY/XZ/YZ planes (rotated elliptical) [MET-02, MET-08]. **Done.**
-- T2.5 3D Gaussian fit [MET-03].
+- T2.5 3D Gaussian fit [MET-03]. **Done:** an axis-aligned 3D Gaussian fitted to each bead's box (Levenberg–Marquardt), with bead-size-corrected FWHM x, y, z and R², summarised and tracked alongside the 1D values; a bead whose 3D fit fails keeps its 1D results with a note.
 - T2.6 Intensity metrics: integrated density, peak, background, SBR/SNR [MET-04 … MET-07]. **Done**, except normalisation to exposure or gain (MET-04), which needs exposure metadata the readers do not extract yet.
-- T2.7 Axial asymmetry metrics [MET-09].
-- T2.8 Field maps, tilt and curvature surface fits, illumination uniformity [MET-11, MET-12].
-- T2.9 Chromatic registration [MET-13].
+- T2.7 Axial asymmetry metrics [MET-09]. **Done** on the averaged PSF of each channel (skewness of the axial energy profile and energy above / below focus), reported and tracked; per-bead values are not computed. The SP8 test stack gives an energy ratio of 0.7 to 0.8, matching its lobe below focus.
+- T2.8 Field maps, tilt and curvature surface fits, illumination uniformity [MET-11, MET-12]. **Done** as fitted values (focus-plane tilt and focus range, curvature sag at the field corner, corner-to-centre bead intensity), shown in the session report with a field-map figure (bead focus offsets and lateral FWHM across the field), written to the channel CSV, and tracked like the bead summaries. On the LSM 980 TetraSpeck stack: about 0.4° tilt and 80–90 nm sag.
+- T2.9 Chromatic registration [MET-13]. **Done:** beads matched across channels by mutual nearest neighbour; median x, y, z shift of each channel from the first analysed channel, in nm, reported and tracked. On the LSM 980 TetraSpeck stack, AF647 is 45 nm lateral and −137 nm axial from AF488.
 - T2.10 Bead size correction and Nyquist check [MET-15, MET-16]. **Done.**
-- T2.11 Averaged PSF (registration, averaging, OME-TIFF export) [MET-14].
+- T2.11 Averaged PSF (registration, averaging, OME-TIFF export) [MET-14]. **Done:** accepted beads registered by sub-voxel spline shifts, background-subtracted, energy-normalised, and averaged; `psfwidget analyze --psf` writes a 32-bit OME-TIFF with physical voxel sizes and a JSON provenance file. Needs at least 3 beads whose box fits in the stack (the 13-plane LSM 980 test stack is too short).
 - T2.12 Encircled energy and MTF (stretch) [MET-17, MET-18].
 
 ### WP3: Theoretical PSF and comparison
 - T3.1 Analytical FWHM formulas (widefield and confocal, with pinhole in Airy units) with citations [THE-01]. **Done**, together with a numerical scalar model (any pinhole size) that the ratios use; see `psfwidget/theory/`.
 - T3.2 Gibson-Lanni and vectorial PSF models at the acquisition sampling, implemented in PSFWidget [THE-02].
-- T3.3 Ratios, Strehl estimate, similarity score [THE-03 … THE-05].
+- T3.3 Ratios, Strehl estimate, similarity score [THE-03 … THE-05]. **Done:** the theoretical bead image on the acquisition grid (`psfwidget.theory.psf3d`: scalar model for each modality, pinhole convolution, bead sphere, voxel integration) is compared with the averaged PSF: Strehl estimate = peak ratio at equal energy, similarity = Pearson r; both reported and tracked. Beads rendered from the theoretical PSF give a Strehl of 1.00 ± 0.08; the SP8 test stack gives 0.12 and r = 0.70, consistent with its spherical aberration.
 - T3.4 Spec limit configuration and pass/fail evaluation [THE-06]. **Done** (`[spec]` table in instrument profiles).
 - T3.5 Comparison figures [THE-07].
-- T3.6 Resolution-enhanced modes: detect the mode from metadata or the profile, compare against the base-modality model, and add an image-scanning-microscopy model [THE-08, THE-09].
+- T3.7 Multiphoton (two-photon) theory from the excitation wavelength, and extraction of the multiphoton laser wavelength from ND2, LIF, and CZI metadata [THE-10]. **Done** apart from LIF detection: a `multiphoton` modality with the Zipfel et al. (2003) formulas and a squared-excitation scalar model (the two agree within 7% for NA 0.8–1.4); analysis needs `excitation_nm` instead of `emission_nm` for multiphoton channels; ND2 (`multiphoton` flag), CZI, and OME-TIFF (`MultiPhotonMicroscopy`) set the modality from the file. Leica LIF files need `modality = "multiphoton"` in the profile until a multiphoton LIF file is available to check (see `examples/profiles/multiphoton-template.toml`).
+- T3.6 Resolution-enhanced modes: detect the mode from metadata or the profile, compare against the base-modality model, and add an image-scanning-microscopy model [THE-08, THE-09]. **Done:** THE-08 in M2; in M5 a scalar image-scanning (pixel-reassignment) model with reassignment factor λex²/(λex² + λem²) over a disc detector of the channel's pinhole size (Sheppard 1988; Müller and Enderlein 2010). It reduces exactly to the closed-pinhole confocal PSF for a point detector and gives about 1.5× widefield lateral resolution at 1 AU. Ratios to it (lateral and axial) are reported and tracked. On the test stacks, Live-SR measures 1.04–1.14× the model laterally; the cropped NSPARC stack 1.4–1.6× (2–3 beads per channel).
 
 ### WP4: Tracking database and SPC
 - T4.1 Database schema and version check [TRK-01, TRK-02]. **Done** with `sqlite3`; migrations will be added when the schema first changes.
@@ -279,7 +302,7 @@ Task IDs map to requirements (in brackets) for traceability.
 ### WP5: Reporting and export
 - T5.1 Figure library (bead overview, orthogonal views, profile fits, field maps, LJ) [REP-01, REP-02]. **Done** apart from field maps, which come with the field-map metrics in M5.
 - T5.2 Session and trend reports; HTML (self-contained) and PDF output [REP-01 … REP-03]. **Done** with a block-based report model instead of Jinja2 templates (see §1.3). Charts in the HTML are static images; interactive charts are deferred to the GUI work (M5).
-- T5.3 CSV/XLSX/OME-TIFF exporters [REP-04]. **CSV and XLSX done.** The OME-TIFF export of the averaged PSF is **moved to M5**, with the averaged PSF itself (T2.11, MET-14).
+- T5.3 CSV/XLSX/OME-TIFF exporters [REP-04]. **Done:** CSV and XLSX in M4; the averaged-PSF OME-TIFF in M5 (T2.11).
 - T5.4 Output path templating and collision handling [REP-05]. **Done:** templates such as `{instrument}/{yyyy}/{date}_{file_stem}_s{series}`; existing files are never overwritten (`_2`, `_3`, … is added).
 - T5.5 Provenance block and status logic [REP-06, REP-07]. **Done.** A channel FAILs if no bead is accepted, a spec limit fails, or a Westgard rejection rule is broken; a Westgard warning gives WARNING; a session with no spec limits and no control limits yet is NOT EVALUATED rather than PASS.
 - T5.6 Branding and template override [REP-08]. **Done** for facility name, logo, and footer from the automation config. Overriding the report layout itself is not offered.
@@ -290,12 +313,21 @@ Task IDs map to requirements (in brackets) for traceability.
 - T6.3 Watch-folder ingestion with deduplication and profile matching [AUT-02]. **Done:** one profile per watched folder, file patterns, optional recursion, a settle time so files still being written are left alone, deduplication by file hash against the database, and a ledger so unchanged files (including ones that failed) are not re-read every run. Matching profiles by file-name pattern within one folder is not offered; use one folder per instrument.
 - T6.4 Scheduler [AUT-03]. **Done:** plain-word schedules (`every 15 minutes`, `daily 07:30`, `weekly monday 07:30`, `monthly 1 07:30`), the built-in `watch` loop, and cron and Task Scheduler recipes in the README. Full cron expressions are not accepted. A lock file stops overlapping runs.
 - T6.5 Run logging, error isolation, alert or status files [AUT-04, AUT-06]. **Done:** a running log, one JSON summary per run, per-file error isolation, `STATUS.json` after every run, and `ALERT.txt` while a latest session FAILs or a run had errors.
+- T6.6 Scheduled, checksum-verified database backup to a network folder with retention; reduced process priority for scheduled runs [AUT-07, NFR-11]. **Done:** a `backup` job (`[backup]` folder, schedule, keep), copies verified with SQLite's integrity check and stored with a `.sha256` file, retention that removes only PSFWidget's own backups, failed backups raised as alerts; scheduled runs lower their priority (nice +10, or below-normal on Windows); a database path on a network share (UNC path, network drive, or NFS/SMB mount) is refused. A restore drill is still to be done in V&V.
+
+### WP9: GLP conformance
+- T9.1 Identity and time stamps on every record, including scheduled runs (service account and host) [QA-01]. **Done:** sessions and audit entries record the user, host, and UTC time; scheduled runs record `psfwidget-scheduler (<OS account>)`. Results database schema version 2; version 1 databases are migrated in place on opening (columns and a table are added, no row is changed, and the migration is audited).
+- T9.2 Report review and approval: `psfwidget approve`, append-only approval records, report versioning, and an approval block on reports [QA-02]. **Done** with one change: a signature cannot be written inside the file it signs, so the approval is a separate `<report>.signature.json` next to the report plus an append-only database record, both tied to the report's SHA-256. `psfwidget verify` shows whether a report is signed and unchanged. Re-reviews and re-issued reports get the next revision number. Reports can also be approved, rejected, and checked from the analysis widget (section 6), signed with the reviewer's name, the meaning, and a comment.
+- T9.3 Profile and config hashes recorded with every result and run [QA-03]. **Done** for database records and run summaries.
+- T9.4 `psfwidget selftest` with an IQ/OQ record [QA-05]. **Done:** five known-answer checks (theory formulas, FWHM of synthetic beads within 3%, bit-identical re-analysis, append-only database, HTML and PDF report) and the environment (OS, Python, package versions, host, user), written as JSON with a sign-off section.
+- T9.5 Audit-trail export and review report for a period [QA-06]. **Done** as CSV export and printing for a period (`psfwidget track audit --since --until --csv`); a formatted audit report is not offered.
+- T9.6 Validation document set and release checklist [QA-07].
 
 ### WP7: napari GUI
-- T7.1 Analysis widget: load, metadata panel, detect, review beads (points layer), metrics table, report button [UI-01, DET-07, UI-04].
-- T7.2 Tracking widget with interactive LJ charts [UI-02].
-- T7.3 Profile and spec editor [UI-03].
-- T7.4 npe2 manifest, sample data contribution.
+- T7.1 Analysis widget: load, metadata panel, detect, review beads (points layer), metrics table, report button [UI-01, DET-07, UI-04]. **Done.** Metadata is edited in a table (missing required values highlighted, user overrides marked); analysis, recording, and reports run in worker threads with a busy indicator; accepted beads are green circles and rejected beads red, in 2D or 3D; selected beads can be excluded or included with a reason and reviewer name, and the summary and spec checks are recomputed. The logic is in `psfwidget.napari.session` and `psfwidget.review`, which need no Qt.
+- T7.2 Tracking widget with interactive LJ charts [UI-02]. **Done:** configurations listed with their latest state, a Levey-Jennings chart per metric (the same drawing as the static charts) with hover details and click-to-select, exclusion and re-inclusion with a reason, events with optional new limits, and chart export.
+- T7.3 Profile and spec editor [UI-03]. **Done:** forms and tables for the instrument, beads, objectives, channels, spec limits, and tracking; validated with the same rules as the CLI; only a valid profile is saved. Hand-written tracking rules are kept; comments in the file are not.
+- T7.4 npe2 manifest, sample data contribution. **Done:** three widgets under *Plugins → PSFWidget* and a synthetic bead field under *File → Open Sample*.
 
 ### WP8: Documentation and release
 - T8.1 User guide: acquisition SOP for bead slides (bead size, mounting, sampling, exposure without saturation), quick-start, and metric definitions.
@@ -316,8 +348,8 @@ Durations are indicative estimates for roughly one developer, with facility staf
 | **M2: Core metrics (MVP analysis)** | WP2 Musts + T3.1, T3.3 (ratios), T3.4 | FWHM X/Y/Z and XY/XZ/YZ, integrated intensity, SBR/SNR, and ratios meet NFR-01 on synthetic data; CLI `analyze` writes CSV | Week 10 |
 | **M3: Tracking and LJ** | WP4 | Sessions persist; baselines and Westgard rules pass rule-engine tests; LJ charts render with events | Week 13 |
 | **M4: Reporting and automation (alpha)** | WP5, WP6 | Session and trend reports in HTML and PDF; scheduled watch-folder run works end to end unattended for 1 week on a test machine | Week 17 |
-| **M5: GUI and Shoulds (beta)** | WP7, remaining Shoulds in WP2 and WP3 (field maps, chromatic, averaged PSF with its OME-TIFF export, vectorial model, Strehl, image-scanning model) | GUI usability session completed; beta deployed on 1–2 facility microscopes | Week 22 |
-| **M6: Validation and v1.0 release** | WP8, V&V execution | All Must requirements verified; NFR-02 agreement study passed; ≥ 4 weeks of parallel run against the current QC method; V&V summary report signed off | Week 28 |
+| **M5: GUI and Shoulds (beta)** | WP7; multiphoton theory (T3.7); GLP records (T9.1 to T9.5); backups (T6.6); remaining Shoulds in WP2 and WP3 (field maps, chromatic, averaged PSF with its OME-TIFF export, vectorial model, Strehl, image-scanning model) | GUI usability session completed; beta deployed on 1–2 facility microscopes | Week 22 |
+| **M6: Validation and v1.0 release** | WP8, T9.6, V&V execution | All Must requirements verified; NFR-02 agreement study passed; ≥ 4 weeks of parallel run against the current QC method; V&V summary report signed off | Week 28 |
 
 **Progress (2026-11-13):**
 
@@ -326,6 +358,16 @@ Durations are indicative estimates for roughly one developer, with facility staf
 - **M2 (core metrics) is implemented.** `psfwidget analyze` detects beads, measures FWHM in X/Y/Z and the XY/XZ/YZ planes, integrated intensity, SBR, SNR, and ellipticity, compares with theory, checks spec limits, and writes CSV and JSON. NFR-01 (as amended) is met on synthetic data, and NFR-04 is met (31 s for a 1024 × 1024 × 100 field with 50 beads on 4 cores). Open within M2's scope: exposure normalisation of intensity (MET-04), the 3D Gaussian fit (MET-03, a Should), and pixel-integration bias for camera data (about +4% at the Nyquist limit, documented in the accuracy report).
 - **M3 (tracking) is implemented.** `psfwidget analyze --db` records results in an append-only SQLite database filed by instrument, objective, channel, and modality. `psfwidget track` reports each configuration's latest session against Westgard rules, draws Levey-Jennings charts with events and spec limits, records events (optionally resetting the baseline), excludes and re-includes sessions with a reason, exports CSV, backs up the database, and prints the audit log. Not done: merging databases (TRK-10 import) and interactive charts (WP5).
 - **M4 (reporting and automation) is implemented.** Session reports (bead overview, XY/XZ/YZ views, profile fits against theory, spec and Westgard checks, bead table, provenance) and trend reports (latest status, violations, events, Levey-Jennings charts) are written as HTML and PDF, with CSV and XLSX exports, under configurable folder templates. `psfwidget run` and `psfwidget watch` process watched folders on a schedule, write weekly trend reports, log every run, and raise `ALERT.txt`. A simulated four weeks of daily acquisitions runs unattended in the test suite. Deferred to M5: the averaged-PSF OME-TIFF export (REP-04, with MET-14). Still to do for the exit criterion: one week unattended on a facility machine.
+- **M5 (started 2026-11-14) is implemented apart from THE-02.**
+  - napari GUI (T7.1–T7.4) with manual bead review (DET-07), tested in a headless viewer in its own CI job.
+  - Multiphoton theory (THE-10).
+  - GLP records: schema 2 with host and profile/config hashes, approvals with `approve`/`verify`, `selftest` IQ/OQ record, and audit export (QA-01 to QA-06).
+  - Verified network backups, low-priority runs, and a local-database check (AUT-07, NFR-11).
+  - Metric and theory Shoulds: 3D Gaussian fit (MET-03), axial asymmetry (MET-09), tilt, curvature and uniformity (MET-11, MET-12), chromatic registration (MET-13), averaged PSF with OME-TIFF export (MET-14, REP-04), Strehl estimate and similarity (THE-04, THE-05), and the image-scanning model (THE-09).
+  - NFR-04 still holds: 25 s for a 1024 × 1024 × 100 field with 50 beads on 4 cores, with every new stage on.
+  - Field-map figure in the session report, and report approval from the GUI.
+  - **Not done in M5:** the vectorial and refractive-index-mismatch model (THE-02; of little effect for beads on the coverslip, as on the facility slide).
+  - **Still needed for the M5 gate:** the GUI usability session (VAL-06) and the beta on 1–2 facility microscopes.
 - **Early finding on facility data:** the SP8 beads are about three times longer axially than theory, with a secondary lobe below focus, consistent with spherical aberration (for example a refractive-index or coverslip mismatch).
 
 **Critical path:** reference data (T0.3) → import (WP1) → metrics (WP2) → tracking (WP4) → automation (WP6) → validation (M6). LJ charts become meaningful only after about 20 sessions, so **baseline data collection should begin at M2** with the CLI, before the GUI exists.
@@ -347,20 +389,22 @@ Durations are indicative estimates for roughly one developer, with facility staf
 | Real PSF much wider than theory (aberration), so a box sized from theory truncates the bead | Biased FWHM | The measurement box is re-sized from the measured median FWHM (up to 4× theory) and the channel re-measured; noted in the results |
 | Vendor metadata quirks (Leica stores a negative z step; Leica sequential scans store one setting block per sequence plus stale blocks, each listing all four detector slots, so channel wavelengths must come from the active detector and laser of the matching `Seq.` block. Nikon AX files report the lower edge of the detection band as the emission wavelength and record no pinhole with the NSPARC detector. A Nikon spinning-disk file gave the wrong excitation and no emission for one channel in the structured metadata while the free-text description was right. The NIS-Elements OME-TIFF export rounds pixel size to six significant figures) | Wrong voxel size or flipped stacks | Reader normalizes sign and records it; golden-file expectations cover each quirk found |
 | Scheduled jobs fail silently on facility PCs | Missed QC | Run logs, status files, "last successful run" shown in the trend report |
+| Analysis on an acquisition PC slows a running acquisition | Disturbed experiments | Scheduled runs at reduced process priority; ingest schedule can avoid core hours (NFR-11) |
+| Local databases on acquisition PCs are lost with a disk failure | Loss of QC history (GLP record loss) | Scheduled, checksum-verified backups to a network folder with retention (AUT-07); restore drill in V&V |
+| GLP expectations exceed what a desktop tool can enforce (e.g. OS account control, clock integrity) | Audit findings | Document the procedural controls the facility provides (accounts, clock sync, folder permissions) in the validation records (QA-07); the tool records identity, host, and time but does not replace them |
 
 ---
 
 ## 8. Open questions for stakeholders
 
-1. **Modalities:** *Partly answered 2026-11-11:* point-scanning and spinning-disk confocal are in scope (the facility is providing bead stacks from both). Still open: are multiphoton or light-sheet systems also needed?
-   *Answered 2026-11-12:* resolution-enhanced modes (NSPARC SR, Live-SR) keep a theoretical comparison (THE-08, THE-09).
-2. **Beads:** What bead types and sizes are in use (e.g. 100 nm or 175 nm PS-Speck, TetraSpeck)? This affects bead size correction and chromatic metrics.
-3. **Instruments:** Which instruments and objectives should be onboarded first? Can sample files be provided for T0.3?
-4. **Distribution:** Is writing to network or shared folders enough for v1.0, or is email or Teams/Slack delivery required?
-5. **Regulatory context:** Is this for internal facility QC, or must it support an ISO 9001, GLP, or clinical-style quality system? This sets the rigor of the audit trail and V&V sign-off.
-6. **Spec limits:** Should default acceptance limits be the facility's own, or taken from published guidance (e.g. QUAREP-LiMi recommendations)?
-7. **Deployment:** Will the tool run on each acquisition PC, a central analysis server, or both? This affects whether the database is shared.
-8. **Spelling:** The chart is formally the *Levey-Jennings* chart. Confirm this naming for the UI and reports.
+1. **Modalities:** *Answered 2026-11-11 to 2026-11-13:* point-scanning and spinning-disk confocal are in scope; resolution-enhanced modes (NSPARC SR, Live-SR) keep a theoretical comparison (THE-08, THE-09); **multiphoton is in scope** (THE-10). Light-sheet stays out of scope for v1.0.
+2. **Beads:** *Answered 2026-11-12:* 100 nm TetraSpeck beads, all instruments imaging the same slide. *Open:* the catalogue number (expected 2026-11-16), to record the exact bead size and dye spectra in the profiles.
+3. **Instruments:** *Partly answered:* bead stacks have been supplied from the Leica SP8, Zeiss LSM 980, Nikon AX R (NSPARC), and a CSU spinning disk (T0.3). *Open:* which instrument is onboarded first for the M5 beta, and which multiphoton system (and a bead stack from it).
+4. **Distribution:** *Answered 2026-11-13:* writing to network folders is the v1.0 solution. Email, Teams, or Slack would need IT involvement and stay out of scope.
+5. **Regulatory context:** *Answered 2026-11-13:* formally internal QC, but the tool shall **conform to GLP** (OECD GLP principles and Advisory Document No. 17). This adds the QA requirements in §3.10 and sets the rigour of the audit trail, approvals, and V&V sign-off.
+6. **Spec limits:** *Answered 2026-11-13:* facility-determined limits for now. No default limits are shipped; a session with no limits and no control limits yet is reported as NOT EVALUATED. Published guidance (e.g. QUAREP-LiMi) may be cited in the profiles but is not applied automatically.
+7. **Deployment:** *Answered 2026-11-13:* the tool runs on **each acquisition PC**, each with its own local database (NFR-11). Reports, status files, and database backups go to network folders (AUT-07). Cross-instrument views read the network outputs, not a shared database.
+8. **Spelling:** *Answered 2026-11-13:* *Levey-Jennings* in full in the UI and reports; *LJ* is acceptable as an abbreviation.
 
 ---
 
@@ -373,3 +417,8 @@ Durations are indicative estimates for roughly one developer, with facility staf
 - QUAREP-LiMi working group publications on microscope QC.
 - Westgard, J. O., et al. (1981). A multi-rule Shewhart chart for quality control in clinical chemistry. *Clin. Chem.*, 27(3), 493–501.
 - Levey, S., & Jennings, E. R. (1950). The use of control charts in the clinical laboratory. *Am. J. Clin. Pathol.*, 20(11), 1059–1066.
+- Sheppard, C. J. R. (1988). Super-resolution in confocal imaging. *Optik*, 80(2), 53–54. (Image scanning, THE-09)
+- Müller, C. B., & Enderlein, J. (2010). Image scanning microscopy. *Phys. Rev. Lett.*, 104, 198101. (THE-09)
+- Zipfel, W. R., Williams, R. M., & Webb, W. W. (2003). Nonlinear magic: multiphoton microscopy in the biosciences. *Nat. Biotechnol.*, 21(11), 1369–1377. (Two-photon FWHM formulas, THE-10)
+- OECD (1998). OECD Principles on Good Laboratory Practice. *OECD Series on Principles of GLP and Compliance Monitoring*, No. 1.
+- OECD (2016). Application of GLP Principles to Computerised Systems. *OECD Series on Principles of GLP and Compliance Monitoring*, No. 17.

@@ -253,7 +253,8 @@ def test_session_report_and_exports(tracked: tuple[Path, Path, list[int]], tmp_p
         "PSFWidget",
     ):
         assert expected in html, expected
-    assert sum(isinstance(b, doc.Figure) for b in report.blocks) == 3
+    assert sum(isinstance(b, doc.Figure) for b in report.blocks) == 4  # with the field map
+    assert "Accepted beads across the field" in html
 
     settings = OutputSettings(
         root=tmp_path, reports=frozenset({"html", "pdf"}), exports=frozenset({"csv", "xlsx"})

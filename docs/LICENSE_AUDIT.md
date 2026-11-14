@@ -1,6 +1,6 @@
 # Dependency licence audit (T0.5, NFR-10)
 
-**Date:** 2026-11-13 (updated for M2, M3, and M4 the same day)
+**Date:** 2026-11-13 (updated for M2, M3, and M4 the same day; for the M5 GUI on 2026-11-14)
 **Method:** each package was installed from PyPI and its licence read from the
 package metadata. `tools/check_licenses.py` repeats the check on the installed
 dependency tree in CI and fails on any GPL or AGPL licence.
@@ -27,6 +27,18 @@ first draft of the plan are GPL and have been replaced or deferred.
 | `matplotlib` | 3.11.2 | PSF-based | Levey-Jennings charts (WP4) and report figures (WP5); optional `report` extra. Its dependencies (`pillow` MIT-CMU, `fonttools` MIT, `contourpy` BSD-3, `kiwisolver` BSD, `cycler` BSD, `pyparsing` MIT, `python-dateutil` BSD-3) all pass the check |
 | `reportlab` | 5.1.0 | BSD-3-Clause | PDF reports (WP5); optional `report` extra. Its dependency `charset-normalizer` is MIT |
 | `openpyxl` | 3.1.5 | MIT | XLSX export (WP5); optional `report` extra. Its dependency `et-xmlfile` is MIT |
+
+For the GUI (optional `napari` extra, M5): `napari` 0.10.0 (BSD-3-Clause),
+`PySide6` 6.12.0 with `shiboken6` (LGPL-3.0-only OR GPL-2.0/3.0; used under the
+LGPL option, unmodified and dynamically linked), `qtpy` 2.4.3 (MIT), `superqt`
+0.9.2 (BSD-3-Clause), `vispy` 0.17.0 (BSD-3-Clause), `magicgui` 0.10.2 (MIT),
+`npe2` 0.10.2 (BSD-3-Clause), `app-model` 0.5.1 (BSD-3-Clause), `psygnal`
+0.16.1 (BSD-3-Clause), `pydantic` 2.14.3 (MIT), `pint` 0.26.2 (BSD-3-Clause),
+`dask` 2026.8.0 (BSD-3-Clause), and their dependencies: 146 packages pass the
+check. `pytest-qt` 4.5.0 (MIT) is used only for tests. `tools/check_licenses.py`
+now also reads SPDX expressions with alternatives from the older `License`
+field, as PySide6 uses it. PyQt5 and PyQt6 (GPL) remain excluded; the extra
+installs napari with PySide6.
 
 The type-stub packages `types-reportlab` and `types-openpyxl` (Apache-2.0) are
 used only for type checking in the `dev` extra and are not distributed.

@@ -1,0 +1,9 @@
+# Coverage settings for the GUI job (napari, Qt, and a virtual display).
+[tool.coverage.run]
+source = ["psfwidget.napari", "psfwidget.review"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 85  # NFR-09, for the GUI layer
+show_missing = true
+skip_covered = true

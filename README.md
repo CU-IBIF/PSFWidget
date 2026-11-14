@@ -190,7 +190,64 @@ To run on a schedule, either keep `psfwidget watch --config qc.toml` running
   logged on, under an account that can read the watched folders.
 
 Two runs never overlap: a run that starts while another is in progress exits
-with status 6.
+with status 6. Scheduled runs lower their own process priority so they do not
+slow an acquisition (`low_priority = false` under `[schedule]` turns this off).
+
+Keep the results database on the acquisition PC's local disk: a database
+path on a network share is refused. A `[backup]` table copies it to a network
+folder on a schedule; each copy is checked with SQLite's integrity check and
+stored with a `.sha256` file, and only the newest `keep` copies are kept.
+
+### Review, approval, and self-test (GLP)
+
+Every record in the results database carries the user, computer, and UTC
+time. To sign a report after reviewing it:
+
+```bash
+psfwidget approve reports/sp8/2026/2026-11-14_beads_s0.pdf --db qc.sqlite --session 12
+```
+
+This records the approval (or, with `--reject`, a rejection) with its meaning
+and an optional `--comment`, tied to the report's SHA-256, and writes a
+`.signature.json` file next to the report. `psfwidget verify REPORT --db
+qc.sqlite` shows who signed it and whether it has changed since.
+
+`psfwidget selftest --out qualification/` checks the installation on
+synthetic data with known answers and writes an IQ/OQ record to sign.
+`psfwidget track audit --db qc.sqlite --since 2026-10-01 --csv audit.csv`
+exports the audit trail for periodic review.
+
+### napari GUI
+
+```bash
+pip install "psfwidget[napari]"
+napari
+```
+
+Then open *Plugins → PSFWidget*:
+
+- **PSF analysis**: choose a file, series, and (optionally) an instrument
+  profile, then *Open*. Missing required metadata is highlighted in red;
+  type a value in the table to set it. *Analyse* runs in the background.
+  Accepted beads are shown as green circles and rejected beads as red ones;
+  tick *3D view* to inspect them in 3D. To exclude or include beads by hand,
+  select them in the *bead review* points layer, give a reason and your name,
+  and press *Exclude selected beads* or *Include selected beads*: the metrics
+  and spec checks update, and the decision is kept with the bead. *Record in
+  database* and *Write report* save the reviewed result. Under *Review and
+  approval*, *Approve* or *Reject* signs the report (yours, or any report file
+  you choose) with your name, the meaning, and a comment; *Check signature*
+  shows whether it is signed and unchanged.
+- **PSF tracking (Levey-Jennings)**: choose a results database to see each
+  configuration's latest state and its charts. Hover over a point for the
+  session; click it to select it, then exclude or include it with a reason.
+  Events (service, alignment, …) can be added, optionally starting new
+  control limits.
+- **Instrument profile editor**: create or edit a profile, including spec
+  limits and tracked metrics. *Check* validates it; only a valid profile is
+  saved.
+
+*File → Open Sample → PSFWidget* opens a synthetic bead field to try it on.
 
 ## Development
 

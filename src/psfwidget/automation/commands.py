@@ -105,6 +105,12 @@ def _check_config(args: argparse.Namespace) -> int:
     print(f"  exports:      {', '.join(sorted(config.output.exports)) or '-'}")
     print(f"  ingest:       {config.ingest.text}")
     print(f"  trend report: {config.trend_report.text} (last {config.trend_days} days)")
+    if config.backup_folder is not None:
+        print(
+            f"  backup:       {config.backup.text} to {config.backup_folder} "
+            f"(keep {config.backup_keep})"
+        )
+    print(f"  priority:     {'reduced' if config.low_priority else 'normal'}")
     for number, item in enumerate(config.watches, 1):
         found = "" if item.folder.is_dir() else "  (folder not found)"
         print(

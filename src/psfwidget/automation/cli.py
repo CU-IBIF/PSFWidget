@@ -17,7 +17,7 @@ from typing import Any
 
 from psfwidget import __version__
 from psfwidget.analysis import FieldResult, analyze_stack
-from psfwidget.automation import analyze, info, track
+from psfwidget.automation import analyze, glp, info, track
 from psfwidget.automation import commands as automation_commands
 from psfwidget.automation.config import ConfigError
 from psfwidget.io import (
@@ -36,7 +36,7 @@ from psfwidget.settings import AnalysisSettings
 from psfwidget.tracking.chart import ChartError
 from psfwidget.tracking.schema import SchemaError
 from psfwidget.tracking.settings import TrackingSettings
-from psfwidget.tracking.store import ResultsDatabase, channel_key
+from psfwidget.tracking.store import ResultsDatabase, TrackingError, channel_key
 
 EXIT_OK = 0
 EXIT_NOT_READY = 1
@@ -123,10 +123,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument("--page", choices=["letter", "a4"], default="letter", help="PDF page size")
     run.add_argument("--xlsx", action="store_true", help="also write an Excel workbook")
+    run.add_argument(
+        "--psf",
+        action="store_true",
+        help="also write each channel's averaged PSF as OME-TIFF, for deconvolution",
+    )
     run.set_defaults(run=_run_analyze)
 
     track.add_parser(commands)
     automation_commands.add_parsers(commands)
+    glp.add_parsers(commands)
     return parser
 
 
@@ -235,6 +241,8 @@ def _run_analyze(args: argparse.Namespace) -> int:
     written = analyze.write_outputs(result, out, overwrite=args.overwrite)
     print(analyze.format_text(result))
     session_id, checks = _record(result, args, profile) if args.db else (None, None)
+    if args.psf:
+        written += _write_psfs(result, stack, out)
     if args.xlsx:
         written.append(analyze.write_xlsx(result, out / f"{analyze.output_stem(result)}.xlsx"))
     if report_formats:
@@ -251,12 +259,58 @@ def _run_analyze(args: argparse.Namespace) -> int:
     return EXIT_SPEC_FAIL if args.fail_on_spec and failed else EXIT_OK
 
 
+def _write_psfs(result: FieldResult, stack: ImageStack, out: Path) -> list[Path]:
+    from dataclasses import asdict
+
+    from psfwidget.analysis import averaged_psf
+    from psfwidget.average import AverageError, write_ome_tiff
+
+    written: list[Path] = []
+    for channel in result.channels:
+        try:
+            average, used, _ = averaged_psf(
+                stack.channel(channel.index),
+                channel.beads,
+                stack.voxel_size_um,
+                channel.expected_fwhm_um,
+                result.settings,
+            )
+        except AverageError as exc:
+            print(f"Channel {channel.index}: no averaged PSF: {exc}", file=sys.stderr)
+            continue
+        name = f"{analyze.output_stem(result)}_ch{channel.index}_psf.ome.tif"
+        written += write_ome_tiff(
+            average,
+            out / name,
+            voxel_size_um=stack.voxel_size_um,
+            name=f"{result.provenance.path.name} channel {channel.index} averaged PSF",
+            details={
+                "source_file": result.provenance.path.name,
+                "source_sha256": result.provenance.sha256,
+                "series": result.provenance.series_index,
+                "channel": channel.index,
+                "channel_name": channel.name,
+                "n_beads": used,
+                "voxel_size_um": stack.voxel_size_um,
+                "comparison": None if channel.psf is None else asdict(channel.psf),
+                "software_version": result.software_version,
+                "settings": result.settings.to_dict(),
+            },
+        )
+    return written
+
+
 def _record(
     result: FieldResult, args: argparse.Namespace, profile: InstrumentProfile | None
 ) -> tuple[int, dict[int, list[MetricCheck]]]:
     settings = profile.tracking if profile is not None else TrackingSettings()
     with ResultsDatabase(args.db) as db:
-        session_id = db.record(result, user=args.user, allow_duplicate=args.record_again)
+        session_id = db.record(
+            result,
+            user=args.user,
+            allow_duplicate=args.record_again,
+            profile_sha256=None if profile is None else profile.sha256,
+        )
         checks = session_checks(db, result, session_id, settings)
         print(f"\nRecorded as session {session_id} in {args.db}\n")
         keys = {channel_key(result.metadata.channels[c.index]) for c in result.channels}
@@ -291,6 +345,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         SchemaError,
         ChartError,
         ConfigError,
+        TrackingError,
         sqlite3.DatabaseError,
     ) as exc:
         print(f"psfwidget: error: {exc}", file=sys.stderr)

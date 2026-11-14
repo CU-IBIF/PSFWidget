@@ -91,7 +91,8 @@ def _theory_text(channel: ChannelResult) -> str:
         return f"No theoretical PSF: {channel.theory_unavailable}."
     text = (
         f"Theoretical PSF: {theory.model}, NA {theory.numerical_aperture:g}, "
-        f"n {theory.refractive_index:g}, emission {theory.emission_nm:g} nm"
+        f"n {theory.refractive_index:g}"
+        + ("" if theory.emission_nm is None else f", emission {theory.emission_nm:g} nm")
     )
     if theory.excitation_nm is not None:
         text += f", excitation {theory.excitation_nm:g} nm"
@@ -130,6 +131,99 @@ def _tracking_table(checks: Sequence[MetricCheck]) -> doc.Table:
         frozenset({1, 2}),
         status_column=3,
         caption="This session against the instrument's control limits (Westgard).",
+    )
+
+
+def _field_values(channel: ChannelResult) -> doc.KeyValues | None:
+    """Tilt, curvature, uniformity, chromatic shift, and the averaged-PSF comparison."""
+    rows: list[tuple[str, str]] = []
+    field = channel.field
+    if field is not None and field.tilt_deg is not None:
+        assert field.focal_range_um is not None
+        rows.append(
+            (
+                "Focus-plane tilt",
+                f"{field.tilt_deg:.2f}° (focus range "
+                f"{field.focal_range_um * 1000:.0f} nm across the field, "
+                f"{field.n_beads} beads)",
+            )
+        )
+    if field is not None and field.curvature_sag_um is not None:
+        rows.append(
+            (
+                "Field curvature",
+                f"{field.curvature_sag_um * 1000:+.0f} nm sag at the "
+                "corner relative to the centre",
+            )
+        )
+    if field is not None and field.uniformity_corner_ratio is not None:
+        rows.append(
+            (
+                "Illumination uniformity",
+                f"bead intensity at the corner {field.uniformity_corner_ratio:.2f} × centre",
+            )
+        )
+    if field is not None:
+        rows += [("Note", note) for note in field.notes]
+    metrics = channel.channel_metrics
+    if "ratio_lateral_ism" in metrics:
+        rows.append(
+            (
+                "Ratio to image-scanning theory",
+                f"lateral {metrics['ratio_lateral_ism']:.2f}, axial "
+                f"{metrics.get('ratio_axial_ism', float('nan')):.2f} (THE-09)",
+            )
+        )
+    psf = channel.psf
+    if psf is not None:
+        rows.append(
+            (
+                "Averaged PSF",
+                f"{psf.n_beads} beads; FWHM z {psf.fwhm_um[0] * 1000:.0f} "
+                f"nm, y {psf.fwhm_um[1] * 1000:.0f} nm, x {psf.fwhm_um[2] * 1000:.0f} nm",
+            )
+        )
+        rows.append(
+            (
+                "Strehl ratio estimate",
+                f"{psf.strehl:.2f} (peak of the averaged PSF / theoretical peak at equal energy)",
+            )
+        )
+        rows.append(("Similarity to theory", f"{psf.similarity:.3f} (Pearson r)"))
+        rows.append(
+            (
+                "Axial asymmetry",
+                f"skewness {psf.axial_skewness:+.2f}, energy above / "
+                f"below focus {psf.axial_asymmetry:.2f} (0 and 1 when symmetric)",
+            )
+        )
+    shift = channel.chromatic
+    if shift is not None:
+        rows.append(
+            (
+                f"Shift from channel {shift.reference}",
+                f"x {shift.dx_nm:+.0f} nm, y {shift.dy_nm:+.0f} nm, z {shift.dz_nm:+.0f} "
+                f"nm (lateral {shift.lateral_nm:.0f} nm; {shift.n_pairs} matched beads)",
+            )
+        )
+    return doc.KeyValues(tuple(rows)) if rows else None
+
+
+def _field_map(channel: ChannelResult) -> doc.Figure | None:
+    """Return the field-map figure (MET-11) when matplotlib and the beads allow it."""
+    if channel.field is None:
+        return None
+    try:
+        from psfwidget.report.figures import field_map
+    except ImportError:  # pragma: no cover - reports without the figures extra
+        return None
+    png = field_map(channel.beads, channel.field.field_size_um)
+    if png is None:
+        return None
+    return doc.Figure(
+        png,
+        "Accepted beads across the field. Left: focus position relative to the median bead "
+        "(blue below, red above), showing tilt and curvature. Right: lateral FWHM.",
     )
 
 
@@ -346,6 +440,13 @@ def build_session_report(
         channel_checks = (checks or {}).get(channel.index)
         if channel_checks:
             blocks.append(_tracking_table(channel_checks))
+        geometry = _field_values(channel)
+        if geometry is not None:
+            blocks.append(doc.Heading("Field geometry and registration", 3))
+            blocks.append(geometry)
+            figure = _field_map(channel)
+            if figure is not None:
+                blocks.append(figure)
         spec = _spec_table(channel)
         if spec is not None:
             blocks.append(spec)

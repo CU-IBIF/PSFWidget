@@ -15,6 +15,7 @@ for your own instrument.
 | `axr-nsparc.toml` | Nikon AX R with NSPARC | The file names the NSPARC mode itself |
 | `csu-livesr.toml` | Nikon Ti2 with CSU spinning disk and Live-SR | For ND2 and OME-TIFF files |
 | `csu-livesr-tiff.toml` | Same instrument | For plain TIFF exports, which carry no optics metadata; channels are matched by position |
+| `multiphoton-template.toml` | Any two-photon system | A template: set `excitation_nm` to the laser wavelength (e.g. 920), not half of it |
 
 Check what a profile does to a file with:
 
@@ -34,6 +35,13 @@ The `info` output shows where each value came from.
   disk pinhole can be converted to Airy units for OME-TIFF exports, which do
   not record the magnification. This assumes no extra magnification between
   the objective and the disk.
+
+- **`multiphoton-template.toml`:** the two-photon PSF is computed from the
+  laser wavelength (Zipfel et al. 2003), so each channel needs
+  `excitation_nm`; the emission is optional. ND2, CZI, and OME-TIFF files that
+  record a multiphoton acquisition mode are recognised; for Leica LIF files,
+  set `modality = "multiphoton"` in the profile until a multiphoton LIF file
+  has been checked.
 
 ## Acceptance limits
 

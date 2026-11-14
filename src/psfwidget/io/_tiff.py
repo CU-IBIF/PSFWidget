@@ -50,6 +50,7 @@ _LENGTH_TO_UM = {
 }
 _MODALITIES = {
     "laserscanningconfocalmicroscopy": Modality.CONFOCAL,
+    "multiphotonmicroscopy": Modality.MULTIPHOTON,
     "spinningdiskconfocal": Modality.SPINNING_DISK,
     "widefield": Modality.WIDEFIELD,
 }

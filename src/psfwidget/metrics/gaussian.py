@@ -274,3 +274,86 @@ def bead_corrected_fwhm(fwhm_um: float, bead_diameter_um: float | None) -> float
 
 BEAD_FWHM_PER_DIAMETER = FWHM_PER_SIGMA / math.sqrt(20.0)
 """FWHM of the Gaussian matching a uniform sphere's variance (d²/20), per unit diameter."""
+
+
+@dataclass(frozen=True)
+class Fit3D:
+    """An axis-aligned 3D Gaussian fit (MET-03)."""
+
+    centre_um: tuple[float, float, float]
+    """Sub-voxel centre ``(z, y, x)``."""
+    fwhm_um: tuple[float, float, float]
+    """FWHM ``(z, y, x)``."""
+    amplitude: float
+    offset: float
+    r_squared: float
+
+
+def fit_gaussian_3d(
+    coordinates: tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]],
+    box: NDArray[np.float64],
+    *,
+    fwhm_guess_um: tuple[float, float, float],
+) -> Fit3D:
+    """Fit offset + A·exp(−½ Σ ((x_i − c_i) / σ_i)²) to a 3D box (MET-03).
+
+    ``coordinates`` are the ``(z, y, x)`` axis coordinates of the box in µm.
+
+    Raises
+    ------
+    FitError
+        If the fit does not converge or gives a non-physical width.
+    """
+    data = np.asarray(box, dtype=np.float64)
+    z, y, x = coordinates
+    peak = np.unravel_index(int(np.argmax(data)), data.shape)
+    offset0 = float(np.median(data))
+    start = np.array(
+        [
+            float(data[peak]) - offset0,
+            z[peak[0]],
+            y[peak[1]],
+            x[peak[2]],
+            *(f / FWHM_PER_SIGMA for f in fwhm_guess_um),
+            offset0,
+        ]
+    )
+
+    def residual(p: NDArray[np.float64]) -> NDArray[np.float64]:
+        amplitude, cz, cy, cx, sz, sy, sx, offset = p
+        gz = np.exp(-0.5 * ((z - cz) / sz) ** 2)
+        gy = np.exp(-0.5 * ((y - cy) / sy) ** 2)
+        gx = np.exp(-0.5 * ((x - cx) / sx) ** 2)
+        model = amplitude * gz[:, None, None] * gy[None, :, None] * gx[None, None, :] + offset
+        return np.asarray((model - data).ravel(), dtype=np.float64)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        try:
+            solution = optimize.least_squares(residual, start, method="lm", xtol=_TOLERANCE)
+        except (ValueError, np.linalg.LinAlgError) as exc:
+            raise FitError(f"3D fit failed: {exc}") from None
+    amplitude, cz, cy, cx, sz, sy, sx, offset = solution.x
+    sigmas = (abs(sz), abs(sy), abs(sx))
+    extent = tuple(float(a[-1] - a[0]) for a in (z, y, x))
+    if (
+        not solution.success
+        or amplitude <= 0
+        or any(
+            not math.isfinite(s) or s <= 0 or s * FWHM_PER_SIGMA > e
+            for s, e in zip(sigmas, extent, strict=True)
+        )
+    ):
+        raise FitError("3D fit did not converge to a bead-sized Gaussian")
+    r_squared = _r_squared(data.ravel(), solution.fun)
+    return Fit3D(
+        centre_um=(float(cz), float(cy), float(cx)),
+        fwhm_um=(
+            sigmas[0] * FWHM_PER_SIGMA,
+            sigmas[1] * FWHM_PER_SIGMA,
+            sigmas[2] * FWHM_PER_SIGMA,
+        ),
+        amplitude=float(amplitude),
+        offset=float(offset),
+        r_squared=r_squared,
+    )

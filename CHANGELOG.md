@@ -111,6 +111,55 @@ All notable changes to this project are documented here. The format follows
     runs (AUT-04);
   - `STATUS.json` after every run and `ALERT.txt` while something needs
     attention (AUT-06).
+- napari GUI (M5, WP7), installed with `pip install "psfwidget[napari]"`:
+  - analysis widget: open a file and series, edit metadata, analyse in a
+    background thread, review accepted and rejected beads in 2D or 3D,
+    record, and write reports (UI-01, UI-04);
+  - manual bead review: include or exclude beads with a reason and
+    reviewer, with the summary and spec checks recomputed (DET-07;
+    `psfwidget.review`);
+  - tracking widget: interactive Levey-Jennings charts with hover details,
+    exclusion and re-inclusion, and events (UI-02);
+  - profile editor with validation and TOML saving (UI-03;
+    `psfwidget.profiles.write`);
+  - npe2 plugin manifest and a synthetic bead sample (T7.4);
+  - a GUI job in CI (headless napari under a virtual display).
+- Field-map figure in session reports (M5, MET-11) and report approval,
+  rejection, and signature checks in the analysis widget (M5, QA-02).
+- 3D Gaussian fit of each bead (M5, MET-03): FWHM x, y, z and R²,
+  summarised and tracked.
+- Image-scanning (pixel-reassignment) theory for NSPARC, Live-SR, and
+  similar modes (M5, THE-09), with lateral and axial ratios reported and
+  tracked.
+- Axial asymmetry of the averaged PSF (M5, MET-09): skewness and energy
+  above / below focus, reported and tracked.
+- Averaged PSF and comparison with theory (M5, MET-14, THE-04, THE-05,
+  REP-04): sub-voxel registration and averaging of accepted beads, the
+  theoretical bead image on the acquisition grid, a Strehl ratio estimate
+  and a similarity score (reported and tracked), and `analyze --psf` for
+  OME-TIFF export with provenance.
+- Field metrics (M5, MET-11 to MET-13): focus-plane tilt and focus range,
+  field-curvature sag, corner-to-centre illumination uniformity, and
+  chromatic shifts between channels; in reports, the channel CSV, and the
+  database as trackable channel-level metrics.
+- Database backups and deployment checks (M5, AUT-07, NFR-11): a scheduled
+  `backup` job with integrity check, `.sha256` files, and retention;
+  scheduled runs at reduced priority; a database on a network share is
+  refused.
+- GLP records (M5, WP9; QA-01 to QA-06):
+  - results database schema version 2 (host, profile and configuration
+    hashes, approvals), with in-place migration of version 1 databases;
+  - `psfwidget approve` and `psfwidget verify`: append-only electronic
+    signatures on report files, tied to their SHA-256, with signature files
+    and revisions;
+  - `psfwidget selftest`: known-answer checks and an IQ/OQ record;
+  - `psfwidget track audit --since --until --csv`;
+  - scheduled runs record the OS account and host.
+- Multiphoton (two-photon) theory (M5, THE-10): a `multiphoton` modality,
+  the Zipfel et al. (2003) FWHM formulas and a squared-excitation scalar
+  model, the excitation (laser) wavelength required instead of the emission,
+  multiphoton modes read from ND2, CZI, and OME-TIFF files, and a profile
+  template.
 
 ### Changed
 - Reports use a block-based model with `reportlab` for PDF instead of
