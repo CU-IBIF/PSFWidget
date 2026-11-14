@@ -287,7 +287,7 @@ Task IDs map to requirements (in brackets) for traceability.
 - T3.4 Spec limit configuration and pass/fail evaluation [THE-06]. **Done** (`[spec]` table in instrument profiles).
 - T3.5 Comparison figures [THE-07].
 - T3.7 Multiphoton (two-photon) theory from the excitation wavelength, and extraction of the multiphoton laser wavelength from ND2, LIF, and CZI metadata [THE-10]. **Done** apart from LIF detection: a `multiphoton` modality with the Zipfel et al. (2003) formulas and a squared-excitation scalar model (the two agree within 7% for NA 0.8–1.4); analysis needs `excitation_nm` instead of `emission_nm` for multiphoton channels; ND2 (`multiphoton` flag), CZI, and OME-TIFF (`MultiPhotonMicroscopy`) set the modality from the file. Leica LIF files need `modality = "multiphoton"` in the profile until a multiphoton LIF file is available to check (see `examples/profiles/multiphoton-template.toml`).
-- T3.6 Resolution-enhanced modes: detect the mode from metadata or the profile, compare against the base-modality model, and add an image-scanning-microscopy model [THE-08, THE-09].
+- T3.6 Resolution-enhanced modes: detect the mode from metadata or the profile, compare against the base-modality model, and add an image-scanning-microscopy model [THE-08, THE-09]. **Done:** THE-08 in M2; in M5 a scalar image-scanning (pixel-reassignment) model with reassignment factor λex²/(λex² + λem²) over a disc detector of the channel's pinhole size (Sheppard 1988; Müller and Enderlein 2010). It reduces exactly to the closed-pinhole confocal PSF for a point detector and gives about 1.5× widefield lateral resolution at 1 AU. Ratios to it (lateral and axial) are reported and tracked. On the test stacks, Live-SR measures 1.04–1.14× the model laterally; the cropped NSPARC stack 1.4–1.6× (2–3 beads per channel).
 
 ### WP4: Tracking database and SPC
 - T4.1 Database schema and version check [TRK-01, TRK-02]. **Done** with `sqlite3`; migrations will be added when the schema first changes.
@@ -408,6 +408,8 @@ Durations are indicative estimates for roughly one developer, with facility staf
 - QUAREP-LiMi working group publications on microscope QC.
 - Westgard, J. O., et al. (1981). A multi-rule Shewhart chart for quality control in clinical chemistry. *Clin. Chem.*, 27(3), 493–501.
 - Levey, S., & Jennings, E. R. (1950). The use of control charts in the clinical laboratory. *Am. J. Clin. Pathol.*, 20(11), 1059–1066.
+- Sheppard, C. J. R. (1988). Super-resolution in confocal imaging. *Optik*, 80(2), 53–54. (Image scanning, THE-09)
+- Müller, C. B., & Enderlein, J. (2010). Image scanning microscopy. *Phys. Rev. Lett.*, 104, 198101. (THE-09)
 - Zipfel, W. R., Williams, R. M., & Webb, W. W. (2003). Nonlinear magic: multiphoton microscopy in the biosciences. *Nat. Biotechnol.*, 21(11), 1369–1377. (Two-photon FWHM formulas, THE-10)
 - OECD (1998). OECD Principles on Good Laboratory Practice. *OECD Series on Principles of GLP and Compliance Monitoring*, No. 1.
 - OECD (2016). Application of GLP Principles to Computerised Systems. *OECD Series on Principles of GLP and Compliance Monitoring*, No. 17.

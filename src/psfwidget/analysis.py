@@ -90,6 +90,12 @@ class ChannelResult:
         if self.chromatic is not None:
             values["chromatic_lateral_nm"] = self.chromatic.lateral_nm
             values["chromatic_axial_nm"] = self.chromatic.dz_nm
+        theory = self.theory
+        lateral = [self.summary[k].median for k in ("fwhm_x_um", "fwhm_y_um") if k in self.summary]
+        if theory is not None and theory.ism_lateral_um and lateral:
+            values["ratio_lateral_ism"] = sum(lateral) / len(lateral) / theory.ism_lateral_um
+        if theory is not None and theory.ism_axial_um and "fwhm_z_um" in self.summary:
+            values["ratio_axial_ism"] = self.summary["fwhm_z_um"].median / theory.ism_axial_um
         if self.psf is not None:
             values["strehl"] = self.psf.strehl
             values["psf_similarity"] = self.psf.similarity

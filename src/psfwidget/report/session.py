@@ -165,6 +165,15 @@ def _field_values(channel: ChannelResult) -> doc.KeyValues | None:
         )
     if field is not None:
         rows += [("Note", note) for note in field.notes]
+    metrics = channel.channel_metrics
+    if "ratio_lateral_ism" in metrics:
+        rows.append(
+            (
+                "Ratio to image-scanning theory",
+                f"lateral {metrics['ratio_lateral_ism']:.2f}, axial "
+                f"{metrics.get('ratio_axial_ism', float('nan')):.2f} (THE-09)",
+            )
+        )
     psf = channel.psf
     if psf is not None:
         rows.append(

@@ -51,6 +51,8 @@ CHANNEL_METRICS: tuple[str, ...] = (
     "psf_similarity",
     "axial_skewness",
     "axial_asymmetry",
+    "ratio_lateral_ism",
+    "ratio_axial_ism",
 )
 """Channel-level metrics, tracked like the bead summaries (one value per session)."""
 

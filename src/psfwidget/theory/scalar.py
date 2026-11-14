@@ -265,3 +265,78 @@ def _multiphoton(
         axial_um=half_width(z, axial[0, :] ** 2),
         model="scalar two-photon (squared excitation PSF)",
     )
+
+
+def _disc_points(
+    radius: float, count: int = 15
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Return points (N, 2) on a square grid inside a disc and their area weights (sum 1)."""
+    axis = np.linspace(-radius, radius, count)
+    xx, yy = np.meshgrid(axis, axis)
+    inside = xx**2 + yy**2 <= radius**2
+    points = np.column_stack([xx[inside], yy[inside]])
+    return points, np.full(points.shape[0], 1.0 / points.shape[0])
+
+
+def ism_width(
+    excitation_nm: float,
+    emission_nm: float,
+    numerical_aperture: float,
+    refractive_index: float,
+    detector_au: float,
+) -> ScalarWidth:
+    """Return the FWHM of an image-scanning (pixel-reassignment) PSF (THE-09).
+
+    Each detector element at offset d contributes the excitation PSF shifted
+    by a·d times the emission PSF shifted by −(1 − a)·d, after reassignment
+    to the position between them, with the reassignment factor
+    a = λ_ex² / (λ_ex² + λ_em²) (Sheppard, 1988; Müller and Enderlein, 2010).
+    The contributions of a disc-shaped detector of ``detector_au`` Airy units
+    (at the emission wavelength) are summed. As the detector shrinks this
+    tends to the closed-pinhole confocal PSF; for about 1 AU it keeps that
+    resolution with far more signal. Optical reassignment (e.g. Live-SR) is
+    modelled the same way.
+    """
+    if detector_au < 0:
+        raise ValueError("detector size must not be negative")
+    alpha = excitation_nm**2 / (excitation_nm**2 + emission_nm**2)
+    radius = detector_au * airy_unit_um(emission_nm, numerical_aperture) / 2.0
+    offsets, weights = _disc_points(radius) if radius > 0 else (np.zeros((1, 2)), np.ones(1))
+    resolution = emission_nm / NM_PER_UM / numerical_aperture
+    x = np.linspace(0.0, 1.5 * resolution, 2 * _LATERAL_SAMPLES_PER_RESOLUTION + 1)
+    depth = (
+        4.0
+        * emission_nm
+        / NM_PER_UM
+        / (refractive_index - math.sqrt(refractive_index**2 - numerical_aperture**2))
+    )
+    z = np.linspace(0.0, depth, _AXIAL_SAMPLES // 2)
+
+    def radial(
+        wavelength: float, r: NDArray[np.float64], zs: NDArray[np.float64]
+    ) -> NDArray[np.float64]:
+        unique, inverse = np.unique(np.round(r, 7), return_inverse=True)
+        values = intensity(unique, zs, wavelength, numerical_aperture, refractive_index)
+        return np.asarray(values[inverse.ravel()].reshape(*r.shape, zs.size), dtype=np.float64)
+
+    # Lateral profile at focus, along x.
+    points = np.column_stack([x, np.zeros_like(x)])
+    excitation_r = np.hypot(*(points[:, None, :] + alpha * offsets[None, :, :]).transpose(2, 0, 1))
+    emission_r = np.hypot(
+        *(points[:, None, :] - (1 - alpha) * offsets[None, :, :]).transpose(2, 0, 1)
+    )
+    zero = np.zeros(1)
+    lateral = (
+        radial(excitation_nm, excitation_r, zero)[..., 0]
+        * radial(emission_nm, emission_r, zero)[..., 0]
+    ) @ weights
+    # Axial profile on the optical axis.
+    distance = np.hypot(offsets[:, 0], offsets[:, 1])
+    axial = (
+        radial(excitation_nm, alpha * distance, z) * radial(emission_nm, (1 - alpha) * distance, z)
+    ).T @ weights
+    return ScalarWidth(
+        lateral_um=half_width(x, lateral),
+        axial_um=half_width(z, axial),
+        model=f"scalar image scanning (pixel reassignment), detector {detector_au:.2f} AU",
+    )

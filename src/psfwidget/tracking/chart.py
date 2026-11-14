@@ -47,6 +47,8 @@ METRIC_LABELS: dict[str, str] = {
     "psf_similarity": "Similarity to theory (Pearson r)",
     "axial_skewness": "Axial skewness of the averaged PSF",
     "axial_asymmetry": "Energy above / below focus",
+    "ratio_lateral_ism": "Lateral FWHM / image-scanning theory",
+    "ratio_axial_ism": "Axial FWHM / image-scanning theory",
     "fwhm_y_um": "FWHM y (µm)",
     "fwhm_z_um": "FWHM z (µm)",
     "fwhm_x_raw_um": "FWHM x, uncorrected (µm)",

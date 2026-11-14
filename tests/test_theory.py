@@ -175,7 +175,7 @@ def test_resolution_enhancement_is_compared_with_the_base_model() -> None:
 
     enhanced = channel_theory(chan, replace(meta, resolution_enhancement=Sourced("NSPARC SR")))
     assert (enhanced.lateral_um, enhanced.axial_um) == (plain.lateral_um, plain.axial_um)
-    assert enhanced.notes[-1] == (
+    assert enhanced.notes[-2] == (
         "NSPARC SR is not modelled; compared with the confocal model, so ratios below 1 "
         "are expected (THE-08)"
     )

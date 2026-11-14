@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from psfwidget.io.model import AcquisitionMetadata, ChannelMetadata, Modality
 from psfwidget.theory import analytic
 from psfwidget.theory.analytic import AnalyticWidth
-from psfwidget.theory.scalar import scalar_width
+from psfwidget.theory.scalar import ism_width, scalar_width
 
 
 @dataclass(frozen=True)
@@ -31,6 +31,10 @@ class Theory:
     pinhole_au: float | None
     analytic: AnalyticWidth | None
     notes: tuple[str, ...] = ()
+    ism_lateral_um: float | None = None
+    """FWHM of the image-scanning (pixel-reassignment) model, for resolution-enhanced
+    modes such as NSPARC and Live-SR (THE-09)."""
+    ism_axial_um: float | None = None
 
 
 class TheoryUnavailableError(ValueError):
@@ -162,6 +166,14 @@ def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> T
             notes.append("no closed-form formula between 0.25 and 1 AU")
 
     notes.extend(_enhancement_notes(metadata, modality))
+    ism = None
+    if metadata.resolution_enhancement is not None and pinhole is not None:
+        assert excitation is not None
+        ism = ism_width(excitation, emission, na, n, round(pinhole, 4))
+        notes.append(
+            f"also compared with the image-scanning model ({ism.model}): lateral "
+            f"{ism.lateral_um * 1000:.0f} nm, axial {ism.axial_um * 1000:.0f} nm (THE-09)"
+        )
     return Theory(
         lateral_um=scalar.lateral_um,
         axial_um=scalar.axial_um,
@@ -174,6 +186,8 @@ def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> T
         pinhole_au=pinhole,
         analytic=closed_form,
         notes=tuple(notes),
+        ism_lateral_um=None if ism is None else ism.lateral_um,
+        ism_axial_um=None if ism is None else ism.axial_um,
     )
 
 
