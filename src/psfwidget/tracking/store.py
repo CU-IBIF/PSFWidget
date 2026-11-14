@@ -10,6 +10,7 @@ import csv
 import getpass
 import json
 import os
+import socket
 import sqlite3
 import uuid
 from collections.abc import Iterator, Sequence
@@ -181,8 +182,8 @@ class ResultsDatabase:
         self, db: sqlite3.Connection, user: str, action: str, details: dict[str, Any]
     ) -> None:
         db.execute(
-            "INSERT INTO audit_log (utc, user, action, details_json) VALUES (?, ?, ?, ?)",
-            (_now(), user, action, _dumps(details)),
+            "INSERT INTO audit_log (utc, user, action, details_json, host) VALUES (?, ?, ?, ?, ?)",
+            (_now(), user, action, _dumps(details), socket.gethostname()),
         )
 
     # ------------------------------------------------------------------ record
@@ -197,9 +198,19 @@ class ResultsDatabase:
         return [int(r[0]) for r in rows]
 
     def record(
-        self, result: FieldResult, *, user: str | None = None, allow_duplicate: bool = False
+        self,
+        result: FieldResult,
+        *,
+        user: str | None = None,
+        allow_duplicate: bool = False,
+        profile_sha256: str | None = None,
+        config_sha256: str | None = None,
     ) -> int:
         """Store an analysis and return its session id (TRK-01).
+
+        ``profile_sha256`` and ``config_sha256`` identify the instrument profile
+        and automation configuration used, so changes to them are detectable
+        (QA-03). The user, host, and UTC time are recorded (QA-01).
 
         Raises
         ------
@@ -239,8 +250,8 @@ class ResultsDatabase:
                 instrument_id, objective_id, modality, resolution_enhancement, file_name,
                 file_path, file_sha256, file_size, series_index, series_name, timepoint, tile,
                 reader, software_version, analysed_utc, settings_json, spec_limits_json,
-                metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?)""",
+                metadata_json, host, profile_sha256, config_sha256) VALUES (?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     str(uuid.uuid4()),
                     _now(),
@@ -264,6 +275,9 @@ class ResultsDatabase:
                     _dumps(result.settings.to_dict()),
                     _dumps(asdict(result.spec_limits)),
                     _dumps(metadata_record(meta)),
+                    socket.gethostname(),
+                    profile_sha256,
+                    config_sha256,
                 ),
             )
             session_id = int(cursor.lastrowid or 0)
@@ -279,6 +293,8 @@ class ResultsDatabase:
                     "sha256": source.sha256,
                     "series": source.series_index,
                     "duplicate_of": earlier,
+                    "profile_sha256": profile_sha256,
+                    "config_sha256": config_sha256,
                 },
             )
         return session_id
@@ -494,12 +510,142 @@ class ResultsDatabase:
             raise TrackingError(f"no session {session_id}")
         return dict(row)
 
+    # ------------------------------------------------------------------ approvals
+
+    def approve(
+        self,
+        report: str | Path,
+        *,
+        approved: bool,
+        meaning: str,
+        comment: str = "",
+        user: str | None = None,
+        session_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Record a reviewer's signature on a report file (QA-02).
+
+        The approval is tied to the report's SHA-256, so any later change to
+        the file is detectable with :meth:`approvals_for`. Approvals are
+        append-only; a second review of the same report (or of a re-issued
+        report for the same session) gets the next revision number.
+
+        Raises
+        ------
+        TrackingError
+            If the meaning is empty, the report does not exist, or the session
+            does not exist.
+        """
+        from psfwidget.io._common import sha256_of
+
+        path = Path(report)
+        if not meaning.strip():
+            raise TrackingError("an approval needs the meaning of the signature")
+        if not path.is_file():
+            raise TrackingError(f"no report file {path}")
+        if session_id is not None:
+            self.session(session_id)
+        digest = sha256_of(path)
+        who = _user(user)
+        with self._transaction() as db:
+            if session_id is not None:
+                (count,) = db.execute(
+                    "SELECT COUNT(*) FROM approvals WHERE session_id = ?", (session_id,)
+                ).fetchone()
+            else:
+                (count,) = db.execute(
+                    "SELECT COUNT(*) FROM approvals WHERE report_name = ?", (path.name,)
+                ).fetchone()
+            record = {
+                "utc": _now(),
+                "user": who,
+                "host": socket.gethostname(),
+                "session_id": session_id,
+                "report_name": path.name,
+                "report_sha256": digest,
+                "decision": "approved" if approved else "rejected",
+                "meaning": meaning.strip(),
+                "comment": comment.strip(),
+                "revision": int(count) + 1,
+            }
+            cursor = db.execute(
+                f"INSERT INTO approvals ({', '.join(record)}) VALUES "
+                f"({', '.join('?' for _ in record)})",
+                tuple(record.values()),
+            )
+            record = {"id": int(cursor.lastrowid or 0), **record}
+            self._audit(db, who, f"report {record['decision']}", record)
+        return record
+
+    def approvals(self, session_id: int | None = None) -> list[dict[str, Any]]:
+        """Return approvals, oldest first, optionally for one session."""
+        self._connection.row_factory = sqlite3.Row
+        try:
+            if session_id is None:
+                rows = self._connection.execute("SELECT * FROM approvals ORDER BY id")
+            else:
+                rows = self._connection.execute(
+                    "SELECT * FROM approvals WHERE session_id = ? ORDER BY id", (session_id,)
+                )
+            return [dict(row) for row in rows]
+        finally:
+            self._connection.row_factory = None
+
+    def approvals_for(self, report: str | Path) -> list[dict[str, Any]]:
+        """Return the approvals that match a report file's current content."""
+        from psfwidget.io._common import sha256_of
+
+        digest = sha256_of(Path(report))
+        return [a for a in self.approvals() if a["report_sha256"] == digest]
+
+    def audit_entries(
+        self, since: datetime | None = None, until: datetime | None = None
+    ) -> list[dict[str, Any]]:
+        """Return audit entries in a period (QA-06); bounds are inclusive."""
+        entries = []
+        for entry in self.audit_log():
+            moment = _parse_time(entry["utc"])
+            if (since is None or moment >= since) and (until is None or moment <= until):
+                entries.append(entry)
+        return entries
+
+    def export_audit_csv(
+        self,
+        path: str | Path,
+        since: datetime | None = None,
+        until: datetime | None = None,
+    ) -> int:
+        """Write audit entries in a period to CSV; return the number written (QA-06)."""
+        entries = self.audit_entries(since, until)
+        target = Path(path)
+        with target.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["id", "utc", "user", "host", "action", "details"])
+            for entry in entries:
+                writer.writerow(
+                    [
+                        entry["id"],
+                        entry["utc"],
+                        entry["user"],
+                        entry["host"] or "",
+                        entry["action"],
+                        _dumps(entry["details"]),
+                    ]
+                )
+        return len(entries)
+
     def audit_log(self) -> list[dict[str, Any]]:
         """Return the audit log, oldest first."""
         return [
-            {"id": r[0], "utc": r[1], "user": r[2], "action": r[3], "details": json.loads(r[4])}
+            {
+                "id": r[0],
+                "utc": r[1],
+                "user": r[2],
+                "action": r[3],
+                "details": json.loads(r[4]),
+                "host": r[5],
+            }
             for r in self._connection.execute(
-                "SELECT id, utc, user, action, details_json FROM audit_log ORDER BY id"
+                "SELECT id, utc, user, action, details_json, host FROM audit_log ORDER BY id"
             )
         ]
 

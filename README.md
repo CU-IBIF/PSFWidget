@@ -192,6 +192,25 @@ To run on a schedule, either keep `psfwidget watch --config qc.toml` running
 Two runs never overlap: a run that starts while another is in progress exits
 with status 6.
 
+### Review, approval, and self-test (GLP)
+
+Every record in the results database carries the user, computer, and UTC
+time. To sign a report after reviewing it:
+
+```bash
+psfwidget approve reports/sp8/2026/2026-11-14_beads_s0.pdf --db qc.sqlite --session 12
+```
+
+This records the approval (or, with `--reject`, a rejection) with its meaning
+and an optional `--comment`, tied to the report's SHA-256, and writes a
+`.signature.json` file next to the report. `psfwidget verify REPORT --db
+qc.sqlite` shows who signed it and whether it has changed since.
+
+`psfwidget selftest --out qualification/` checks the installation on
+synthetic data with known answers and writes an IQ/OQ record to sign.
+`psfwidget track audit --db qc.sqlite --since 2026-10-01 --csv audit.csv`
+exports the audit trail for periodic review.
+
 ### napari GUI
 
 ```bash

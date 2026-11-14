@@ -17,7 +17,7 @@ from typing import Any
 
 from psfwidget import __version__
 from psfwidget.analysis import FieldResult, analyze_stack
-from psfwidget.automation import analyze, info, track
+from psfwidget.automation import analyze, glp, info, track
 from psfwidget.automation import commands as automation_commands
 from psfwidget.automation.config import ConfigError
 from psfwidget.io import (
@@ -36,7 +36,7 @@ from psfwidget.settings import AnalysisSettings
 from psfwidget.tracking.chart import ChartError
 from psfwidget.tracking.schema import SchemaError
 from psfwidget.tracking.settings import TrackingSettings
-from psfwidget.tracking.store import ResultsDatabase, channel_key
+from psfwidget.tracking.store import ResultsDatabase, TrackingError, channel_key
 
 EXIT_OK = 0
 EXIT_NOT_READY = 1
@@ -127,6 +127,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     track.add_parser(commands)
     automation_commands.add_parsers(commands)
+    glp.add_parsers(commands)
     return parser
 
 
@@ -256,7 +257,12 @@ def _record(
 ) -> tuple[int, dict[int, list[MetricCheck]]]:
     settings = profile.tracking if profile is not None else TrackingSettings()
     with ResultsDatabase(args.db) as db:
-        session_id = db.record(result, user=args.user, allow_duplicate=args.record_again)
+        session_id = db.record(
+            result,
+            user=args.user,
+            allow_duplicate=args.record_again,
+            profile_sha256=None if profile is None else profile.sha256,
+        )
         checks = session_checks(db, result, session_id, settings)
         print(f"\nRecorded as session {session_id} in {args.db}\n")
         keys = {channel_key(result.metadata.channels[c.index]) for c in result.channels}
@@ -291,6 +297,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         SchemaError,
         ChartError,
         ConfigError,
+        TrackingError,
         sqlite3.DatabaseError,
     ) as exc:
         print(f"psfwidget: error: {exc}", file=sys.stderr)

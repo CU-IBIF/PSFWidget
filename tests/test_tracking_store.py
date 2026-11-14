@@ -271,6 +271,9 @@ def test_tables_are_append_only(db: ResultsDatabase, analyse: Analyse, table: st
     db.record(analyse(0))
     db.add_event(occurred=T0, instrument_id="scope", kind=EventKind.OTHER, description="x")
     db.set_excluded(1, True, "x")
+    signed = db.path.with_name("report.html")
+    signed.write_text("report", encoding="utf-8")
+    db.approve(signed, approved=True, meaning="reviewed", session_id=1)
     connection = sqlite3.connect(db.path)
     try:
         assert connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] > 0

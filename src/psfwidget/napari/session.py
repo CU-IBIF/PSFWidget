@@ -401,7 +401,11 @@ class AnalysisSession:
         if result.metadata.instrument_id is None:
             raise ValueError("choose an instrument profile (or set instrument_id) to record")
         with ResultsDatabase(database) as db:
-            self.session_id = db.record(result, user=user or None)
+            self.session_id = db.record(
+                result,
+                user=user or None,
+                profile_sha256=None if self.profile is None else self.profile.sha256,
+            )
         return self.session_id
 
     def write_report(

@@ -104,6 +104,8 @@ class AutomationConfig:
     analysis: AnalysisSettings
     status_file: Path
     alert_file: Path
+    sha256: str = ""
+    """SHA-256 of the configuration file (QA-03)."""
     state_dir: Path = field(init=False)
 
     def __post_init__(self) -> None:
@@ -304,13 +306,17 @@ def load_config(path: str | Path) -> AutomationConfig:
     ConfigError
         If it is not valid TOML or not a valid configuration.
     """
+    import hashlib
+    from dataclasses import replace
+
     path = Path(path).resolve()
+    raw = path.read_bytes()
     try:
-        with path.open("rb") as handle:
-            data = tomllib.load(handle)
-    except tomllib.TOMLDecodeError as exc:
+        data = tomllib.loads(raw.decode("utf-8"))
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
         raise ConfigError(f"{path.name}: not valid TOML: {exc}") from exc
     try:
-        return parse_config(data, path)
+        config = parse_config(data, path)
     except ConfigError as exc:
         raise ConfigError(f"{path.name}: {exc}") from None
+    return replace(config, sha256=hashlib.sha256(raw).hexdigest())

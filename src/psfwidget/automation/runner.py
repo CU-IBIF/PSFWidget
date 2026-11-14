@@ -49,6 +49,18 @@ JOBS = ("ingest", "trend_report")
 LOCK_STALE_AFTER = timedelta(hours=6)
 OPERATOR = "psfwidget-scheduler"
 
+
+def scheduler_identity() -> str:
+    """Return the name scheduled runs record: the scheduler and the OS account (QA-01)."""
+    import getpass
+
+    try:
+        account = getpass.getuser()
+    except (KeyError, OSError):
+        account = "unknown"
+    return f"{OPERATOR} ({account})"
+
+
 log = logging.getLogger("psfwidget.automation")
 
 
@@ -63,6 +75,7 @@ class RunSummary:
     skipped: list[dict[str, Any]] = field(default_factory=list)
     errors: list[dict[str, Any]] = field(default_factory=list)
     reports: list[str] = field(default_factory=list)
+    config_sha256: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """Return the summary as JSON-ready data."""
@@ -71,6 +84,7 @@ class RunSummary:
             "started_utc": self.started_utc.isoformat(),
             "finished_utc": None if self.finished_utc is None else self.finished_utc.isoformat(),
             "software_version": __version__,
+            "config_sha256": self.config_sha256,
             "host": socket.gethostname(),
             "sessions": self.sessions,
             "skipped": self.skipped,
@@ -214,7 +228,12 @@ def _ingest_file(
             outcomes.append("not analyzable")
             continue
         result = analyze_stack(stack, config.analysis, profile.spec)
-        session_id = db.record(result, user=OPERATOR)
+        session_id = db.record(
+            result,
+            user=scheduler_identity(),
+            profile_sha256=profile.sha256,
+            config_sha256=config.sha256 or None,
+        )
         checks = session_checks(db, result, session_id, profile.tracking)
         files, statuses = publish_session(
             result,
@@ -222,11 +241,12 @@ def _ingest_file(
             stack=stack,
             checks=checks,
             session_id=session_id,
-            operator=OPERATOR,
+            operator=scheduler_identity(),
         )
         summary.sessions.append(
             {
                 "session_id": session_id,
+                "profile_sha256": profile.sha256,
                 "file": str(path),
                 "series": series,
                 "instrument": profile.instrument_id,
@@ -466,6 +486,7 @@ def run_due(
                     else run_trend_report(config, now)
                 )
                 summary.finished_utc = datetime.now(UTC)
+                summary.config_sha256 = config.sha256
                 state["jobs"][job] = now.isoformat()
                 save_state(config, state)
                 runs = config.state_dir / "runs"

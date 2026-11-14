@@ -132,6 +132,8 @@ class InstrumentProfile:
     channels: tuple[ChannelPreset, ...] = ()
     spec: SpecLimits = field(default_factory=SpecLimits)
     tracking: TrackingSettings = field(default_factory=TrackingSettings)
+    sha256: str | None = None
+    """SHA-256 of the profile file, when loaded from one (QA-03)."""
 
     def select_objective(
         self, objective_name: str | None, objective_id: str | None = None
@@ -376,10 +378,13 @@ def load_profile(path: str | Path) -> InstrumentProfile:
     ProfileError
         If the file is not valid TOML or not a valid profile.
     """
+    import hashlib
+    from dataclasses import replace
+
     path = Path(path)
+    raw = path.read_bytes()
     try:
-        with path.open("rb") as handle:
-            data = tomllib.load(handle)
-    except tomllib.TOMLDecodeError as exc:
+        data = tomllib.loads(raw.decode("utf-8"))
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
         raise ProfileError(f"{path.name}: not valid TOML: {exc}") from exc
-    return parse_profile(data, path.name)
+    return replace(parse_profile(data, path.name), sha256=hashlib.sha256(raw).hexdigest())
