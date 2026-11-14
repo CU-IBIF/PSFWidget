@@ -24,7 +24,8 @@ class Theory:
     model: str
     modality: Modality
     excitation_nm: float | None
-    emission_nm: float
+    emission_nm: float | None
+    """``None`` for multiphoton when the emission is unknown; it does not enter the model."""
     numerical_aperture: float
     refractive_index: float
     pinhole_au: float | None
@@ -70,6 +71,17 @@ def pinhole_airy_units(
     )
 
 
+def _enhancement_notes(metadata: AcquisitionMetadata, modality: Modality) -> list[str]:
+    enhancement = metadata.resolution_enhancement
+    if enhancement is None:
+        return []
+    base = modality.value.replace("_", "-")
+    return [
+        f"{enhancement.value} is not modelled; compared with the {base} model, "
+        "so ratios below 1 are expected (THE-08)"
+    ]
+
+
 def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> Theory:
     """Return the theoretical FWHM of one channel.
 
@@ -78,13 +90,21 @@ def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> T
     TheoryUnavailableError
         If a value the model needs is missing.
     """
+    multiphoton = metadata.modality is not None and (
+        metadata.modality.value is Modality.MULTIPHOTON
+    )
+    wavelength = (
+        ("excitation_nm", channel.excitation_nm)
+        if multiphoton
+        else ("emission_nm", channel.emission_nm)
+    )
     missing = [
         name
         for name, item in (
             ("numerical_aperture", metadata.numerical_aperture),
             ("immersion_ri", metadata.immersion_ri),
             ("modality", metadata.modality),
-            ("emission_nm", channel.emission_nm),
+            wavelength,
         )
         if item is None
     ]
@@ -93,13 +113,37 @@ def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> T
     assert metadata.numerical_aperture is not None
     assert metadata.immersion_ri is not None
     assert metadata.modality is not None
-    assert channel.emission_nm is not None
     na = metadata.numerical_aperture.value
     n = metadata.immersion_ri.value
     modality = metadata.modality.value
-    emission = channel.emission_nm.value
     notes: list[str] = []
 
+    if multiphoton:
+        assert channel.excitation_nm is not None
+        laser = channel.excitation_nm.value
+        scalar = scalar_width("multiphoton", laser, 0.0, na, n)
+        multiphoton_form = analytic.multiphoton(laser, na, n)
+        if laser < 650:
+            notes.append(
+                f"excitation {laser:g} nm is short for two-photon excitation; check that "
+                "excitation_nm is the laser wavelength, not half of it"
+            )
+        return Theory(
+            lateral_um=scalar.lateral_um,
+            axial_um=scalar.axial_um,
+            model=scalar.model,
+            modality=modality,
+            excitation_nm=laser,
+            emission_nm=None if channel.emission_nm is None else channel.emission_nm.value,
+            numerical_aperture=na,
+            refractive_index=n,
+            pinhole_au=None,
+            analytic=multiphoton_form,
+            notes=(*notes, *_enhancement_notes(metadata, modality)),
+        )
+
+    assert channel.emission_nm is not None
+    emission = channel.emission_nm.value
     if modality is Modality.WIDEFIELD:
         excitation = None if channel.excitation_nm is None else channel.excitation_nm.value
         scalar = scalar_width("widefield", None, emission, na, n)
@@ -117,13 +161,7 @@ def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> T
         if closed_form is None:
             notes.append("no closed-form formula between 0.25 and 1 AU")
 
-    enhancement = metadata.resolution_enhancement
-    if enhancement is not None:
-        base = modality.value.replace("_", "-")
-        notes.append(
-            f"{enhancement.value} is not modelled; compared with the {base} model, "
-            "so ratios below 1 are expected (THE-08)"
-        )
+    notes.extend(_enhancement_notes(metadata, modality))
     return Theory(
         lateral_um=scalar.lateral_um,
         axial_um=scalar.axial_um,

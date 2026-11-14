@@ -30,7 +30,7 @@ from psfwidget.io import (
     parse_assignments,
     read_stack,
 )
-from psfwidget.io.model import ACQUISITION_FIELDS, CHANNEL_FIELDS
+from psfwidget.io.model import ACQUISITION_FIELDS, CHANNEL_FIELDS, required_channel_fields
 from psfwidget.profiles import InstrumentProfile, load_profile
 from psfwidget.review import Decision, review
 from psfwidget.serialize import metadata_record, plain
@@ -210,6 +210,7 @@ class AnalysisSession:
                     required=name in REQUIRED_ACQUISITION_FIELDS,
                 )
             )
+        required = required_channel_fields(self.stack.metadata)
         for channel in record["channels"]:
             for name in CHANNEL_FIELDS:
                 entry = channel[name]
@@ -220,7 +221,7 @@ class AnalysisSession:
                         value="" if entry is None else _text(entry["value"]),
                         source="" if entry is None else entry["source"],
                         note="" if entry is None else entry["note"],
-                        required=name == "emission_nm",
+                        required=name in required,
                     )
                 )
         return rows

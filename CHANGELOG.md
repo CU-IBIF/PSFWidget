@@ -124,6 +124,11 @@ All notable changes to this project are documented here. The format follows
     `psfwidget.profiles.write`);
   - npe2 plugin manifest and a synthetic bead sample (T7.4);
   - a GUI job in CI (headless napari under a virtual display).
+- Multiphoton (two-photon) theory (M5, THE-10): a `multiphoton` modality,
+  the Zipfel et al. (2003) FWHM formulas and a squared-excitation scalar
+  model, the excitation (laser) wavelength required instead of the emission,
+  multiphoton modes read from ND2, CZI, and OME-TIFF files, and a profile
+  template.
 
 ### Changed
 - Reports use a block-based model with `reportlab` for PDF instead of

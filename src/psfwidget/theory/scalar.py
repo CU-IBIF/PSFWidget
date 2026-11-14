@@ -9,6 +9,8 @@ with k = 2π / λ (vacuum wavelength) and a uniform pupil. The intensity PSF is
 apodisation, and assumes the sample and immersion refractive indices match.
 
 * Widefield: the emission PSF.
+* Multiphoton (two-photon): the square of the excitation PSF at the laser
+  wavelength; detection is non-descanned, so the emission does not enter.
 * Confocal and spinning disk: the excitation PSF multiplied by the emission
   PSF integrated over the pinhole projected into the sample. Spinning disk is
   treated as a single pinhole; crosstalk between pinholes is ignored.
@@ -167,7 +169,7 @@ def scalar_width(
     Parameters
     ----------
     modality
-        ``"widefield"``, ``"confocal"``, or ``"spinning_disk"``.
+        ``"widefield"``, ``"confocal"``, ``"spinning_disk"``, or ``"multiphoton"``.
     excitation_nm
         Excitation wavelength; required for confocal and spinning disk.
     emission_nm
@@ -202,6 +204,11 @@ def scalar_width(
             model="scalar widefield (emission PSF)",
         )
 
+    if modality == "multiphoton":
+        if excitation_nm is None:
+            raise ValueError("the multiphoton model needs the excitation wavelength")
+        return _multiphoton(excitation_nm, numerical_aperture, refractive_index)
+
     if modality not in ("confocal", "spinning_disk"):
         raise ValueError(f"unknown modality: {modality!r}")
     if excitation_nm is None or pinhole_au is None:
@@ -235,4 +242,26 @@ def scalar_width(
         lateral_um=half_width(x, excitation_lateral * detection_lateral),
         axial_um=half_width(z, excitation_axial * detection_axial),
         model=f"scalar {name}, pinhole {pinhole_au:.2f} AU",
+    )
+
+
+def _multiphoton(
+    excitation_nm: float, numerical_aperture: float, refractive_index: float
+) -> ScalarWidth:
+    """Return the FWHM of the squared excitation PSF (two-photon excitation)."""
+    resolution = excitation_nm / NM_PER_UM / numerical_aperture
+    x = np.linspace(0.0, 2.0 * resolution, 2 * _LATERAL_SAMPLES_PER_RESOLUTION + 1)
+    depth = (
+        6.0
+        * excitation_nm
+        / NM_PER_UM
+        / (refractive_index - math.sqrt(refractive_index**2 - numerical_aperture**2))
+    )
+    z = np.linspace(0.0, depth, _AXIAL_SAMPLES)
+    lateral = intensity(x, np.zeros(1), excitation_nm, numerical_aperture, refractive_index)
+    axial = intensity(np.zeros(1), z, excitation_nm, numerical_aperture, refractive_index)
+    return ScalarWidth(
+        lateral_um=half_width(x, lateral[:, 0] ** 2),
+        axial_um=half_width(z, axial[0, :] ** 2),
+        model="scalar two-photon (squared excitation PSF)",
     )

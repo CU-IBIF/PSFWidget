@@ -126,15 +126,15 @@ def _expected_fwhm(
     if theory is not None:
         lateral, axial = theory.lateral_um, theory.axial_um
     else:
-        assert channel.emission_nm is not None
         assert metadata.numerical_aperture is not None
         assert metadata.immersion_ri is not None
-        widefield = analytic.widefield(
-            channel.emission_nm.value,
-            metadata.numerical_aperture.value,
-            metadata.immersion_ri.value,
-        )
-        lateral, axial = widefield.lateral_um, widefield.axial_um
+        na, n = metadata.numerical_aperture.value, metadata.immersion_ri.value
+        if channel.emission_nm is not None:
+            rough = analytic.widefield(channel.emission_nm.value, na, n)
+        else:  # multiphoton: only the excitation wavelength is required
+            assert channel.excitation_nm is not None
+            rough = analytic.multiphoton(channel.excitation_nm.value, na, n)
+        lateral, axial = rough.lateral_um, rough.axial_um
     if metadata.bead_diameter_nm is not None:
         bead = BEAD_FWHM_PER_DIAMETER * metadata.bead_diameter_nm.value / NM_PER_UM
         lateral, axial = math.hypot(lateral, bead), math.hypot(axial, bead)

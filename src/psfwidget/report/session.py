@@ -91,7 +91,8 @@ def _theory_text(channel: ChannelResult) -> str:
         return f"No theoretical PSF: {channel.theory_unavailable}."
     text = (
         f"Theoretical PSF: {theory.model}, NA {theory.numerical_aperture:g}, "
-        f"n {theory.refractive_index:g}, emission {theory.emission_nm:g} nm"
+        f"n {theory.refractive_index:g}"
+        + ("" if theory.emission_nm is None else f", emission {theory.emission_nm:g} nm")
     )
     if theory.excitation_nm is not None:
         text += f", excitation {theory.excitation_nm:g} nm"

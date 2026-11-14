@@ -23,8 +23,13 @@ def bead_field(seed: int = 7) -> list[tuple[Any, dict[str, Any], str]]:
         bit_depth=12,
     )
     field = synthetic.make_bead_field(
-        spec, 12, SAMPLE_FWHM_UM, 4e4, np.random.default_rng(seed),
-        margin_fwhm=2.0, min_separation_fwhm=4.0,
+        spec,
+        12,
+        SAMPLE_FWHM_UM,
+        4e4,
+        np.random.default_rng(seed),
+        margin_fwhm=2.0,
+        min_separation_fwhm=4.0,
     )
     return [
         (

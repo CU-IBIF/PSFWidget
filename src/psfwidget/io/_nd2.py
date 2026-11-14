@@ -66,6 +66,8 @@ def list_series(path: Path) -> list[SeriesInfo]:
 
 
 def _modality(flags: list[str]) -> Modality | None:
+    if "multiphoton" in flags:
+        return Modality.MULTIPHOTON
     if "spinningDiskConfocal" in flags:
         return Modality.SPINNING_DISK
     if "laserScanConfocal" in flags:

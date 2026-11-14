@@ -1,0 +1,27 @@
+# Template for a multiphoton (two-photon) microscope. Replace the values with
+# the instrument's own; the facility's multiphoton system is still to be named.
+#
+# The two-photon PSF depends on the laser (excitation) wavelength, not on the
+# emission, so each channel needs excitation_nm: the laser wavelength in nm
+# (e.g. 920), not half of it. Detection is non-descanned, so no pinhole is set.
+
+[instrument]
+id = "mp-template"
+name = "Multiphoton microscope (template)"
+modality = "multiphoton"
+
+[bead]
+diameter_nm = 100
+product = "TetraSpeck 0.1 um"
+
+[[objective]]
+id = "25x-water-1.05"
+match = "25x"
+numerical_aperture = 1.05
+immersion_ri = 1.333
+
+[[channel]]
+id = "green-920"
+match = { index = 0 }
+excitation_nm = 920
+emission_nm = 515

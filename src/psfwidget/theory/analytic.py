@@ -32,6 +32,20 @@ is the optical section thickness for a fluorescent *layer*, which grows with
 the pinhole. A bead is a point source, whose axial width does not, so that
 formula is not used here.
 
+Multiphoton (two-photon excitation, non-descanned detection; Zipfel WR,
+Williams RM, Webb WW. Nonlinear magic: multiphoton microscopy in the
+biosciences. *Nat. Biotechnol.* 2003, 21:1369–1377). The PSF is the square
+of the excitation PSF at the laser wavelength λ_ex; its Gaussian 1/e radii
+are
+
+    ω_xy = 0.320 λ_ex / (√2 NA)          for NA ≤ 0.7
+    ω_xy = 0.325 λ_ex / (√2 NA^0.91)     for NA > 0.7
+    ω_z  = 0.532 λ_ex / √2 · 1 / (n − √(n² − NA²))
+
+and FWHM = 2 √(ln 2) ω. The emission wavelength does not enter. These agree
+with the squared scalar excitation PSF of :mod:`psfwidget.theory.scalar` to
+within about 6% for NA 0.8 to 1.4.
+
 Between 0.25 and 1 AU there is no closed formula. The measured/theoretical
 ratios therefore use the numerical model, which handles any pinhole size, and
 the analytical values are reported alongside it for reference.
@@ -56,7 +70,8 @@ class AnalyticWidth:
     lateral_um: float
     axial_um: float
     regime: str
-    """``widefield``, ``confocal-closed`` (≤ 0.25 AU), or ``confocal-open`` (≥ 1 AU)."""
+    """``widefield``, ``confocal-closed`` (≤ 0.25 AU), ``confocal-open`` (≥ 1 AU), or
+    ``multiphoton``."""
     lateral_formula: str
     axial_formula: str
 
@@ -134,6 +149,37 @@ def confocal_open(
         regime="confocal-open",
         lateral_formula="0.51 λex / NA",
         axial_formula="0.88 λex / (n − √(n² − NA²))",
+    )
+
+
+FWHM_PER_ZIPFEL_RADIUS = 2.0 * math.sqrt(math.log(2.0))
+"""FWHM of exp(−x²/ω²) in units of ω."""
+
+
+def multiphoton(
+    excitation_nm: float, numerical_aperture: float, refractive_index: float
+) -> AnalyticWidth:
+    """Return the two-photon FWHM from the excitation wavelength (Zipfel et al. 2003)."""
+    _check(numerical_aperture, refractive_index, excitation_nm)
+    wavelength = excitation_nm / NM_PER_UM
+    if numerical_aperture <= 0.7:
+        radius_xy = 0.320 * wavelength / (math.sqrt(2.0) * numerical_aperture)
+        lateral_formula = "2√ln2 · 0.320 λex / (√2 NA)"
+    else:
+        radius_xy = 0.325 * wavelength / (math.sqrt(2.0) * numerical_aperture**0.91)
+        lateral_formula = "2√ln2 · 0.325 λex / (√2 NA^0.91)"
+    radius_z = (
+        0.532
+        * wavelength
+        / math.sqrt(2.0)
+        / axial_denominator(numerical_aperture, refractive_index)
+    )
+    return AnalyticWidth(
+        lateral_um=FWHM_PER_ZIPFEL_RADIUS * radius_xy,
+        axial_um=FWHM_PER_ZIPFEL_RADIUS * radius_z,
+        regime="multiphoton",
+        lateral_formula=lateral_formula,
+        axial_formula="2√ln2 · 0.532 λex / √2 / (n − √(n² − NA²))",
     )
 
 
