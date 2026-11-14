@@ -51,7 +51,9 @@ def licence_alternatives(dist: metadata.Distribution) -> list[str]:
         return classifiers
     text = (meta.get("License") or "").strip()
     if text and text.upper() != "UNKNOWN":
-        return [text.splitlines()[0][:80]]
+        first = text.splitlines()[0][:120]
+        # Some packages put an SPDX expression in the old License field.
+        return [part.strip(" ()") for part in re.split(r"\s+OR\s+", first)]
     return []
 
 

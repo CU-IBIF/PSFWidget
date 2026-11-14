@@ -137,3 +137,37 @@ def test_session_layers_and_outputs(session: AnalysisSession, tmp_path: Path) ->
     assert f"Session {session_id}" in files[0].read_text("utf-8") or str(session_id) in files[
         0
     ].read_text("utf-8")
+
+
+@pytest.mark.req("DET-07")
+def test_including_an_automatically_rejected_bead(session: AnalysisSession) -> None:
+    from dataclasses import replace
+
+    from psfwidget.metrics.bead import REJECTED
+
+    assert session.automatic is not None
+    channel = session.automatic.channels[0]
+    bead = channel.accepted[0]
+    rejected = replace(bead, status=REJECTED, reasons=("low SNR (4.0 < 5)",))
+    unmeasured = replace(
+        channel.accepted[1], status=REJECTED, fwhm_z_um=None, reasons=("z fit failed",)
+    )
+    beads = tuple(
+        rejected
+        if b.bead_id == bead.bead_id
+        else unmeasured
+        if b.bead_id == unmeasured.bead_id
+        else b
+        for b in channel.beads
+    )
+    result = replace(session.automatic, channels=(replace(channel, beads=beads),))
+    reviewed = review(result, {0: {bead.bead_id: Decision(True, "SNR fine by eye", "ab")}})
+    included = next(b for b in reviewed.channels[0].beads if b.bead_id == bead.bead_id)
+    assert included.accepted
+    assert included.reasons == ()
+    assert "was rejected: low SNR" in included.notes[-1]
+    with pytest.raises(ReviewError, match="cannot be included"):
+        review(result, {0: {unmeasured.bead_id: Decision(True, "x", "ab")}})
+    # Excluding an already rejected bead changes nothing.
+    same = review(result, {0: {bead.bead_id: Decision(False, "x", "ab")}})
+    assert same.channels[0] is result.channels[0]

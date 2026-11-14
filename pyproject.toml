@@ -43,10 +43,17 @@ report = [
     "openpyxl>=3.1",
     "reportlab>=4.0",
 ]
-napari = []
+napari = [
+    "napari[pyside6]>=0.5",
+    "psfwidget[report]",
+]
 test = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
+]
+gui-test = [
+    "psfwidget[napari,test]",
+    "pytest-qt>=4.4",
 ]
 dev = [
     "psfwidget[report,test]",
@@ -58,6 +65,9 @@ dev = [
     "types-openpyxl",
     "types-reportlab",
 ]
+
+[project.entry-points."napari.manifest"]
+psfwidget = "psfwidget.napari:napari.yaml"
 
 [project.scripts]
 psfwidget = "psfwidget.automation.cli:main"
@@ -121,9 +131,18 @@ mypy_path = "src"
 [[tool.mypy.overrides]]
 # The GUI dependencies are optional; napari ships no type information, and
 # qtpy is typed only when a Qt binding is installed.
-module = ["napari", "napari.*", "qtpy", "qtpy.*", "pytestqt", "pytestqt.*"]
+module = ["napari", "napari.*", "npe2", "npe2.*", "qtpy", "qtpy.*", "pytestqt", "pytestqt.*"]
 ignore_missing_imports = true
 follow_untyped_imports = false
+
+[[tool.mypy.overrides]]
+# Without a Qt binding installed, QWidget is Any to the type checker.
+module = [
+    "psfwidget.napari.analysis_widget",
+    "psfwidget.napari.tracking_widget",
+    "psfwidget.napari.profile_editor",
+]
+disallow_subclassing_any = false
 
 # ---------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
@@ -148,6 +167,13 @@ filterwarnings = [
 [tool.coverage.run]
 source = ["psfwidget"]
 branch = true
+# The Qt widgets are measured by the GUI job (tests/gui-coverage.toml), which
+# has napari and a display; their logic lives in modules measured here.
+omit = [
+    "*/psfwidget/napari/analysis_widget.py",
+    "*/psfwidget/napari/tracking_widget.py",
+    "*/psfwidget/napari/profile_editor.py",
+]
 
 [tool.coverage.report]
 fail_under = 85  # NFR-09

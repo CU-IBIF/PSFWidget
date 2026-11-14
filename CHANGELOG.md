@@ -111,6 +111,19 @@ All notable changes to this project are documented here. The format follows
     runs (AUT-04);
   - `STATUS.json` after every run and `ALERT.txt` while something needs
     attention (AUT-06).
+- napari GUI (M5, WP7), installed with `pip install "psfwidget[napari]"`:
+  - analysis widget: open a file and series, edit metadata, analyse in a
+    background thread, review accepted and rejected beads in 2D or 3D,
+    record, and write reports (UI-01, UI-04);
+  - manual bead review: include or exclude beads with a reason and
+    reviewer, with the summary and spec checks recomputed (DET-07;
+    `psfwidget.review`);
+  - tracking widget: interactive Levey-Jennings charts with hover details,
+    exclusion and re-inclusion, and events (UI-02);
+  - profile editor with validation and TOML saving (UI-03;
+    `psfwidget.profiles.write`);
+  - npe2 plugin manifest and a synthetic bead sample (T7.4);
+  - a GUI job in CI (headless napari under a virtual display).
 
 ### Changed
 - Reports use a block-based model with `reportlab` for PDF instead of

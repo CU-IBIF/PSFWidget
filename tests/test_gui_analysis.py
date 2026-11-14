@@ -6,6 +6,7 @@ Skipped when napari and a Qt binding are not installed (``pip install psfwidget[
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -14,9 +15,16 @@ import numpy as np
 import pytest
 import tifffile
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 napari = pytest.importorskip("napari")
 pytest.importorskip("pytestqt")
+if sys.platform.startswith("linux") and not (
+    os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
+):
+    pytest.skip(
+        "the napari viewer needs an OpenGL display; on a headless Linux machine run "
+        "QT_QPA_PLATFORM=xcb xvfb-run -a python -m pytest tests/test_gui_analysis.py",
+        allow_module_level=True,
+    )
 
 from psfwidget import synthetic  # noqa: E402
 from psfwidget.napari.analysis_widget import AnalysisWidget  # noqa: E402
@@ -134,3 +142,18 @@ def test_analysis_widget_end_to_end(
     assert list((tmp_path / "reports").glob("*_report.html"))
     widget.view_3d.setChecked(True)
     assert viewer.dims.ndisplay == 3
+
+
+@pytest.mark.req("UI-01", "UI-02", "UI-03")
+def test_plugin_manifest_and_sample(make_napari_viewer: Any) -> None:
+    from npe2 import PluginManifest
+
+    manifest = PluginManifest.from_distribution("psfwidget")
+    titles = {w.display_name for w in manifest.contributions.widgets or []}
+    assert titles == {"PSF analysis", "PSF tracking (Levey-Jennings)", "Instrument profile editor"}
+    viewer = make_napari_viewer()
+    viewer.open_sample("psfwidget", "beads")
+    assert tuple(viewer.layers[0].scale) == pytest.approx((0.15, 0.05, 0.05))
+    for title in titles:
+        _, widget = viewer.window.add_plugin_dock_widget("psfwidget", title)
+        assert widget is not None

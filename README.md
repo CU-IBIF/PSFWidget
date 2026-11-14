@@ -192,6 +192,35 @@ To run on a schedule, either keep `psfwidget watch --config qc.toml` running
 Two runs never overlap: a run that starts while another is in progress exits
 with status 6.
 
+### napari GUI
+
+```bash
+pip install "psfwidget[napari]"
+napari
+```
+
+Then open *Plugins → PSFWidget*:
+
+- **PSF analysis**: choose a file, series, and (optionally) an instrument
+  profile, then *Open*. Missing required metadata is highlighted in red;
+  type a value in the table to set it. *Analyse* runs in the background.
+  Accepted beads are shown as green circles and rejected beads as red ones;
+  tick *3D view* to inspect them in 3D. To exclude or include beads by hand,
+  select them in the *bead review* points layer, give a reason and your name,
+  and press *Exclude selected beads* or *Include selected beads*: the metrics
+  and spec checks update, and the decision is kept with the bead. *Record in
+  database* and *Write report* save the reviewed result.
+- **PSF tracking (Levey-Jennings)**: choose a results database to see each
+  configuration's latest state and its charts. Hover over a point for the
+  session; click it to select it, then exclude or include it with a reason.
+  Events (service, alignment, …) can be added, optionally starting new
+  control limits.
+- **Instrument profile editor**: create or edit a profile, including spec
+  limits and tracked metrics. *Check* validates it; only a valid profile is
+  saved.
+
+*File → Open Sample → PSFWidget* opens a synthetic bead field to try it on.
+
 ## Development
 
 You need Python 3.12 or newer.
