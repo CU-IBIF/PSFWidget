@@ -124,6 +124,10 @@ All notable changes to this project are documented here. The format follows
     `psfwidget.profiles.write`);
   - npe2 plugin manifest and a synthetic bead sample (T7.4);
   - a GUI job in CI (headless napari under a virtual display).
+- Documentation: an install guide and a user manual (`docs/manual/`, drafts),
+  and `docs/STATUS.md` with the status of every requirement and the
+  outstanding items; README, plan, V&V plan, and CONTRIBUTING brought up to
+  date.
 - Field-map figure in session reports (M5, MET-11) and report approval,
   rejection, and signature checks in the analysis widget (M5, QA-02).
 - 3D Gaussian fit of each bead (M5, MET-03): FWHM x, y, z and R²,

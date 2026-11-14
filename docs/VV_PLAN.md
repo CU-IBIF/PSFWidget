@@ -1,7 +1,8 @@
 # PSFWidget: Verification & Validation (V&V) Plan
 
-**Status:** Draft v0.1, for review
-**Date:** 2026-11-10
+**Status:** Draft v0.2, for review (v0.2: QA and NFR-11 rows, M4 and M5 status)
+**Date:** 2026-11-14
+**Verification status per requirement:** [STATUS.md](STATUS.md) §2
 **Companion document:** [Project Plan & Requirements](PLAN.md)
 
 ---

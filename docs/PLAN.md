@@ -1,7 +1,8 @@
 # PSFWidget: Project Plan
 
-**Status:** Draft v0.1, for review
-**Date:** 2026-11-10
+**Status:** Draft v0.3, for review (v0.2: stakeholder answers of 2026-11-13; v0.3: status updated after M5)
+**Date:** 2026-11-14
+**Current status and outstanding items:** [STATUS.md](STATUS.md)
 **Companion document:** [V&V Plan](VV_PLAN.md)
 
 ---
@@ -32,7 +33,7 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 - A multi-user web server or dashboard.
 - Deconvolution itself. v1.0 only exports averaged PSFs for use in deconvolution software.
 
-### 1.3 Proposed technology baseline (to be confirmed)
+### 1.3 Technology baseline (confirmed in M0–M5; changes marked)
 
 | Concern | Proposed choice | Rationale |
 |---|---|---|
@@ -41,10 +42,10 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 | Numerics | `numpy`, `scipy` | Levenberg-Marquardt fits with analytic Jacobians give the fit uncertainties; `scikit-image` and `lmfit` turned out not to be needed |
 | Theoretical PSF | Models implemented in PSFWidget (analytical formulas, then scalar Gibson-Lanni, then vectorial), cross-checked against `MicroscPSF-Py` (MIT) | `psfmodels` is GPL-3 (see `docs/LICENSE_AUDIT.md`) |
 | Storage | SQLite through Python's built-in `sqlite3` | Single file, portable, no server needed. *Changed in M3* from SQLAlchemy + Alembic: the schema is small, a version table covers migrations, and two dependencies are avoided. Append-only rules are enforced by SQLite triggers |
-| Plotting | `matplotlib` for static report figures (optional `report` extra); `plotly` for interactive HTML | Static figures for PDF, interactive charts for HTML |
+| Plotting | `matplotlib` for report figures and charts (optional `report` extra), and for the interactive Levey-Jennings charts in the GUI | *Changed in M5:* interactive charts live in the napari tracking widget (matplotlib's Qt canvas); HTML reports carry static images, so `plotly` is not needed |
 | Reports | A block-based report model rendered to self-contained HTML and to PDF with `reportlab` (BSD); XLSX with `openpyxl` (MIT) | *Changed in M4* from Jinja2 + `weasyprint`: one block list produces both outputs without templates, and reportlab installs from wheels on every OS, whereas weasyprint needs the Pango system libraries, which are awkward on Windows |
 | Scheduling | Built-in scheduler (`psfwidget watch`) **and** a CLI that OS schedulers can call (`psfwidget run`, from cron or Windows Task Scheduler) | Works on facility PCs without a service running. *Changed in M4* from `APScheduler`: job state (last run, files handled) is kept in a file in the output folder, so a run started by cron and one started by the built-in loop agree on what is due, with no extra dependency |
-| GUI | napari plugin (npe2) | Fits the repository name and gives a 3D viewer for free |
+| GUI | napari plugin (npe2) with PySide6 (LGPL) | Fits the repository name and gives a 3D viewer for free. PyQt (GPL) is excluded |
 | Packaging/CI | `pyproject.toml`, `pytest`, GitHub Actions, `pre-commit` (ruff, mypy) | |
 
 ---
@@ -223,27 +224,36 @@ original, accurate, complete, consistent, enduring, and available.
 
 ## 4. Architecture overview
 
+*Updated 2026-11-14 to match the code.*
+
 ```
 psfwidget/
-├── io/            # Format readers → unified ImageStack(data, voxel_size, channels, metadata, provenance)
-├── profiles/      # Instrument / objective / channel profiles, spec limits (YAML)
-├── detect/        # Bead detection, filtering, cropping
-├── metrics/       # Fitting (1D/2D/3D Gaussian), intensity, SBR/SNR, asymmetry, field maps, chromatic
-├── theory/        # Analytical FWHM formulas, Gibson-Lanni / vectorial PSF wrappers, comparison
-├── average/       # Sub-pixel registration + averaged PSF export
-├── tracking/      # SQLAlchemy models, baselines, Westgard engine, events
-├── report/        # Report model, figures, HTML/PDF renderers, status logic, path templating, publishing
-├── automation/    # CLI (argparse), config file, schedules, watch-folder runs, run logs, alerts
-├── napari/        # Dock widgets (analysis, tracking, profiles) – thin layer over the core
-└── api.py         # Public, stable Python API
+├── io/            # Format readers → ImageStack (lazy channels, voxel size, metadata with origins, provenance)
+├── profiles/      # Instrument profiles (TOML): objectives, channels, beads, spec limits, tracking; TOML writer
+├── detect/        # Bead candidate detection (matched filter after hot-pixel removal)
+├── metrics/       # Per-bead fits (1D, 2D, 3D Gaussian), intensity, SNR/SBR, summaries; field geometry and chromatic shifts
+├── theory/        # Analytical formulas, scalar model (widefield, confocal, spinning disk, multiphoton, image scanning), 3D theoretical image
+├── average/       # Sub-voxel registration, averaged PSF, comparison with theory, OME-TIFF export
+├── analysis.py    # The pipeline: analyze_stack → FieldResult
+├── review.py      # Manual include/exclude of beads (DET-07)
+├── tracking/      # SQLite store (append-only, audited, approvals), baselines, Westgard engine, events, charts
+├── report/        # Report model, figures, HTML/PDF renderers, status logic, path templates, publishing
+├── automation/    # CLI (argparse), automation config, schedules, unattended runs, backups, GLP commands
+└── napari/        # Dock widgets (analysis, tracking, profile editor), session logic without Qt, plugin manifest
 ```
+
+The public Python API is the core packages' documented functions (chiefly
+`psfwidget.io.read_stack`, `psfwidget.profiles.load_profile`,
+`psfwidget.analysis.analyze_stack`, `psfwidget.tracking.store.ResultsDatabase`,
+and `psfwidget.napari.session.AnalysisSession`); see the user manual's API
+chapter. A separate `api.py` facade was not needed.
 
 **Design principles**
 
 - **Headless core.** All logic lives in the core packages. The GUI and CLI are thin layers, which makes scheduling and testing straightforward.
-- **One pipeline.** `load → resolve metadata → detect → measure → compare → persist → report`. Each stage has typed inputs and outputs (dataclasses or pydantic models) and can be unit-tested on its own.
+- **One pipeline.** `load → resolve metadata → detect → measure → compare → persist → report`. Each stage has typed inputs and outputs (frozen dataclasses) and can be unit-tested on its own.
 - **Configuration as data.** Analysis parameters are a versioned, serializable object stored with every result, which gives NFR-03 reproducibility.
-- **Database schema** (initial): `Instrument`, `Objective`, `ChannelConfig`, `Session` (one acquisition), `Field` (series or position), `Bead` (per-bead metrics), `SessionSummary` (aggregated metrics), `Baseline`, `Event`, `Exclusion`, `RuleViolation`, `Run` (automation log). Migrations use Alembic.
+- **Database schema** (version 2): `sessions` (one acquisition, with settings, metadata, file hash, host, and profile and configuration hashes), `channel_results`, `metrics` (bead summaries and channel-level metrics), `beads`, `events`, `exclusions`, `approvals`, and `audit_log`. Every table except `schema_version` is append-only by trigger. Migrations are in-place, additive, and audited (`psfwidget.tracking.schema`).
 
 ---
 

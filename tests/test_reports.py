@@ -229,7 +229,7 @@ def _optics() -> Overrides:
 # ---------------------------------------------------------------- session reports
 
 
-@pytest.mark.req("REP-01", "REP-04", "REP-05", "REP-06", "REP-07")
+@pytest.mark.req("REP-01", "REP-04", "REP-05", "REP-06", "REP-07", "THE-07")
 def test_session_report_and_exports(tracked: tuple[Path, Path, list[int]], tmp_path: Path) -> None:
     database, profile_path, ids = tracked
     profile = load_profile(profile_path)
