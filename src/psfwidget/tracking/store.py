@@ -337,6 +337,12 @@ class ResultsDatabase:
             "VALUES (?, ?, 1, ?, NULL, ?, ?, ?)",
             (row_id, ACCEPTED_BEADS, accepted, accepted, accepted, accepted),
         )
+        for metric, value in channel.channel_metrics.items():
+            db.execute(
+                "INSERT INTO metrics (channel_result_id, metric, n, mean, sd, median, q25, q75) "
+                "VALUES (?, ?, 1, ?, NULL, ?, ?, ?)",
+                (row_id, metric, value, value, value, value),
+            )
         for metric in SUMMARY_METRICS:
             stats = channel.summary.get(metric)
             if stats is None:

@@ -134,6 +134,49 @@ def _tracking_table(checks: Sequence[MetricCheck]) -> doc.Table:
     )
 
 
+def _field_values(channel: ChannelResult) -> doc.KeyValues | None:
+    """Tilt, curvature, uniformity (MET-11, MET-12) and chromatic shift (MET-13)."""
+    rows: list[tuple[str, str]] = []
+    field = channel.field
+    if field is not None and field.tilt_deg is not None:
+        assert field.focal_range_um is not None
+        rows.append(
+            (
+                "Focus-plane tilt",
+                f"{field.tilt_deg:.2f}° (focus range "
+                f"{field.focal_range_um * 1000:.0f} nm across the field, "
+                f"{field.n_beads} beads)",
+            )
+        )
+    if field is not None and field.curvature_sag_um is not None:
+        rows.append(
+            (
+                "Field curvature",
+                f"{field.curvature_sag_um * 1000:+.0f} nm sag at the "
+                "corner relative to the centre",
+            )
+        )
+    if field is not None and field.uniformity_corner_ratio is not None:
+        rows.append(
+            (
+                "Illumination uniformity",
+                f"bead intensity at the corner {field.uniformity_corner_ratio:.2f} × centre",
+            )
+        )
+    if field is not None:
+        rows += [("Note", note) for note in field.notes]
+    shift = channel.chromatic
+    if shift is not None:
+        rows.append(
+            (
+                f"Shift from channel {shift.reference}",
+                f"x {shift.dx_nm:+.0f} nm, y {shift.dy_nm:+.0f} nm, z {shift.dz_nm:+.0f} "
+                f"nm (lateral {shift.lateral_nm:.0f} nm; {shift.n_pairs} matched beads)",
+            )
+        )
+    return doc.KeyValues(tuple(rows)) if rows else None
+
+
 def _spec_table(channel: ChannelResult) -> doc.Table | None:
     if channel.spec is None:
         return None
@@ -347,6 +390,10 @@ def build_session_report(
         channel_checks = (checks or {}).get(channel.index)
         if channel_checks:
             blocks.append(_tracking_table(channel_checks))
+        geometry = _field_values(channel)
+        if geometry is not None:
+            blocks.append(doc.Heading("Field geometry and registration", 3))
+            blocks.append(geometry)
         spec = _spec_table(channel)
         if spec is not None:
             blocks.append(spec)

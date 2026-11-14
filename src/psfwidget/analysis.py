@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -24,6 +24,13 @@ from psfwidget.metrics.bead import (
     far_from_border,
     half_box,
     measure_bead,
+)
+from psfwidget.metrics.field import (
+    MATCH_RADIUS_FWHM,
+    ChromaticShift,
+    FieldGeometry,
+    chromatic_shift,
+    field_geometry,
 )
 from psfwidget.metrics.gaussian import BEAD_FWHM_PER_DIAMETER
 from psfwidget.metrics.summary import Stats, flag_outliers, rejection_counts, summarize
@@ -67,6 +74,19 @@ class ChannelResult:
     rejections: dict[str, int]
     spec: SpecResult | None
     warnings: tuple[str, ...]
+    field: FieldGeometry | None = None
+    """Tilt, curvature, and uniformity (MET-11, MET-12)."""
+    chromatic: ChromaticShift | None = None
+    """Shift relative to the first analysed channel (MET-13); ``None`` for that channel."""
+
+    @property
+    def channel_metrics(self) -> dict[str, float]:
+        """Channel-level metrics (one value per session), tracked like bead summaries."""
+        values = {} if self.field is None else self.field.metrics()
+        if self.chromatic is not None:
+            values["chromatic_lateral_nm"] = self.chromatic.lateral_nm
+            values["chromatic_axial_nm"] = self.chromatic.dz_nm
+        return values
 
     @property
     def accepted(self) -> tuple[BeadResult, ...]:
@@ -343,12 +363,48 @@ def analyze_stack(
     for index in selected:
         if not 0 <= index < stack.n_channels:
             raise IndexError(f"channel {index} out of range for {stack.n_channels} channel(s)")
-    return FieldResult(
-        provenance=stack.provenance,
-        metadata=stack.metadata,
-        settings=settings,
-        spec_limits=spec_limits,
-        software_version=__version__,
-        analysed_utc=datetime.now(UTC).replace(microsecond=0),
-        channels=tuple(analyze_channel(stack, index, settings, spec_limits) for index in selected),
+    _, _, height, width = stack.shape
+    _, voxel_y, voxel_x = stack.voxel_size_um
+    channels_done = tuple(
+        analyze_channel(stack, index, settings, spec_limits) for index in selected
     )
+    return add_field_metrics(
+        FieldResult(
+            provenance=stack.provenance,
+            metadata=stack.metadata,
+            settings=settings,
+            spec_limits=spec_limits,
+            software_version=__version__,
+            analysed_utc=datetime.now(UTC).replace(microsecond=0),
+            channels=channels_done,
+        ),
+        (width * voxel_x, height * voxel_y),
+    )
+
+
+def add_field_metrics(
+    result: FieldResult, field_size_um: tuple[float, float] | None = None
+) -> FieldResult:
+    """Return ``result`` with field geometry and chromatic shifts (re)computed.
+
+    ``field_size_um`` is the field width and height; if omitted, the size
+    stored with the channels' previous geometry is used (as after a review).
+    """
+    channels = []
+    for channel in result.channels:
+        size = field_size_um or (None if channel.field is None else channel.field.field_size_um)
+        geometry = None if size is None else field_geometry(channel.beads, size)
+        channels.append(replace(channel, field=geometry, chromatic=None))
+    if len(channels) > 1:
+        reference = channels[0]
+        radius = MATCH_RADIUS_FWHM * reference.expected_fwhm_um[0]
+        for number, channel in enumerate(channels[1:], start=1):
+            shift = chromatic_shift(
+                reference.beads,
+                channel.beads,
+                reference_index=reference.index,
+                other_index=channel.index,
+                match_radius_um=radius,
+            )
+            channels[number] = replace(channel, chromatic=shift)
+    return replace(result, channels=tuple(channels))

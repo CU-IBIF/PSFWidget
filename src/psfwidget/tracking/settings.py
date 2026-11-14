@@ -17,11 +17,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from psfwidget.metrics.field import CHANNEL_METRICS
 from psfwidget.metrics.summary import SUMMARY_METRICS
 from psfwidget.tracking.westgard import ALL_RULES, Rule, parse_rules
 
 ACCEPTED_BEADS = "accepted_beads"
-TRACKABLE_METRICS: tuple[str, ...] = (*SUMMARY_METRICS, ACCEPTED_BEADS)
+TRACKABLE_METRICS: tuple[str, ...] = (*SUMMARY_METRICS, ACCEPTED_BEADS, *CHANNEL_METRICS)
 
 DEFAULT_METRICS: tuple[str, ...] = (
     "fwhm_x_um",

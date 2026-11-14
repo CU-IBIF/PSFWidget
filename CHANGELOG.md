@@ -124,6 +124,10 @@ All notable changes to this project are documented here. The format follows
     `psfwidget.profiles.write`);
   - npe2 plugin manifest and a synthetic bead sample (T7.4);
   - a GUI job in CI (headless napari under a virtual display).
+- Field metrics (M5, MET-11 to MET-13): focus-plane tilt and focus range,
+  field-curvature sag, corner-to-centre illumination uniformity, and
+  chromatic shifts between channels; in reports, the channel CSV, and the
+  database as trackable channel-level metrics.
 - Database backups and deployment checks (M5, AUT-07, NFR-11): a scheduled
   `backup` job with integrity check, `.sha256` files, and retention;
   scheduled runs at reduced priority; a database on a network share is

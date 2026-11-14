@@ -274,8 +274,8 @@ Task IDs map to requirements (in brackets) for traceability.
 - T2.5 3D Gaussian fit [MET-03].
 - T2.6 Intensity metrics: integrated density, peak, background, SBR/SNR [MET-04 … MET-07]. **Done**, except normalisation to exposure or gain (MET-04), which needs exposure metadata the readers do not extract yet.
 - T2.7 Axial asymmetry metrics [MET-09].
-- T2.8 Field maps, tilt and curvature surface fits, illumination uniformity [MET-11, MET-12].
-- T2.9 Chromatic registration [MET-13].
+- T2.8 Field maps, tilt and curvature surface fits, illumination uniformity [MET-11, MET-12]. **Done** as fitted values (focus-plane tilt and focus range, curvature sag at the field corner, corner-to-centre bead intensity), shown in the session report, written to the channel CSV, and tracked like the bead summaries. On the LSM 980 TetraSpeck stack: about 0.4° tilt and 80–90 nm sag. A field-map figure is still to come.
+- T2.9 Chromatic registration [MET-13]. **Done:** beads matched across channels by mutual nearest neighbour; median x, y, z shift of each channel from the first analysed channel, in nm, reported and tracked. On the LSM 980 TetraSpeck stack, AF647 is 45 nm lateral and −137 nm axial from AF488.
 - T2.10 Bead size correction and Nyquist check [MET-15, MET-16]. **Done.**
 - T2.11 Averaged PSF (registration, averaging, OME-TIFF export) [MET-14].
 - T2.12 Encircled energy and MTF (stretch) [MET-17, MET-18].

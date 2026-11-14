@@ -170,4 +170,4 @@ def test_including_an_automatically_rejected_bead(session: AnalysisSession) -> N
         review(result, {0: {unmeasured.bead_id: Decision(True, "x", "ab")}})
     # Excluding an already rejected bead changes nothing.
     same = review(result, {0: {bead.bead_id: Decision(False, "x", "ab")}})
-    assert same.channels[0] is result.channels[0]
+    assert same.channels[0].beads == result.channels[0].beads

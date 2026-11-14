@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 
-from psfwidget.analysis import ChannelResult, FieldResult
+from psfwidget.analysis import ChannelResult, FieldResult, add_field_metrics
 from psfwidget.metrics.bead import ACCEPTED, REJECTED, BeadResult
 from psfwidget.metrics.summary import rejection_counts, summarize
 from psfwidget.profiles.spec import evaluate
@@ -106,12 +106,14 @@ def review(result: FieldResult, decisions: Mapping[int, Mapping[int, Decision]])
     unknown = sorted(set(decisions) - indices)
     if unknown:
         raise ReviewError(f"no analysed channel(s) {unknown}")
-    return replace(
-        result,
-        channels=tuple(
-            review_channel(c, decisions[c.index], result) if c.index in decisions else c
-            for c in result.channels
-        ),
+    return add_field_metrics(
+        replace(
+            result,
+            channels=tuple(
+                review_channel(c, decisions[c.index], result) if c.index in decisions else c
+                for c in result.channels
+            ),
+        )
     )
 
 
