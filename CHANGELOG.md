@@ -124,6 +124,10 @@ All notable changes to this project are documented here. The format follows
     `psfwidget.profiles.write`);
   - npe2 plugin manifest and a synthetic bead sample (T7.4);
   - a GUI job in CI (headless napari under a virtual display).
+- Database backups and deployment checks (M5, AUT-07, NFR-11): a scheduled
+  `backup` job with integrity check, `.sha256` files, and retention;
+  scheduled runs at reduced priority; a database on a network share is
+  refused.
 - GLP records (M5, WP9; QA-01 to QA-06):
   - results database schema version 2 (host, profile and configuration
     hashes, approvals), with in-place migration of version 1 databases;

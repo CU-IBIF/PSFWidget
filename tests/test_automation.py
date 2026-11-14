@@ -22,6 +22,7 @@ from psfwidget.automation.schedule import ScheduleError, parse_schedule
 from psfwidget.tracking.store import ResultsDatabase
 
 T0 = datetime(2026, 3, 2, 6, 0, tzinfo=UTC)  # a Monday
+runner._PRIORITY_LOWERED = True  # do not renice the test process (tested in test_backup.py)
 
 PROFILE = (
     '[instrument]\nid = "scope"\nmodality = "widefield"\n'

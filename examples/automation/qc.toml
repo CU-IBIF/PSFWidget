@@ -40,3 +40,9 @@ trend_days = 90
 [alerts]
 status_file = "STATUS.json"
 alert_file = "ALERT.txt"
+
+# The database stays on this PC's local disk; backups go to the network.
+[backup]
+folder = "backups"              # e.g. "//server/qc/backups/sp8"
+schedule = "daily 02:00"
+keep = 30

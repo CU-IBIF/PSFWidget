@@ -38,6 +38,15 @@ relative to the file itself. Example::
     [alerts]
     status_file = "STATUS.json"     # in the output root
     alert_file = "ALERT.txt"
+
+    [backup]                        # optional (AUT-07)
+    folder = "//server/qc/backups/sp8"
+    schedule = "daily 02:00"
+    keep = 30                       # newest backups kept
+
+The database must be on the local disk, not a network share (NFR-11);
+reports and backups go to the network. Scheduled runs lower their own
+process priority unless ``low_priority = false`` is set under [schedule].
 """
 
 from __future__ import annotations
@@ -65,8 +74,9 @@ _SECTIONS = {
     "database": {"path"},
     "output": {"root", "session_template", "trend_template", "reports", "exports", "page_size"},
     "branding": {"facility", "logo", "footer"},
-    "schedule": {"ingest", "trend_report", "trend_days"},
+    "schedule": {"ingest", "trend_report", "trend_days", "low_priority"},
     "alerts": {"status_file", "alert_file"},
+    "backup": {"folder", "schedule", "keep"},
 }
 _WATCH_KEYS = {"folder", "profile", "patterns", "recursive", "series", "settle_seconds"}
 _TOP = {*_SECTIONS, "watch", "analysis"}
@@ -104,6 +114,10 @@ class AutomationConfig:
     analysis: AnalysisSettings
     status_file: Path
     alert_file: Path
+    backup_folder: Path | None = None
+    backup: Schedule = field(default_factory=lambda: parse_schedule("off"))
+    backup_keep: int = 30
+    low_priority: bool = True
     sha256: str = ""
     """SHA-256 of the configuration file (QA-03)."""
     state_dir: Path = field(init=False)
@@ -221,6 +235,7 @@ def parse_config(data: Mapping[str, Any], path: Path) -> AutomationConfig:
     branding = _table(data, "branding")
     schedule = _table(data, "schedule")
     alerts = _table(data, "alerts")
+    backup = _table(data, "backup")
 
     root = _path(base, _text(output, "root", "[output]", "reports"))
     logo = None
@@ -260,6 +275,22 @@ def parse_config(data: Mapping[str, Any], path: Path) -> AutomationConfig:
         trend = parse_schedule(str(schedule.get("trend_report", "off")))
     except ScheduleError as exc:
         raise ConfigError(f"[schedule]: {exc}") from None
+    low_priority = schedule.get("low_priority", True)
+    if not isinstance(low_priority, bool):
+        raise ConfigError("[schedule]: 'low_priority' must be true or false")
+    backup_folder = None
+    backup_schedule = parse_schedule("off")
+    keep = backup.get("keep", 30)
+    if isinstance(keep, bool) or not isinstance(keep, int) or keep < 1:
+        raise ConfigError("[backup]: 'keep' must be a whole number >= 1")
+    if "folder" in backup:
+        backup_folder = _path(base, _text(backup, "folder", "[backup]"))
+        try:
+            backup_schedule = parse_schedule(str(backup.get("schedule", "daily 02:00")))
+        except ScheduleError as exc:
+            raise ConfigError(f"[backup]: {exc}") from None
+    elif "schedule" in backup:
+        raise ConfigError("[backup]: a schedule needs a 'folder' to write backups to")
     trend_days = schedule.get("trend_days", 90)
     if isinstance(trend_days, bool) or not isinstance(trend_days, int) or trend_days < 1:
         raise ConfigError("[schedule]: 'trend_days' must be a whole number >= 1")
@@ -282,9 +313,17 @@ def parse_config(data: Mapping[str, Any], path: Path) -> AutomationConfig:
     except (TypeError, ValueError) as exc:
         raise ConfigError(f"[analysis]: {exc}") from None
 
+    database_path = _path(base, _text(database, "path", "[database]", "qc.sqlite"))
+    from psfwidget.automation.backup import is_network_path
+
+    if is_network_path(database_path):
+        raise ConfigError(
+            f"[database]: {database_path} is on a network share; keep the database on the "
+            "acquisition PC's local disk and use [backup] to copy it to the network (NFR-11)"
+        )
     return AutomationConfig(
         path=path,
-        database=_path(base, _text(database, "path", "[database]", "qc.sqlite")),
+        database=database_path,
         output=settings,
         watches=watches,
         ingest=ingest,
@@ -293,6 +332,10 @@ def parse_config(data: Mapping[str, Any], path: Path) -> AutomationConfig:
         analysis=analysis,
         status_file=root / _text(alerts, "status_file", "[alerts]", "STATUS.json"),
         alert_file=root / _text(alerts, "alert_file", "[alerts]", "ALERT.txt"),
+        backup_folder=backup_folder,
+        backup=backup_schedule,
+        backup_keep=keep,
+        low_priority=low_priority,
     )
 
 

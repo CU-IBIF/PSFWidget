@@ -25,6 +25,7 @@ import json
 import logging
 import os
 import socket
+import sqlite3
 import time
 import traceback
 from collections.abc import Callable, Iterator
@@ -45,7 +46,7 @@ from psfwidget.tracking.control import series_from_database
 from psfwidget.tracking.settings import TrackingSettings
 from psfwidget.tracking.store import ResultsDatabase
 
-JOBS = ("ingest", "trend_report")
+JOBS = ("ingest", "trend_report", "backup")
 LOCK_STALE_AFTER = timedelta(hours=6)
 OPERATOR = "psfwidget-scheduler"
 
@@ -354,6 +355,31 @@ def run_trend_report(config: AutomationConfig, now: datetime) -> RunSummary:
     return summary
 
 
+# ---------------------------------------------------------------------- backup
+
+
+def run_backup(config: AutomationConfig, now: datetime) -> RunSummary:
+    """Copy the database to the backup folder, verify it, and apply retention (AUT-07)."""
+    from psfwidget.automation.backup import BackupError, backup_database
+
+    summary = RunSummary("backup", now)
+    if config.backup_folder is None:
+        summary.errors.append({"error": "no [backup] folder is configured"})
+        return summary
+    try:
+        made = backup_database(config.database, config.backup_folder, config.backup_keep, now)
+    except (BackupError, OSError, sqlite3.DatabaseError) as exc:
+        summary.errors.append(
+            {"folder": str(config.backup_folder), "error": f"{type(exc).__name__}: {exc}"}
+        )
+        log.error("backup failed: %s", exc)
+        return summary
+    summary.reports.append(str(made.path))
+    summary.skipped += [{"file": str(p), "reason": "removed by retention"} for p in made.removed]
+    log.info("backed up %s to %s (sha256 %s)", config.database.name, made.path, made.sha256)
+    return summary
+
+
 # ---------------------------------------------------------------------- status
 
 
@@ -447,13 +473,31 @@ def due_jobs(config: AutomationConfig, state: dict[str, Any], now: datetime) -> 
     """Return the jobs due at ``now``."""
     local = now.astimezone()
     first_seen = datetime.fromisoformat(state["created"]).astimezone()
-    schedules = {"ingest": config.ingest, "trend_report": config.trend_report}
+    schedules = {
+        "ingest": config.ingest,
+        "trend_report": config.trend_report,
+        "backup": config.backup,
+    }
     due = []
     for job in JOBS:
         last = _last_run(state, job)
         if schedules[job].is_due(local, None if last is None else last.astimezone(), first_seen):
             due.append(job)
     return due
+
+
+_PRIORITY_LOWERED = False
+
+
+def _lower_priority_once(config: AutomationConfig) -> None:
+    """Lower this process's priority before the first run, if configured (NFR-11)."""
+    global _PRIORITY_LOWERED
+    if config.low_priority and not _PRIORITY_LOWERED:
+        from psfwidget.automation.backup import lower_priority
+
+        _PRIORITY_LOWERED = True
+        if not lower_priority():
+            log.warning("could not lower the process priority")
 
 
 def run_due(
@@ -473,6 +517,7 @@ def run_due(
         raise ValueError(f"unknown job(s) {unknown}; jobs are {', '.join(JOBS)}")
     now = now or datetime.now(UTC)
     handler = _configure_logging(config)
+    _lower_priority_once(config)
     try:
         with _Lock(config.state_dir / "run.lock", now):
             state = load_state(config, now)
@@ -480,11 +525,12 @@ def run_due(
             summaries: list[RunSummary] = []
             for job in jobs:
                 log.info("starting %s", job)
-                summary = (
-                    run_ingest(config, state, now)
-                    if job == "ingest"
-                    else run_trend_report(config, now)
-                )
+                if job == "ingest":
+                    summary = run_ingest(config, state, now)
+                elif job == "trend_report":
+                    summary = run_trend_report(config, now)
+                else:
+                    summary = run_backup(config, now)
                 summary.finished_utc = datetime.now(UTC)
                 summary.config_sha256 = config.sha256
                 state["jobs"][job] = now.isoformat()

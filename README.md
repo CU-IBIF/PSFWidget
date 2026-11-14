@@ -190,7 +190,13 @@ To run on a schedule, either keep `psfwidget watch --config qc.toml` running
   logged on, under an account that can read the watched folders.
 
 Two runs never overlap: a run that starts while another is in progress exits
-with status 6.
+with status 6. Scheduled runs lower their own process priority so they do not
+slow an acquisition (`low_priority = false` under `[schedule]` turns this off).
+
+Keep the results database on the acquisition PC's local disk: a database
+path on a network share is refused. A `[backup]` table copies it to a network
+folder on a schedule; each copy is checked with SQLite's integrity check and
+stored with a `.sha256` file, and only the newest `keep` copies are kept.
 
 ### Review, approval, and self-test (GLP)
 
