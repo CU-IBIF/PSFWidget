@@ -170,36 +170,132 @@ def _box(
     return box, (centre[0], centre[1], centre[2]), (starts[0], starts[1], starts[2])
 
 
-def orthogonal_views(
+def _average_psf(
+    volume: NDArray[Any],
+    channel: ChannelResult,
+    voxel_um: tuple[float, float, float],
+    settings: AnalysisSettings,
+) -> tuple[NDArray[np.float64], int] | None:
+    """Return the averaged PSF of the accepted beads and their count, or ``None``."""
+    from psfwidget.analysis import averaged_psf
+    from psfwidget.average import AverageError
+
+    try:
+        average, used, _ = averaged_psf(
+            volume, channel.beads, voxel_um, channel.expected_fwhm_um, settings
+        )
+    except AverageError:
+        return None
+    return np.asarray(average, dtype=np.float64), used
+
+
+BACKGROUND_PERCENTILE = 5.0
+"""Percentile of the bead box taken as background in the image comparison."""
+
+
+def _peak_one(image: NDArray[np.float64]) -> NDArray[np.float64]:
+    peak = float(image.max())
+    return image / peak if peak > 0 else image
+
+
+def orthogonal_comparison(
     volume: NDArray[Any],
     bead: BeadResult,
     channel: ChannelResult,
     voxel_um: tuple[float, float, float],
     settings: AnalysisSettings,
-) -> bytes:
-    """Return a PNG of the XY, XZ, and YZ slices through a bead, at true aspect ratio."""
+    bead_diameter_um: float | None = None,
+) -> tuple[bytes, int | None]:
+    """Return a PNG of XY, XZ, and YZ slices of the closest bead, the average PSF, and the model.
+
+    One row per image, one column per plane, all at the same physical scale
+    and true aspect ratio. Each image is scaled to its own peak (the bead after
+    subtracting its background), on one grey scale from 0 to 1, so the shapes
+    compare directly. Rows that cannot be made (too few beads to average, no
+    theory) are left out. Also returns the number of beads in the average, or
+    ``None`` when there is no average.
+    """
     half = half_box(voxel_um, channel.expected_fwhm_um, settings)
-    box, (cz, cy, cx), _ = _box(volume, bead, half)
-    vz, vy, vx = voxel_um
-    planes = (
-        ("XY", box[cz], vx, vy, "x (µm)", "y (µm)"),
-        ("XZ", box[:, cy, :], vx, vz, "x (µm)", "z (µm)"),
-        ("YZ", box[:, :, cx], vy, vz, "y (µm)", "z (µm)"),
-    )
-    low, high = _contrast(box)
-    figure = _figure(9.0, 3.6)
-    for index, (name, plane, step_h, step_v, label_h, label_v) in enumerate(planes):
-        axes = figure.add_subplot(1, 3, index + 1)
-        extent = (0, plane.shape[1] * step_h, plane.shape[0] * step_v, 0)
-        axes.imshow(
-            plane, cmap="gray", vmin=low, vmax=high, extent=extent, interpolation="nearest"
+    box, centre, _ = _box(volume, bead, half)
+    background = float(np.percentile(box, BACKGROUND_PERCENTILE))
+    rows: list[tuple[str, NDArray[np.float64], tuple[int, int, int]]] = [
+        (f"Bead {bead.bead_id}", _peak_one(np.clip(box - background, 0, None)), centre)
+    ]
+    average = _average_psf(volume, channel, voxel_um, settings)
+    count = None
+    if average is not None:
+        image, count = average
+        image = _peak_one(np.clip(image, 0, None))
+        rows.append(
+            (
+                f"Average ({count} beads)",
+                image,
+                (image.shape[0] // 2, image.shape[1] // 2, image.shape[2] // 2),
+            )
         )
-        axes.set_title(name, color=INK, fontsize=9)
-        axes.set_xlabel(label_h, color=INK_SECONDARY, fontsize=8)
-        axes.set_ylabel(label_v, color=INK_SECONDARY, fontsize=8)
-        axes.tick_params(colors=INK_MUTED, labelsize=7)
-    figure.subplots_adjust(left=0.07, right=0.98, bottom=0.16, top=0.9, wspace=0.35)
-    return _png(figure)
+    if channel.theory is not None:
+        from psfwidget.theory.psf3d import theoretical_psf
+
+        shape = (2 * half[0] + 1, 2 * half[1] + 1, 2 * half[2] + 1)
+        model = _peak_one(
+            theoretical_psf(channel.theory, voxel_um, shape, bead_diameter_um=bead_diameter_um)
+        )
+        rows.append(("Model", model, (half[0], half[1], half[2])))
+
+    vz, vy, vx = voxel_um
+    steps = (vz, vy, vx)
+    limits = tuple(h * s for h, s in zip(half, steps, strict=True))  # half-widths z, y, x (µm)
+    names = ("z", "y", "x")
+    # z runs horizontally in XZ and YZ, so every panel in a row has the same
+    # height in µm and the whole grid shares one physical scale.
+    columns = (("XY", 2, 1), ("XZ", 0, 2), ("YZ", 0, 1))  # name, horizontal, vertical axis
+    widths = [2 * limits[h] + steps[h] for _, h, _ in columns]
+    row_height_um = max(2 * limits[v] + steps[v] for _, _, v in columns)
+    inch_per_um = 7.0 / sum(widths)
+    row_inches = row_height_um * inch_per_um + 0.75
+    figure = _figure(9.0, row_inches * len(rows) + 0.3)
+    grid = figure.add_gridspec(
+        len(rows),
+        3,
+        width_ratios=widths,
+        left=0.1,
+        right=0.98,
+        wspace=0.22,
+        hspace=0.6,
+        bottom=0.55 / figure.get_figheight(),
+        top=1 - 0.3 / figure.get_figheight(),
+    )
+    for row, (label, image, centre) in enumerate(rows):
+        cz, cy, cx = centre
+        planes = (image[cz], image[:, cy, :].T, image[:, :, cx].T)
+        for column, ((name, axis_h, axis_v), plane) in enumerate(
+            zip(columns, planes, strict=True)
+        ):
+            axes = figure.add_subplot(grid[row, column])
+            centre_h, centre_v = centre[axis_h], centre[axis_v]
+            step_h, step_v = steps[axis_h], steps[axis_v]
+            extent = (
+                (-0.5 - centre_h) * step_h,
+                (plane.shape[1] - 0.5 - centre_h) * step_h,
+                (plane.shape[0] - 0.5 - centre_v) * step_v,
+                (-0.5 - centre_v) * step_v,
+            )
+            axes.imshow(
+                plane, cmap="gray", vmin=0.0, vmax=1.0, extent=extent, interpolation="nearest"
+            )
+            limit_h, limit_v = limits[axis_h], limits[axis_v]
+            axes.set_xlim(-limit_h - step_h / 2, limit_h + step_h / 2)
+            axes.set_ylim(limit_v + step_v / 2, -limit_v - step_v / 2)
+            axes.set_aspect("equal", anchor="W")
+            if row == 0:
+                axes.set_title(name, color=INK, fontsize=9, loc="left")
+            axes.set_xlabel(f"{names[axis_h]} (µm)", color=INK_SECONDARY, fontsize=8)
+            ylabel = f"{names[axis_v]} (µm)"
+            axes.set_ylabel(
+                f"{label}\n{ylabel}" if column == 0 else ylabel, color=INK_SECONDARY, fontsize=8
+            )
+            axes.tick_params(colors=INK_MUTED, labelsize=7)
+    return _png(figure), count
 
 
 def _profile(
@@ -266,15 +362,10 @@ def _average_profiles(
     settings: AnalysisSettings,
 ) -> tuple[list[tuple[NDArray[np.float64], NDArray[np.float64]]], int] | None:
     """Return (offset µm, value) of the averaged PSF along z, y, x (peak 1) and its bead count."""
-    from psfwidget.analysis import averaged_psf
-    from psfwidget.average import AverageError
-
-    try:
-        average, used, _ = averaged_psf(
-            volume, channel.beads, voxel_um, channel.expected_fwhm_um, settings
-        )
-    except AverageError:
+    result = _average_psf(volume, channel, voxel_um, settings)
+    if result is None:
         return None
+    average, used = result
     average = average / average.max()
     return [
         (
