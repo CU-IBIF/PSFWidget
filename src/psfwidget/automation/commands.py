@@ -156,6 +156,31 @@ def _report_trend(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _end_of(text: str) -> datetime:
+    """Parse --until; a bare date means the end of that day."""
+    moment = parse_time(text)
+    if len(text.strip()) == 10:  # YYYY-MM-DD
+        moment += timedelta(days=1) - timedelta(seconds=1)
+    return moment
+
+
+def _report_audit(args: argparse.Namespace) -> int:
+    from psfwidget.report.audit import build_audit_report
+
+    until = _end_of(args.until) if args.until else datetime.now(UTC)
+    since = parse_time(args.since) if args.since else until - timedelta(days=args.days)
+    with ResultsDatabase(args.db) as db:
+        report = build_audit_report(
+            db, since=since, until=until, branding=Branding(facility=args.facility or "")
+        )
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    name = f"{until:%Y-%m-%d}_{Path(args.db).stem}_audit"
+    written = write_report(report, out / name, formats(args.format, REPORT_FORMATS), args.page)
+    print("Wrote " + ", ".join(str(p) for p in written))
+    return EXIT_OK
+
+
 def add_parsers(commands: Any) -> None:
     """Add the automation and report commands to the top-level parser."""
     run = commands.add_parser(
@@ -215,3 +240,23 @@ def add_parsers(commands: Any) -> None:
     trend.add_argument("--page", choices=["letter", "a4"], default="letter")
     trend.add_argument("--facility", help="facility name for the report header")
     trend.set_defaults(run=_report_trend)
+
+    audit = kinds.add_parser(
+        "audit",
+        help="write an audit review report for a period (QA-06)",
+        description=(
+            "Report every audit entry in a period: counts by action and user, exclusions, "
+            "events, approvals, imports, and database upgrades, ready to be signed."
+        ),
+    )
+    audit.add_argument("--db", required=True, metavar="FILE", help="results database")
+    audit.add_argument("--out", default=".", metavar="DIR", help="output folder")
+    audit.add_argument("--since", help="start of the period (ISO date)")
+    audit.add_argument("--until", help="end of the period, inclusive (ISO date; default: now)")
+    audit.add_argument(
+        "--days", type=int, default=90, help="period length when --since is not given"
+    )
+    audit.add_argument("--format", default="html,pdf", help="html, pdf, or html,pdf")
+    audit.add_argument("--page", choices=["letter", "a4"], default="letter")
+    audit.add_argument("--facility", help="facility name for the report header")
+    audit.set_defaults(run=_report_audit)

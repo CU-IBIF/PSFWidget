@@ -222,6 +222,15 @@ def _run_backup(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _run_import(args: argparse.Namespace) -> int:
+    from psfwidget.tracking.merge import import_database
+
+    with ResultsDatabase(args.db) as db:
+        summary = import_database(db, args.source, user=args.user, dry_run=args.dry_run)
+    print(summary.describe() + (" (dry run: nothing written)" if args.dry_run else ""))
+    return EXIT_OK
+
+
 def _run_audit(args: argparse.Namespace) -> int:
     since = parse_time(args.since) if args.since else None
     until = parse_time(args.until) if args.until else None
@@ -366,6 +375,27 @@ def add_parser(commands: Any) -> None:
     _database(backup)
     backup.add_argument("--out", required=True, help="new database file")
     backup.set_defaults(run=_run_backup)
+
+    merge = sub.add_parser(
+        "import",
+        help="copy another results database's sessions, events, exclusions, and approvals",
+        description=(
+            "Copy what another PSFWidget results database has and this one lacks, keeping the "
+            "original users and times, and audit the import (TRK-10). Importing twice changes "
+            "nothing."
+        ),
+    )
+    _database(merge)
+    merge.add_argument(
+        "--from",
+        dest="source",
+        required=True,
+        metavar="FILE",
+        help="the database to copy from (opened read-only)",
+    )
+    merge.add_argument("--dry-run", action="store_true", help="report what would be copied")
+    _user(merge)
+    merge.set_defaults(run=_run_import)
 
     audit = sub.add_parser("audit", help="print or export the audit log (QA-06)")
     _database(audit)
