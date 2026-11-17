@@ -421,6 +421,22 @@ summaries:
 | Axial skewness, energy above / below focus | asymmetry of the averaged PSF; 0 and 1 when symmetric (spherical aberration shows here) |
 | Ratio to image-scanning theory | for NSPARC, Live-SR, and similar modes |
 | Integrated intensity per ms of exposure | median integrated intensity divided by the camera exposure, or by the pixel dwell time × accumulation; comparable across exposure changes |
+| Image mode; integrated and peak intensity ÷ image mode | the most common voxel value of the image (its background level), and the median integrated and peak intensities divided by it; comparable across bit depths (see below) |
+
+**Comparing images recorded at different bit depths** (for example a 12-bit
+and a 16-bit camera mode): raw intensities are on different scales, so use
+`integrated_intensity_per_mode` and `peak_per_mode` on the Levey-Jennings
+charts (add them to `metrics` under `[tracking]`). Dividing by the image mode
+removes a common scale factor, because background and beads scale together.
+Two conditions:
+
+- The mode must be above zero. Photon-counting and zero-offset detectors
+  (many point-scanning confocals) record most background voxels as 0; the
+  normalised values are then left out and the report says why.
+- On cameras the mode is mostly the camera offset. The normalisation is exact
+  when the offset scales with the signal (the same data at another bit
+  depth). If a camera mode keeps the same offset but changes the gain, the
+  ratio changes too; the tracked `image_mode` shows such a switch.
 
 These need enough beads: tilt at least 3 spread over the field, curvature
 and uniformity at least 6, the averaged PSF at least 3 whose box fits in
@@ -831,7 +847,8 @@ Bead summaries: `fwhm_x_um`, `fwhm_y_um`, `fwhm_z_um` (and `_raw_um`),
 Channel-level: `tilt_deg`, `focal_range_um`, `curvature_sag_um`,
 `uniformity_corner_ratio`, `chromatic_lateral_nm`, `chromatic_axial_nm`,
 `strehl`, `psf_similarity`, `axial_skewness`, `axial_asymmetry`,
-`ratio_lateral_ism`, `ratio_axial_ism`, `intensity_per_ms`.
+`ratio_lateral_ism`, `ratio_axial_ism`, `intensity_per_ms`, `image_mode`,
+`integrated_intensity_per_mode`, `peak_per_mode`.
 Tracked by default: `fwhm_x_um`, `fwhm_y_um`, `fwhm_z_um`, `xy_major_um`,
 `xy_minor_um`, `xz_major_um`, `yz_major_um`, `ratio_x`, `ratio_y`,
 `ratio_z`, `ellipticity_xy`, `integrated_intensity`, `sbr`,

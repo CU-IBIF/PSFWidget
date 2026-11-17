@@ -167,6 +167,15 @@ def _field_values(channel: ChannelResult) -> doc.KeyValues | None:
     if field is not None:
         rows += [("Note", note) for note in field.notes]
     metrics = channel.channel_metrics
+    if "integrated_intensity_per_mode" in metrics:
+        rows.append(
+            (
+                "Intensity normalised to the image mode",
+                f"integrated {metrics['integrated_intensity_per_mode']:.4g} × mode, peak "
+                f"{metrics.get('peak_per_mode', float('nan')):.3g} × mode (image mode "
+                f"{metrics['image_mode']:g}); comparable across bit depths",
+            )
+        )
     if "ratio_lateral_ism" in metrics:
         rows.append(
             (

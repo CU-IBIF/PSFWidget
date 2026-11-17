@@ -124,6 +124,10 @@ All notable changes to this project are documented here. The format follows
     `psfwidget.profiles.write`);
   - npe2 plugin manifest and a synthetic bead sample (T7.4);
   - a GUI job in CI (headless napari under a virtual display).
+- Intensity normalised to the image mode (MET-04): each channel's image
+  mode, and integrated and peak intensity divided by it, tracked so that
+  images recorded at different bit depths (e.g. 12- and 16-bit) share a
+  chart; not computed (with a warning) when the mode is 0.
 - Session report layout: the bead tables move to Appendix A, accepted beads
   first; the profile figure shows the model, the closest single bead, and
   the average PSF across the field of view together; the field map adds an
