@@ -24,7 +24,9 @@ from psfwidget.io._common import (
     UnsupportedFileError,
     check_selection,
     file_value,
+    single_value,
     to_zyx,
+    with_channel_settings,
 )
 from psfwidget.io._nikon_text import apply_nikon_text, parse_nikon_text
 from psfwidget.io.metadata import positive
@@ -48,6 +50,7 @@ _LENGTH_TO_UM = {
     "cm": 1e4,
     "m": 1e6,
 }
+_OME_TIME_MS = {"s": 1000.0, "ms": 1.0, "µs": 1e-3, "us": 1e-3, "ns": 1e-6}
 _MODALITIES = {
     "laserscanningconfocalmicroscopy": Modality.CONFOCAL,
     "multiphotonmicroscopy": Modality.MULTIPHOTON,
@@ -182,6 +185,14 @@ def metadata_from_ome_xml(xml: str, series: int, n_channels: int, n_z: int) -> A
         acquired_utc=_ome_acquired(image.findtext("./AcquisitionDate")),
         significant_bits=file_value(None if bits is None else int(bits)),
     )
+    exposures = [
+        value * _OME_TIME_MS.get(plane.get("ExposureTimeUnit", "s"), 1000.0)
+        for plane in image.iterfind("./Pixels/Plane")
+        if (value := positive(plane.get("ExposureTime"))) is not None
+    ]
+    metadata = with_channel_settings(
+        metadata, {"exposure_ms": single_value(exposures)}, "OME plane exposure time"
+    )
 
     # NIS-Elements exports carry the ND2 description text as annotations.
     notes = [
@@ -191,6 +202,11 @@ def metadata_from_ome_xml(xml: str, series: int, n_channels: int, n_z: int) -> A
     ]
     text = parse_nikon_text(*notes)
     metadata = replace(metadata, channels=apply_nikon_text(channels, text))
+    metadata = with_channel_settings(
+        metadata,
+        {"exposure_ms": text.exposure_ms, "dwell_us": text.dwell_us},
+        "one value for the whole acquisition in the NIS-Elements description",
+    )
     if text.resolution_enhancement is not None:
         metadata = replace(
             metadata, resolution_enhancement=Sourced(text.resolution_enhancement, "file")

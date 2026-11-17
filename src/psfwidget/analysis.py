@@ -82,6 +82,9 @@ class ChannelResult:
     """Shift relative to the first analysed channel (MET-13); ``None`` for that channel."""
     psf: PSFComparison | None = None
     """Averaged PSF compared with theory (MET-14, THE-04, THE-05)."""
+    exposure_ms: float | None = None
+    """Effective exposure per voxel: the camera exposure, or the pixel dwell time times
+    the accumulation (MET-04)."""
 
     @property
     def channel_metrics(self) -> dict[str, float]:
@@ -96,6 +99,9 @@ class ChannelResult:
             values["ratio_lateral_ism"] = sum(lateral) / len(lateral) / theory.ism_lateral_um
         if theory is not None and theory.ism_axial_um and "fwhm_z_um" in self.summary:
             values["ratio_axial_ism"] = self.summary["fwhm_z_um"].median / theory.ism_axial_um
+        intensity = self.summary.get("integrated_intensity")
+        if self.exposure_ms and intensity is not None:
+            values["intensity_per_ms"] = intensity.median / self.exposure_ms
         if self.psf is not None:
             values["strehl"] = self.psf.strehl
             values["psf_similarity"] = self.psf.similarity
@@ -361,7 +367,18 @@ def analyze_channel(
         spec=None if spec_limits.empty else evaluate(spec_limits, summary, accepted),
         warnings=tuple(warnings),
         psf=psf,
+        exposure_ms=effective_exposure_ms(channel),
     )
+
+
+def effective_exposure_ms(channel: ChannelMetadata) -> float | None:
+    """Return the camera exposure, or dwell time × accumulation, in ms (MET-04)."""
+    if channel.exposure_ms is not None:
+        return channel.exposure_ms.value
+    if channel.dwell_us is not None:
+        accumulation = 1.0 if channel.accumulation is None else channel.accumulation.value
+        return channel.dwell_us.value * accumulation / 1000.0
+    return None
 
 
 def averaged_psf(

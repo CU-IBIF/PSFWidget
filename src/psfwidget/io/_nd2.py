@@ -17,6 +17,7 @@ from psfwidget.io._common import (
     check_selection,
     file_value,
     julian_day_to_utc,
+    with_channel_settings,
 )
 from psfwidget.io._nikon_text import apply_nikon_text, parse_nikon_text
 from psfwidget.io.metadata import positive
@@ -136,6 +137,11 @@ def _metadata(handle: nd2.ND2File, sizes: dict[str, int], first_frame: int) -> A
     text_info = handle.text_info or {}
     text = parse_nikon_text(text_info.get("description"), text_info.get("capturing"))
     metadata = replace(metadata, channels=apply_nikon_text(metadata.channels, text))
+    metadata = with_channel_settings(
+        metadata,
+        {"exposure_ms": text.exposure_ms, "dwell_us": text.dwell_us},
+        "one value for the whole acquisition in the NIS-Elements description",
+    )
     if text.resolution_enhancement is not None:
         metadata = replace(
             metadata, resolution_enhancement=Sourced(text.resolution_enhancement, "file")

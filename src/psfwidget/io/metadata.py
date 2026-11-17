@@ -38,8 +38,12 @@ _FLOAT_FIELDS = frozenset(
         "sample_ri",
         "coverslip_ri",
         "coverslip_um",
+        "exposure_ms",
+        "dwell_us",
+        "accumulation",
     }
 )
+_NON_NEGATIVE_FIELDS = frozenset({"bead_depth_um", "detector_gain", "laser_power"})
 PSF_MODELS = ("scalar", "vectorial")
 _STRING_FIELDS = frozenset(
     {
@@ -68,6 +72,11 @@ class ChannelOverrides:
     pinhole_airy: float | None = None
     pinhole_um: float | None = None
     preset_id: str | None = None
+    exposure_ms: float | None = None
+    dwell_us: float | None = None
+    accumulation: float | None = None
+    detector_gain: float | None = None
+    laser_power: float | None = None
 
 
 @dataclass(frozen=True)
@@ -138,11 +147,11 @@ def _coerce(name: str, value: object) -> Any:
         if not text:
             raise InvalidMetadataError(f"{name} must not be empty")
         return text
-    if name == "bead_depth_um":
-        depth = float(value)  # type: ignore[arg-type]
-        if not math.isfinite(depth) or depth < 0:
-            raise InvalidMetadataError(f"bead_depth_um must be 0 or more, got {value!r}")
-        return depth
+    if name in _NON_NEGATIVE_FIELDS:
+        number = float(value)  # type: ignore[arg-type]
+        if not math.isfinite(number) or number < 0:
+            raise InvalidMetadataError(f"{name} must be 0 or more, got {value!r}")
+        return number
     if name == "psf_model":
         text = str(value).strip().lower()
         if text not in PSF_MODELS:

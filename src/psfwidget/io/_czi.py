@@ -29,7 +29,9 @@ from psfwidget.io._common import (
     check_selection,
     file_value,
     pick_excitation,
+    single_value,
     to_zyx,
+    with_channel_settings,
 )
 from psfwidget.io.metadata import positive
 from psfwidget.io.model import (
@@ -186,7 +188,12 @@ def metadata_from_xml(root: Element, n_channels: int, n_z: int) -> AcquisitionMe
         None if objective is None else objective.get("Name")
     )
     bits = positive(_text(image, "./ComponentBitCount"))
-    return replace(
+    pixel_times = [
+        value * 1e6
+        for element in root.iterfind(".//LaserScanInfo/PixelTime")
+        if (value := positive(element.text)) is not None
+    ]
+    metadata = replace(
         metadata,
         channels=channels,
         numerical_aperture=file_value(positive(_text(objective, "./LensNA"))),
@@ -195,6 +202,9 @@ def metadata_from_xml(root: Element, n_channels: int, n_z: int) -> AcquisitionMe
         magnification=file_value(positive(_text(objective, "./NominalMagnification"))),
         modality=file_value(modality),
         significant_bits=file_value(None if bits is None else int(bits)),
+    )
+    return with_channel_settings(
+        metadata, {"dwell_us": single_value(pixel_times)}, "ZEN laser-scan pixel time"
     )
 
 

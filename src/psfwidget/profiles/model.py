@@ -61,7 +61,19 @@ _CHANNEL_KEYS = {
     "emission_nm",
     "pinhole_airy",
     "pinhole_um",
+    "exposure_ms",
+    "dwell_us",
+    "accumulation",
+    "detector_gain",
+    "laser_power",
 }
+ACQUISITION_SETTING_KEYS = (
+    "exposure_ms",
+    "dwell_us",
+    "accumulation",
+    "detector_gain",
+    "laser_power",
+)
 _CHANNEL_MATCH_KEYS = {"name", "excitation_nm", "index"}
 _TOP_LEVEL_KEYS = {"instrument", "bead", "objective", "channel", "spec", "tracking", "theory"}
 _THEORY_KEYS = {"model", "sample_ri", "coverslip_ri", "coverslip_um", "bead_depth_um"}
@@ -102,6 +114,11 @@ class ChannelPreset:
     emission_nm: float | None = None
     pinhole_airy: float | None = None
     pinhole_um: float | None = None
+    exposure_ms: float | None = None
+    dwell_us: float | None = None
+    accumulation: float | None = None
+    detector_gain: float | None = None
+    laser_power: float | None = None
 
     def matches(self, channel: ChannelMetadata) -> bool:
         """Whether every match criterion given holds for ``channel``."""
@@ -207,6 +224,10 @@ class InstrumentProfile:
                 pinhole_airy=None if preset is None else preset.pinhole_airy,
                 pinhole_um=pinhole_um,
                 preset_id=None if preset is None else preset.id,
+                **{
+                    key: None if preset is None else getattr(preset, key)
+                    for key in ACQUISITION_SETTING_KEYS
+                },
             )
 
         overrides = Overrides(
@@ -331,6 +352,7 @@ def parse_profile(data: dict[str, Any], where: str = "profile") -> InstrumentPro
                 emission_nm=_value(table, "emission_nm", "emission_nm", here),
                 pinhole_airy=_value(table, "pinhole_airy", "pinhole_airy", here),
                 pinhole_um=_value(table, "pinhole_um", "pinhole_um", here),
+                **{key: _value(table, key, key, here) for key in ACQUISITION_SETTING_KEYS},
             )
         )
 

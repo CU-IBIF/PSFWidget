@@ -12,13 +12,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from psfwidget.analysis import ChannelResult, FieldResult
 from psfwidget.profiles.spec import Status as SpecStatus
 from psfwidget.report.document import Status, worst
 from psfwidget.tracking.control import series_from_database
-from psfwidget.tracking.settings import TrackingSettings
-from psfwidget.tracking.store import ResultsDatabase, channel_key
+from psfwidget.tracking.settings import ACCEPTED_BEADS, TrackingSettings
+from psfwidget.tracking.store import Configuration, ResultsDatabase, channel_key
 
 
 @dataclass(frozen=True)
@@ -29,7 +30,8 @@ class MetricCheck:
     value: float | None
     z: float | None
     severity: str
-    """``ok``, ``warning``, ``rejection``, or ``none`` (no limits yet, or excluded)."""
+    """``ok``, ``warning``, ``rejection``, ``none`` (no limits yet, or excluded), or
+    ``changed`` (acquisition settings differ from the previous session)."""
     rules: tuple[str, ...]
     limits: str
     """State of the limits, e.g. ``baseline of 20 sessions``."""
@@ -93,8 +95,65 @@ def session_checks(
                         limits=series.segments[point.segment].status,
                     )
                 )
+        for configuration in candidates:
+            change = settings_change(database, configuration, session_id, channel.index)
+            if change is not None:
+                found.append(
+                    MetricCheck("acquisition_settings", None, None, "changed", (), change)
+                )
         checks[channel.index] = found
     return checks
+
+
+SETTING_LABELS = {
+    "exposure_ms": ("exposure", "ms"),
+    "dwell_us": ("pixel dwell time", "µs"),
+    "accumulation": ("accumulation", ""),
+    "detector_gain": ("detector gain", ""),
+    "laser_power": ("laser power", ""),
+    "pinhole_airy": ("pinhole", "AU"),
+    "pinhole_um": ("pinhole", "µm"),
+}
+"""Settings that change intensity (or width) without the instrument changing (MET-04)."""
+
+
+def _channel_settings(database: ResultsDatabase, session_id: int, index: int) -> dict[str, Any]:
+    import json
+
+    record = json.loads(database.session(session_id)["metadata_json"])
+    channels = record.get("channels", [])
+    entry = next((c for c in channels if c.get("index") == index), None)
+    if entry is None:
+        return {}
+    return {key: (entry.get(key) or {}).get("value") for key in SETTING_LABELS if entry.get(key)}
+
+
+def settings_change(
+    database: ResultsDatabase, configuration: Configuration, session_id: int, index: int
+) -> str | None:
+    """Describe settings that differ from the configuration's previous session, if any."""
+    points = database.points(configuration, ACCEPTED_BEADS)
+    ids = [(p.session_id, p.channel_index) for p in points]
+    if (session_id, index) not in ids:
+        return None
+    position = ids.index((session_id, index))
+    if position == 0:
+        return None
+    previous_id, previous_index = ids[position - 1]
+    now = _channel_settings(database, session_id, index)
+    before = _channel_settings(database, previous_id, previous_index)
+    changes = []
+    for key, (label, unit) in SETTING_LABELS.items():
+        old, new = before.get(key), now.get(key)
+        if (
+            isinstance(old, int | float)
+            and isinstance(new, int | float)
+            and (abs(new - old) > 0.01 * max(abs(old), 1e-12))
+        ):
+            changes.append(f"{label} {old:g} → {new:g}{' ' + unit if unit else ''}")
+    if not changes:
+        return None
+    return "; ".join(changes) + f" (since session {previous_id})"
 
 
 def channel_status(channel: ChannelResult, checks: Sequence[MetricCheck] = ()) -> ChannelStatus:
@@ -121,6 +180,9 @@ def channel_status(channel: ChannelResult, checks: Sequence[MetricCheck] = ()) -
             reasons.append(f"{tracked.metric}: Westgard {', '.join(tracked.rules)}")
         elif tracked.severity == "ok":
             evaluated = True
+        elif tracked.severity == "changed":
+            warned = True
+            reasons.append(f"acquisition settings changed: {tracked.limits}")
     if failed:
         status = Status.FAIL
     elif warned:

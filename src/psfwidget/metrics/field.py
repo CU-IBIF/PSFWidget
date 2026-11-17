@@ -53,6 +53,7 @@ CHANNEL_METRICS: tuple[str, ...] = (
     "axial_asymmetry",
     "ratio_lateral_ism",
     "ratio_axial_ism",
+    "intensity_per_ms",
 )
 """Channel-level metrics, tracked like the bead summaries (one value per session)."""
 

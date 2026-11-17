@@ -114,6 +114,7 @@ def _tracking_table(checks: Sequence[MetricCheck]) -> doc.Table:
             "rejection": doc.Status.FAIL,
             "warning": doc.Status.WARNING,
             "ok": doc.Status.PASS,
+            "changed": doc.Status.WARNING,
         }.get(check.severity, doc.Status.NOT_EVALUATED)
         rows.append(
             (

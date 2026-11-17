@@ -15,7 +15,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 
-from psfwidget.io._common import band_centre
+from psfwidget.io._common import band_centre, single_value
 from psfwidget.io.model import ChannelMetadata, Sourced
 
 _PLANE = re.compile(r"^\s*Plane #\d+:\s*$", re.MULTILINE)
@@ -40,6 +40,15 @@ class NikonText:
     bands: dict[str, tuple[float, float]] = field(default_factory=dict)
     """Detection band of each channel, keyed by channel name."""
     resolution_enhancement: str | None = None
+    exposure_ms: float | None = None
+    """Camera exposure, when one value is given for the whole acquisition."""
+    dwell_us: float | None = None
+    """Pixel dwell time, when one value is given for the whole acquisition."""
+
+
+_TIME_UNITS_MS = {"s": 1000.0, "ms": 1.0, "us": 1e-3, "usec": 1e-3, "µs": 1e-3, "msec": 1.0}
+_EXPOSURE = re.compile(r"Exposure:\s*([0-9.]+)\s*(ms|msec|s|us|usec|µs)\b", re.IGNORECASE)
+_DWELL = re.compile(r"Dwell Time:\s*([0-9.]+)\s*(usec|us|µs|ms|msec|s)\b", re.IGNORECASE)
 
 
 def _blocks(pattern: re.Pattern[str], text: str) -> list[tuple[re.Match[str], str]]:
@@ -77,7 +86,20 @@ def parse_nikon_text(*texts: str | None) -> NikonText:
         enhancement = "NSPARC"
     elif _LIVE_SR.search(text):
         enhancement = "Live-SR"
-    return NikonText(lasers=lasers, bands=bands, resolution_enhancement=enhancement)
+    exposures = [
+        float(value) * _TIME_UNITS_MS[unit.lower()] for value, unit in _EXPOSURE.findall(text)
+    ]
+    dwells = [
+        float(value) * _TIME_UNITS_MS[unit.lower()] * 1000.0
+        for value, unit in _DWELL.findall(text)
+    ]
+    return NikonText(
+        lasers=lasers,
+        bands=bands,
+        resolution_enhancement=enhancement,
+        exposure_ms=single_value(exposures),
+        dwell_us=single_value(dwells),
+    )
 
 
 def apply_nikon_text(
