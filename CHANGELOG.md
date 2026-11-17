@@ -124,6 +124,10 @@ All notable changes to this project are documented here. The format follows
     `psfwidget.profiles.write`);
   - npe2 plugin manifest and a synthetic bead sample (T7.4);
   - a GUI job in CI (headless napari under a virtual display).
+- Session report layout: the bead tables move to Appendix A, accepted beads
+  first; the profile figure shows the model, the closest single bead, and
+  the average PSF across the field of view together; the field map adds an
+  axial FWHM panel.
 - Vectorial (Richards–Wolf) and refractive-index-mismatch (Gibson–Lanni)
   theoretical PSF models, selected per profile (`[theory]`); verified against
   MicroscPSF-Py within 0.3% (M5.1, THE-02).

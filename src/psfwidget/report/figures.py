@@ -217,70 +217,149 @@ def _profile(
     return np.asarray(box[tuple(index)].mean(axis=other), dtype=np.float64)
 
 
+AVERAGE = "#eb6834"
+"""Second categorical slot (orange) for the averaged PSF."""
+MODEL_SAMPLES_PER_VOXEL = 4
+
+
+def _centre_profile(psf: NDArray[np.float64], axis: int) -> NDArray[np.float64]:
+    centre = tuple(n // 2 for n in psf.shape)
+    index = [slice(c, c + 1) for c in centre]
+    index[axis] = slice(None)
+    return np.asarray(psf[tuple(index)].ravel(), dtype=np.float64)
+
+
+def _model_profiles(
+    channel: ChannelResult,
+    voxel_um: tuple[float, float, float],
+    half: tuple[int, int, int],
+    bead_diameter_um: float | None,
+) -> list[tuple[NDArray[np.float64], NDArray[np.float64]]] | None:
+    """Return (offset µm, value) of the theoretical bead image along z, y, x, peak 1."""
+    if channel.theory is None:
+        return None
+    from psfwidget.theory.psf3d import theoretical_psf
+
+    fine = tuple(v / MODEL_SAMPLES_PER_VOXEL for v in voxel_um)
+    shape = tuple(2 * h * MODEL_SAMPLES_PER_VOXEL + 1 for h in half)
+    model = theoretical_psf(
+        channel.theory,
+        (fine[0], fine[1], fine[2]),
+        (shape[0], shape[1], shape[2]),
+        bead_diameter_um=bead_diameter_um,
+        oversample=1,
+    )
+    model = model / model.max()
+    return [
+        (
+            np.asarray((np.arange(n) - n // 2) * step, dtype=np.float64),
+            _centre_profile(model, axis),
+        )
+        for axis, (n, step) in enumerate(zip(shape, fine, strict=True))
+    ]
+
+
+def _average_profiles(
+    volume: NDArray[Any],
+    channel: ChannelResult,
+    voxel_um: tuple[float, float, float],
+    settings: AnalysisSettings,
+) -> tuple[list[tuple[NDArray[np.float64], NDArray[np.float64]]], int] | None:
+    """Return (offset µm, value) of the averaged PSF along z, y, x (peak 1) and its bead count."""
+    from psfwidget.analysis import averaged_psf
+    from psfwidget.average import AverageError
+
+    try:
+        average, used, _ = averaged_psf(
+            volume, channel.beads, voxel_um, channel.expected_fwhm_um, settings
+        )
+    except AverageError:
+        return None
+    average = average / average.max()
+    return [
+        (
+            np.asarray((np.arange(n) - n // 2) * step, dtype=np.float64),
+            _centre_profile(average, axis),
+        )
+        for axis, (n, step) in enumerate(zip(average.shape, voxel_um, strict=True))
+    ], used
+
+
 def profile_fits(
     volume: NDArray[Any],
     bead: BeadResult,
     channel: ChannelResult,
     voxel_um: tuple[float, float, float],
     settings: AnalysisSettings,
+    bead_diameter_um: float | None = None,
 ) -> bytes:
-    """Return a PNG of the x, y, and z profiles of a bead with fitted and theoretical curves."""
+    """Return a PNG of the x, y, and z profiles: model, closest single bead, and average PSF.
+
+    Every curve is centred on its own peak and scaled to a peak of 1, so their
+    widths compare directly:
+
+    1. **Model:** the theoretical PSF convolved with the bead (dashed).
+    2. **Closest single bead:** the measured profile (3×3 line bundle) of the
+       bead nearest the median lateral FWHM, with its Gaussian fit.
+    3. **Average PSF across the field of view:** the registered average of all
+       accepted beads (MET-14).
+    """
     from matplotlib.lines import Line2D
+
+    from psfwidget.theory.optics import fwhm_around_peak
 
     half = half_box(voxel_um, channel.expected_fwhm_um, settings)
     box, centre, starts = _box(volume, bead, half)
-    theory = channel.theory
-    figure = _figure(9.0, 3.3)
+    model = _model_profiles(channel, voxel_um, half, bead_diameter_um)
+    averaged = _average_profiles(volume, channel, voxel_um, settings)
+    figure = _figure(9.0, 3.5)
     for panel, (axis, name) in enumerate(((2, "x"), (1, "y"), (0, "z"))):
         axes = figure.add_subplot(1, 3, panel + 1)
         values = _profile(box, axis, centre, settings.profile_width_px)
         coordinates = (np.arange(values.size, dtype=np.float64) + starts[axis]) * voxel_um[axis]
-        axes.plot(
-            coordinates,
-            values,
-            linestyle="",
-            marker="o",
-            markersize=4,
-            color=INK_SECONDARY,
-            zorder=3,
-        )
+        widths: list[str] = []
         try:
             fit = fit_gaussian_1d(
                 coordinates, values, fwhm_guess_um=channel.expected_fwhm_um[1 if axis == 0 else 0]
             )
         except FitError:
             fit = None
-        fine = np.linspace(coordinates[0], coordinates[-1], 300)
         if fit is not None:
+            offsets = coordinates - fit.centre_um
+            axes.plot(
+                offsets,
+                (values - fit.offset) / fit.amplitude,
+                linestyle="",
+                marker="o",
+                markersize=4.5,
+                color=SERIES,
+                markeredgecolor=SURFACE,
+                markeredgewidth=0.8,
+                zorder=4,
+            )
+            fine = np.linspace(offsets[0], offsets[-1], 300)
             sigma = fit.fwhm_um / FWHM_PER_SIGMA
             axes.plot(
-                fine,
-                fit.amplitude * np.exp(-0.5 * ((fine - fit.centre_um) / sigma) ** 2) + fit.offset,
-                color=SERIES,
-                linewidth=2,
-                zorder=2,
+                fine, np.exp(-0.5 * (fine / sigma) ** 2), color=SERIES, linewidth=2, zorder=3
             )
-            if theory is not None:
-                reference = theory.axial_um if axis == 0 else theory.lateral_um
-                sigma_t = reference / FWHM_PER_SIGMA
-                axes.plot(
-                    fine,
-                    fit.amplitude * np.exp(-0.5 * ((fine - fit.centre_um) / sigma_t) ** 2)
-                    + fit.offset,
-                    color=INK_MUTED,
-                    linestyle="--",
-                    linewidth=1.2,
-                    zorder=1,
-                )
-            title = f"{name}: FWHM {fit.fwhm_um * 1000:.0f} nm"
-            if theory is not None:
-                title += (
-                    f" (theory {(theory.axial_um if axis == 0 else theory.lateral_um) * 1000:.0f})"
-                )
-        else:
-            title = f"{name}: fit failed"
-        axes.set_title(title, color=INK, fontsize=8.5)
-        axes.set_xlabel(f"{name} (µm)", color=INK_SECONDARY, fontsize=8)
+            widths.append(f"bead {fit.fwhm_um * 1000:.0f}")
+        if averaged is not None:
+            offsets, profile = averaged[0][axis]
+            axes.plot(
+                offsets, profile, color=AVERAGE, linewidth=2, marker="s", markersize=3, zorder=2
+            )
+            widths.append(f"avg {fwhm_around_peak(offsets, profile) * 1000:.0f}")
+        if model is not None:
+            offsets, profile = model[axis]
+            axes.plot(offsets, profile, color=INK_MUTED, linestyle="--", linewidth=1.4, zorder=1)
+            widths.append(f"model {fwhm_around_peak(offsets, profile) * 1000:.0f}")
+        axes.set_title(
+            f"{name}: FWHM " + " · ".join(widths) + " nm" if widths else f"{name}: no fit",
+            color=INK,
+            fontsize=8.5,
+        )
+        axes.set_xlabel(f"{name} offset from the peak (µm)", color=INK_SECONDARY, fontsize=8)
+        axes.set_ylim(-0.15, 1.15)
         axes.tick_params(colors=INK_MUTED, labelsize=7)
         axes.grid(axis="y", color=GRID, linewidth=0.6)
         for side in ("top", "right"):
@@ -289,29 +368,40 @@ def profile_fits(
         Line2D(
             [],
             [],
-            linestyle="",
-            marker="o",
-            markersize=4,
-            color=INK_SECONDARY,
-            label="measured (3×3 line bundle)",
+            color=INK_MUTED,
+            linestyle="--",
+            linewidth=1.4,
+            label="model (theory with the bead size)",
         ),
-        Line2D([], [], color=SERIES, linewidth=2, label="Gaussian fit"),
         Line2D(
             [],
             [],
-            color=INK_MUTED,
-            linestyle="--",
-            linewidth=1.2,
-            label="theoretical width, same height",
+            color=SERIES,
+            linewidth=2,
+            marker="o",
+            markersize=4.5,
+            label=f"closest single bead ({bead.bead_id}): data and Gaussian fit",
         ),
     ]
+    if averaged is not None:
+        handles.append(
+            Line2D(
+                [],
+                [],
+                color=AVERAGE,
+                linewidth=2,
+                marker="s",
+                markersize=3,
+                label=f"average PSF across the field ({averaged[1]} beads)",
+            )
+        )
     legend = figure.legend(
         handles=handles,
         loc="lower left",
         bbox_to_anchor=(0.06, 0.0),
         ncol=3,
         frameon=False,
-        fontsize=8,
+        fontsize=7.5,
     )
     for text in legend.get_texts():
         text.set_color(INK_SECONDARY)
@@ -328,10 +418,12 @@ DIVERGING = ("#1c5cab", "#86b6ef", "#f0efec", "#ef9a9a", "#b52b2b")
 """Blue to red through a neutral gray midpoint (focus below / above the median)."""
 SEQUENTIAL = ("#cde2fb", "#86b6ef", "#3987e5", "#1c5cab", "#0d366b")
 """One-hue blue ramp, light to dark (magnitude)."""
+SEQUENTIAL_SECOND = ("#fbdccd", "#f5a882", "#eb6834", "#b84a20", "#7a2e12")
+"""One-hue orange ramp for a second magnitude shown beside the first."""
 
 
 def field_map(beads: Sequence[BeadResult], field_size_um: tuple[float, float]) -> bytes | None:
-    """Return a PNG of the bead focus offsets and lateral FWHM across the field (MET-11).
+    """Return a PNG of bead focus offsets, lateral FWHM, and axial FWHM across the field (MET-11).
 
     ``None`` if fewer than 3 accepted beads have a position.
     """
@@ -344,6 +436,7 @@ def field_map(beads: Sequence[BeadResult], field_size_um: tuple[float, float]) -
         and None not in (b.centre_x_um, b.centre_y_um, b.centre_z_um)
         and b.fwhm_x_um is not None
         and b.fwhm_y_um is not None
+        and b.fwhm_z_um is not None
     ]
     if len(used) < 3:
         return None
@@ -352,6 +445,7 @@ def field_map(beads: Sequence[BeadResult], field_size_um: tuple[float, float]) -
     z = np.array([b.centre_z_um for b in used], dtype=np.float64)
     focus_nm = (z - np.median(z)) * 1000.0
     lateral_nm = np.array([(b.fwhm_x_um + b.fwhm_y_um) / 2 for b in used]) * 1000.0  # type: ignore[operator]
+    axial_nm = np.array([b.fwhm_z_um for b in used], dtype=np.float64) * 1000.0
     width, height = field_size_um
     spread = float(max(np.abs(focus_nm).max(), 1.0))
     panels = (
@@ -367,10 +461,16 @@ def field_map(beads: Sequence[BeadResult], field_size_um: tuple[float, float]) -
             LinearSegmentedColormap.from_list("sequential", SEQUENTIAL),
             None,
         ),
+        (
+            "Axial FWHM (nm)",
+            axial_nm,
+            LinearSegmentedColormap.from_list("sequential-second", SEQUENTIAL_SECOND),
+            None,
+        ),
     )
-    figure = _figure(9.0, 3.9)
+    figure = _figure(12.0, 3.9)
     for index, (title, values, cmap, norm) in enumerate(panels):
-        axes = figure.add_subplot(1, 2, index + 1)
+        axes = figure.add_subplot(1, 3, index + 1)
         axes.set_facecolor(SURFACE)
         axes.add_patch(_field_outline(width, height))
         points = axes.scatter(
@@ -396,7 +496,7 @@ def field_map(beads: Sequence[BeadResult], field_size_um: tuple[float, float]) -
         bar = figure.colorbar(points, ax=axes, fraction=0.046, pad=0.03)
         bar.ax.tick_params(colors=INK_MUTED, labelsize=7)
         bar.outline.set_edgecolor(GRID)
-    figure.subplots_adjust(left=0.07, right=0.95, bottom=0.14, top=0.9, wspace=0.35)
+    figure.subplots_adjust(left=0.05, right=0.97, bottom=0.14, top=0.9, wspace=0.4)
     return _png(figure)
 
 

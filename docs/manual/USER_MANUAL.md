@@ -528,12 +528,23 @@ audit log with the user, computer, and time.
 One acquisition: overall status and reasons; acquisition settings; for each
 channel the metric summary against theory, the theory used, the Westgard
 checks against earlier sessions (when recorded), the spec checks, field
-geometry and registration with a **field map** (bead focus offsets and
-lateral FWHM across the field), the averaged-PSF comparison, a bead overview
-(maximum projection with accepted and rejected beads), XY/XZ/YZ views and
-profile fits of a representative bead, and a table of every bead; then
-provenance (software version, settings, file name and SHA-256, operator) and
-all metadata with origins.
+geometry and registration with a **field map** (bead focus offsets, lateral
+FWHM, and axial FWHM across the field of view), the averaged-PSF comparison,
+a bead overview (maximum projection with accepted and rejected beads), and
+XY/XZ/YZ views of a representative bead.
+
+The **profile figure** compares, along x, y, and z, three curves centred and
+scaled to a peak of 1: (1) the **model**, the theoretical PSF with the bead
+size (dashed); (2) the **closest single bead**, the one nearest the median
+lateral FWHM, with its Gaussian fit; and (3) the **average PSF** of all
+accepted beads across the field of view. The panel titles give the three
+FWHMs. Where the average differs from the single bead, the field is not
+uniform; where both differ from the model, the instrument does.
+
+Then come the provenance (software version, settings, file name and SHA-256,
+operator) and all metadata with origins, and **Appendix A**: a table of every
+candidate bead for each channel, accepted beads first and then rejected beads
+with their reasons, each group in bead order.
 
 ### 8.2 Trend report
 
