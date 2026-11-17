@@ -40,6 +40,11 @@ now also reads SPDX expressions with alternatives from the older `License`
 field, as PySide6 uses it. PyQt5 and PyQt6 (GPL) remain excluded; the extra
 installs napari with PySide6.
 
+For the API reference (optional `docs` extra, M5.3): `pdoc` 16.0.0 (MIT-0).
+Release tooling used only in CI: `build` (MIT) and `twine` (Apache-2.0).
+For validation only (not a dependency): `MicroscPSF-Py` (MIT), used once to
+obtain the Gibson–Lanni reference values in `tests/test_theory_optics.py`.
+
 The type-stub packages `types-reportlab` and `types-openpyxl` (Apache-2.0) are
 used only for type checking in the `dev` extra and are not distributed.
 
