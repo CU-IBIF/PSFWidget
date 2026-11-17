@@ -27,7 +27,7 @@ import re
 import string
 from collections.abc import Mapping
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 TOKENS = frozenset(
     {
@@ -63,8 +63,11 @@ def check_template(template: str) -> None:
         raise TemplateError(
             f"unknown token(s) {unknown} in {template!r}; known: {', '.join(sorted(TOKENS))}"
         )
-    path = Path(template.replace("\\", "/"))
-    if path.is_absolute() or ".." in path.parts:
+    path = PurePosixPath(template.replace("\\", "/"))
+    # Absolute on any platform: a leading slash or backslash, or a drive letter
+    # (Path.is_absolute alone misses "/x" on Windows and "C:/x" elsewhere).
+    absolute = path.is_absolute() or PureWindowsPath(template).drive != ""
+    if absolute or ".." in path.parts:
         raise TemplateError(
             f"template {template!r} must be a relative path inside the output root"
         )

@@ -184,7 +184,10 @@ def test_templates_fill_tokens_and_never_overwrite(tmp_path: Path) -> None:
 
 
 @pytest.mark.req("REP-05")
-@pytest.mark.parametrize("template", ["", "{colour}", "/abs/{date}", "../{date}", "{date"])
+@pytest.mark.parametrize(
+    "template",
+    ["", "{colour}", "/abs/{date}", "\\\\server\\{date}", "C:/x/{date}", "../{date}", "{date"],
+)
 def test_bad_templates_are_rejected(template: str) -> None:
     with pytest.raises(paths.TemplateError):
         paths.check_template(template)
