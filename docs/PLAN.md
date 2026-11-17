@@ -345,6 +345,56 @@ Task IDs map to requirements (in brackets) for traceability.
 - T8.3 Packaging: PyPI and napari hub, with an optional standalone installer (e.g. conda constructor).
 - T8.4 Release notes and V&V summary report.
 
+### WP10: Completion to v1.0 (development)
+
+Added 2026-11-17 from the outstanding items in [STATUS.md](STATUS.md). Grouped into milestones M5.1 to M5.3 (§6).
+
+- **T10.1 Vectorial and refractive-index-mismatch PSF model** [THE-02] (M5.1, ~2 weeks, developer).
+  - Vectorial (Richards–Wolf) model for high NA, unpolarised (averaged) excitation and emission, at the acquisition sampling.
+  - Refractive-index mismatch and coverslip (Gibson–Lanni optical path difference): sample RI, coverslip RI and thickness, and bead depth as metadata, profile, and override keys.
+  - Choice of model per profile (`[theory] model = "scalar" | "vectorial"`); reports name the model.
+  - *Acceptance:* reduces to the scalar model within 1% at low NA and to the matched case at zero depth; agrees with an independent implementation (e.g. MicroscPSF-Py, MIT) within 2%; NFR-04 still met.
+- **T10.2 Exposure normalisation of intensity** [MET-04] (M5.1, ~1 week, developer; needs facility files with different exposures).
+  - Read exposure time or pixel dwell time, and detector gain where recorded, per channel (ND2, LIF, CZI, OME), with origins and override keys.
+  - A normalised metric (integrated intensity per ms of exposure), tracked separately; a warning when gain or laser power differs from the configuration's baseline, since those are not linear.
+  - *Acceptance:* values extracted on the facility files; doubling the exposure in a synthetic test halves nothing else.
+- **T10.3 Import (merge) of another results database** [TRK-10] (M5.2, ~1 week, developer).
+  - `psfwidget track import --db TARGET --from OTHER [--dry-run]`: copies sessions, events, exclusions, and approvals by their UUIDs, keeps the original users and times, skips what is already present, and audits the import with the source file's SHA-256.
+  - *Acceptance:* backup → import into an empty database reproduces every row; importing twice changes nothing; append-only rules hold.
+- **T10.4 Cron expressions in schedules** [AUT-03] (M5.2, ~3 days, developer).
+  - `cron <minute> <hour> <day> <month> <weekday>` alongside the plain-word schedules, with a small built-in parser (no new dependency).
+  - *Acceptance:* table tests of next/latest occurrences, including ranges, steps, lists, and daylight-saving changes.
+- **T10.5 Audit review report** [QA-06] (M5.2, ~3 days, developer).
+  - `psfwidget report audit --db --since --until`: HTML and PDF with counts by action and user, every exclusion, inclusion, event, approval, and schema migration in the period, ready to be signed with `psfwidget approve`.
+  - *Acceptance:* report test on a database with every kind of entry.
+- **T10.6 Generated API reference** [UI-05] (M5.3, ~1 week, developer).
+  - Define the public API explicitly (`__all__` in each package), complete the docstrings, and generate the reference (pdoc, Unlicense) in CI, with the manuals, published to GitHub Pages.
+  - *Acceptance:* the reference builds without warnings in CI; every public name is documented.
+- **T10.7 Packaging for v1.0** [WP8, T8.3] (M5.3 preparation, M6 release; ~1 week, developer with facility IT).
+  - Build and check the wheel and sdist in CI; a tagged-release workflow that publishes to PyPI (trusted publishing) or the facility's index, as IT prefers; a pinned requirements (lock) file for validated installations; a release checklist; version 1.0.0 at M6.
+  - *Acceptance:* a clean install from the built wheel passes `psfwidget selftest` on Windows, macOS, and Linux.
+
+### WP11: Validation execution
+
+Each study follows a protocol written and approved **before** it starts (VV_PLAN §7), and every finding is logged as an `anomaly` issue (VV_PLAN §6). The developer prepares protocols, tools, and templates; the facility acquires the data and runs the studies.
+
+- **T11.1 Method comparison with MetroloJ_QC and/or PSFj** [VAL-01, NFR-02] (M6, facility + developer).
+  - Protocol; a tool that reads MetroloJ_QC and PSFj results and pairs them with PSFWidget's by bead position; Bland–Altman analysis per FWHM metric.
+  - ≥ 30 fields: ≥ 3 instruments, ≥ 2 objectives, ≥ 2 wavelengths, all four formats.
+  - *Acceptance (VV_PLAN):* mean bias ≤ 5%; 95% limits of agreement within ±10% or within the inter-bead SD.
+- **T11.2 Perturbation, repeatability, and parallel-run studies** [VAL-02, VAL-03, VAL-05; VAL-04 from the same data] (M5–M6, facility).
+  - VAL-03 first, as it sets realistic control limits: the same slide 10× in a day, and by 3 operators over 5 days; CV of FWHM ≤ 5% laterally and ≤ 7% axially.
+  - VAL-02: deliberate perturbations (correction collar, wrong immersion or RI mismatch, tilted slide, opened pinhole, undersampled z); each must move the expected metric and be flagged.
+  - VAL-05: ≥ 4 weeks of scheduled runs on 1–2 production microscopes alongside the current QC routine; every event the routine catches is caught; ≤ 1 unexplained rejection per instrument per month.
+  - Tooling: a study script that summarises repeatability (CV per metric and configuration) from a results database.
+- **T11.3 Backup restore drill** [AUT-07, QA-04] (M5, facility IT + developer).
+  - A written procedure and a `psfwidget track restore` check: verify a backup against its `.sha256`, open it on another PC, compare session, approval, and audit counts with the source, and draw the charts.
+  - *Acceptance:* restored within the time IT sets, with no difference; recorded.
+- **T11.4 GUI checks on Windows and macOS** [UI-01 to UI-04, NFR-05] (M5, facility + developer).
+  - A manual GUI test script (every widget action, with expected results) run on Windows 10/11 and the two latest macOS versions, with screenshots and anomalies logged.
+- **T11.5 Signed validation records** [QA-07] (M6, project lead + facility manager).
+  - Templates: protocol, test record, anomaly log, and V&V summary report; the CI requirement-coverage report frozen per release; document control (version, storage, retention); sign-off by the facility manager.
+
 ---
 
 ## 6. Milestones
@@ -359,7 +409,10 @@ Durations are indicative estimates for roughly one developer, with facility staf
 | **M3: Tracking and LJ** | WP4 | Sessions persist; baselines and Westgard rules pass rule-engine tests; LJ charts render with events | Week 13 |
 | **M4: Reporting and automation (alpha)** | WP5, WP6 | Session and trend reports in HTML and PDF; scheduled watch-folder run works end to end unattended for 1 week on a test machine | Week 17 |
 | **M5: GUI and Shoulds (beta)** | WP7; multiphoton theory (T3.7); GLP records (T9.1 to T9.5); backups (T6.6); remaining Shoulds in WP2 and WP3 (field maps, chromatic, averaged PSF with its OME-TIFF export, vectorial model, Strehl, image-scanning model) | GUI usability session completed; beta deployed on 1–2 facility microscopes | Week 22 |
-| **M6: Validation and v1.0 release** | WP8, T9.6, V&V execution | All Must requirements verified; NFR-02 agreement study passed; ≥ 4 weeks of parallel run against the current QC method; V&V summary report signed off | Week 28 |
+| **M5.1: Theory and intensity** | T10.1, T10.2 | THE-02 model verified against an independent implementation; normalised intensity on facility files | Week 24 |
+| **M5.2: Records and automation** | T10.3, T10.4, T10.5 | Import, cron schedules, and the audit report tested | Week 25 |
+| **M5.3: Release readiness** | T10.6, T10.7 (preparation), T11.3, T11.4 | API reference built in CI; wheel installs and passes the self-test on 3 OSes; restore drill and GUI checks recorded | Week 26 |
+| **M6: Validation and v1.0 release** | WP8, T9.6, WP11 (T11.1, T11.2, T11.5), T10.7 release | All Must requirements verified; NFR-02 agreement study passed; ≥ 4 weeks of parallel run against the current QC method; V&V summary report signed off | Week 28 |
 
 **Progress (2026-11-13):**
 
