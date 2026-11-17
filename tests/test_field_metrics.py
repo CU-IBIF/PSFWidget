@@ -163,6 +163,7 @@ def test_field_map_figure() -> None:
             centre_z_um=0.01 * x,
             fwhm_x_um=0.22,
             fwhm_y_um=0.23,
+            fwhm_z_um=0.6,
         )
         for i, (x, y) in enumerate([(1, 1), (9, 1), (5, 9), (2, 7)])
     ]

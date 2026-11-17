@@ -257,6 +257,18 @@ def test_session_report_and_exports(tracked: tuple[Path, Path, list[int]], tmp_p
     ):
         assert expected in html, expected
     assert sum(isinstance(b, doc.Figure) for b in report.blocks) == 4  # with the field map
+    assert "average PSF of all accepted beads" in html
+    assert "Right: axial FWHM" in html
+    # The bead table is in Appendix A, after the provenance, accepted beads first.
+    headings = [b.text for b in report.blocks if isinstance(b, doc.Heading)]
+    assert headings.index("Appendix A: bead tables") > headings.index("Provenance")
+    bead_table = next(
+        b for b in report.blocks if isinstance(b, doc.Table) and b.header[:2] == ("Bead", "Status")
+    )
+    bead_statuses = [row[1] for row in bead_table.rows]
+    assert bead_statuses == sorted(bead_statuses, key=lambda status: status != "accepted")
+    accepted_ids = [int(row[0]) for row in bead_table.rows if row[1] == "accepted"]
+    assert accepted_ids == sorted(accepted_ids)
     assert "Accepted beads across the field" in html
 
     settings = OutputSettings(

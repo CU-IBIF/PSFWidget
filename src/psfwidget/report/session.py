@@ -223,8 +223,9 @@ def _field_map(channel: ChannelResult) -> doc.Figure | None:
         return None
     return doc.Figure(
         png,
-        "Accepted beads across the field. Left: focus position relative to the median bead "
-        "(blue below, red above), showing tilt and curvature. Right: lateral FWHM.",
+        "Accepted beads across the field of view. Left: focus position relative to the median "
+        "bead (blue below, red above), showing tilt and curvature. Middle: lateral FWHM "
+        "(mean of x and y). Right: axial FWHM.",
     )
 
 
@@ -250,8 +251,10 @@ def _spec_table(channel: ChannelResult) -> doc.Table | None:
 
 
 def _bead_table(channel: ChannelResult) -> doc.Table:
+    """Every bead, accepted first and then rejected, each group by bead id."""
     rows = []
-    for bead in channel.beads:
+    ordered = sorted(channel.beads, key=lambda b: (not b.accepted, b.bead_id))
+    for bead in ordered:
         rows.append(
             (
                 str(bead.bead_id),
@@ -281,7 +284,10 @@ def _bead_table(channel: ChannelResult) -> doc.Table:
         ),
         tuple(rows),
         frozenset({3, 4, 5, 6, 7, 8}),
-        caption="Every candidate bead (FWHM in µm).",
+        caption=(
+            f"{len(channel.accepted)} accepted, then {len(channel.beads) - len(channel.accepted)} "
+            "rejected beads (FWHM in µm)."
+        ),
     )
 
 
@@ -298,6 +304,11 @@ def _figures(stack: ImageStack, channel: ChannelResult, result: FieldResult) -> 
         )
     ]
     bead = figures.representative_bead(channel)
+    diameter = (
+        None
+        if result.metadata.bead_diameter_nm is None
+        else result.metadata.bead_diameter_nm.value / 1000.0
+    )
     if bead is not None:
         blocks.append(
             doc.Figure(
@@ -308,9 +319,15 @@ def _figures(stack: ImageStack, channel: ChannelResult, result: FieldResult) -> 
         )
         blocks.append(
             doc.Figure(
-                figures.profile_fits(volume, bead, channel, voxel, result.settings),
-                f"Bead {bead.bead_id}: measured profiles, Gaussian fits, and a Gaussian of the "
-                "theoretical width for comparison (THE-07).",
+                figures.profile_fits(
+                    volume, bead, channel, voxel, result.settings, bead_diameter_um=diameter
+                ),
+                "Profiles along x, y, and z, each centred and scaled to a peak of 1: the model "
+                "(theoretical PSF with the bead size, dashed), the closest single bead "
+                f"({bead.bead_id}, nearest the median lateral FWHM; data and Gaussian fit), "
+                "and the average PSF of all accepted beads across the field of view "
+                "(THE-07, MET-14). FWHM in the titles: bead and average uncorrected for the bead "
+                "size.",
             )
         )
     return blocks
@@ -455,14 +472,36 @@ def build_session_report(
             blocks.append(doc.Paragraph(f"Note: {warning}", muted=True))
         if stack is not None:
             blocks.extend(_figures(stack, channel, result))
-        blocks.append(doc.Heading("Beads", 3))
-        blocks.append(_bead_table(channel))
+        blocks.append(
+            doc.Paragraph(
+                "Every bead of this channel, accepted and rejected, is listed in Appendix A.",
+                muted=True,
+            )
+        )
 
     blocks.append(doc.PageBreak())
     blocks.append(doc.Heading("Provenance"))
     blocks.append(_provenance(result, operator))
     blocks.append(doc.Heading("Metadata"))
     blocks.extend(_metadata_tables(result))
+    blocks.append(doc.PageBreak())
+    blocks.append(doc.Heading("Appendix A: bead tables"))
+    blocks.append(
+        doc.Paragraph(
+            "Every candidate bead of each channel: accepted beads first, then rejected beads "
+            "with the reasons, each group in bead order.",
+            muted=True,
+        )
+    )
+    for number, channel in enumerate(result.channels):
+        if number:
+            blocks.append(doc.PageBreak())  # keep each channel's heading with its table
+        blocks.append(
+            doc.Heading(
+                f"Channel {channel.index}" + (f" – {channel.name}" if channel.name else ""), 3
+            )
+        )
+        blocks.append(_bead_table(channel))
     report = doc.Report(
         title="PSF quality control: session report",
         subtitle=subtitle,
