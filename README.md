@@ -22,8 +22,8 @@ PSFWidget is a microscope quality-control tool for point spread functions
 It has a napari GUI, a command-line interface for scheduled runs, and a
 Python API.
 
-> **Status:** pre-release (0.0.1.dev0). Milestones M0 to M4 are merged; M5
-> (GUI and the remaining "should" requirements) and M5.1 to M5.3 (vectorial
+> **Status:** pre-release (0.0.1.dev0). Milestones M0 to M5 (including the
+> GUI and the remaining "should" requirements) are merged; M5.1 to M5.3 (vectorial
 > and mismatch theory, exposure normalisation, database import, cron
 > schedules, audit review report, API reference, packaging) are in review.
 > The tools, templates, and draft protocols for validation (M6) are ready;

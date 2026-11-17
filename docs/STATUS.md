@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-17 (updated after milestones M5.1–M5.3 and the M6 preparation)
 **Version:** 0.0.1.dev0 (pre-release)
-**Milestones:** M0 to M4 merged; M5 and M5.1 to M5.3 in review ([pull request 8](https://github.com/CU-IBIF/PSFWidget/pull/8)); M6 (validation and v1.0): tools, templates, and draft protocols ready, studies not started.
+**Milestones:** M0 to M5 merged ([pull request 8](https://github.com/CU-IBIF/PSFWidget/pull/8)); M5.1 to M5.3 in review ([pull request 9](https://github.com/CU-IBIF/PSFWidget/pull/9)); M6 (validation and v1.0): tools, templates, and draft protocols ready, studies not started.
 **Companion documents:** [Project Plan](PLAN.md), [V&V Plan](VV_PLAN.md), [traceability matrix](traceability.csv), [Install guide](manual/INSTALL.md), [User manual](manual/USER_MANUAL.md)
 
 This page is the single place to see what is done and what is not. The
@@ -165,7 +165,7 @@ implemented, verification relies on a validation activity still to do.
 | M2 Core metrics | Merged | – |
 | M3 Tracking | Merged | – |
 | M4 Reporting and automation | Merged | 7-day soak (F4), PDF text check (D9) |
-| M5 GUI and Shoulds | In review | beta (F1, F3); usability (F2) |
+| M5 GUI and Shoulds | Merged | beta (F1, F3); usability (F2) |
 | M5.1 Theory and intensity | In review | – |
 | M5.2 Records and automation | In review | – |
 | M5.3 Release readiness | In review | restore drill and GUI checks to run (V7, V8) |
