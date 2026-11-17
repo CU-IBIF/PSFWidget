@@ -1,6 +1,6 @@
 # PSFWidget User Manual
 
-**Draft** for version 0.0.1.dev0 (pre-release), 2026-11-14.
+**Draft** for version 0.0.1.dev0 (pre-release), updated 2026-11-17.
 Companion: [Install guide](INSTALL.md). What is done and outstanding: [STATUS.md](../STATUS.md).
 
 > This is a draft written before validation. Screens and outputs may change
@@ -253,6 +253,16 @@ match = { excitation_nm = 488 }  # or { index = 0 } or { name = "GFP" }
 emission_nm = 515                # the bead dye's emission peak
 # excitation_nm = 920            # multiphoton: the laser wavelength
 # pinhole_airy = 1.0             # pinhole in Airy units
+# dwell_us = 2.0                 # acquisition settings, if the files lack them:
+# exposure_ms = 100              #   exposure, dwell, accumulation (normalisation),
+# detector_gain = 700            #   gain and laser power (change detection only)
+
+[theory]                         # optional refinements of the theoretical PSF
+# model = "vectorial"            # "scalar" (default) or "vectorial" (high NA)
+# sample_ri = 1.46               # mountant index; with bead_depth_um, models
+# bead_depth_um = 0              #   refractive-index mismatch (0 = on the coverslip)
+# coverslip_ri = 1.523           # only if different from the objective's design
+# coverslip_um = 170
 
 [spec]                           # optional acceptance limits
 lateral_ratio_max = 1.3
@@ -280,6 +290,18 @@ Notes:
   `excitation_nm` to the laser wavelength (e.g. 920, not 460). ND2, CZI, and
   OME-TIFF files that record a multiphoton mode are recognised; Leica LIF
   files need the profile setting. See `multiphoton-template.toml`.
+- **Theory refinements** (`[theory]`): `model = "vectorial"` uses the
+  Richards–Wolf vectorial model, about 10% wider laterally than scalar at
+  NA 1.4. `sample_ri` with `bead_depth_um` models beads below the coverslip
+  in a mountant that does not match the immersion (Gibson–Lanni): the PSF
+  broadens axially and the focus shifts. For beads on the coverslip (as on
+  the facility slide) the depth is 0. When the NA exceeds the sample index,
+  the aperture is limited to it.
+- **Acquisition settings** (`exposure_ms`, `dwell_us`, `accumulation`,
+  `detector_gain`, `laser_power` per channel) are read from the files where
+  one value applies to the whole acquisition (camera exposure from ND2 and
+  OME-TIFF; pixel dwell from ND2, LIF, CZI; accumulation from LIF). Gain and
+  laser power are only taken from the profile or `--set`.
 - Unknown keys and wrong types are refused with the table and key named.
 - Each result stores the profile's SHA-256 fingerprint, so any change to the
   file is visible in the records.
@@ -342,8 +364,8 @@ not 0.
 
 | Command | Purpose | Chapter |
 |---|---|---|
-| `psfwidget track …` | status, charts, events, exclusions, export, backup, audit | 7 |
-| `psfwidget report trend …` | trend report from the database | 8 |
+| `psfwidget track …` | status, charts, events, exclusions, export, backup, import, restore check, audit | 7 |
+| `psfwidget report trend …`, `report audit …` | trend and audit review reports from the database | 8, 10 |
 | `psfwidget run`, `watch`, `check-config` | unattended runs | 9 |
 | `psfwidget approve`, `verify` | sign and check reports | 10 |
 | `psfwidget selftest` | installation check and IQ/OQ record | install guide §4.2 |
@@ -398,6 +420,7 @@ summaries:
 | Similarity to theory | Pearson correlation of the averaged and theoretical PSFs |
 | Axial skewness, energy above / below focus | asymmetry of the averaged PSF; 0 and 1 when symmetric (spherical aberration shows here) |
 | Ratio to image-scanning theory | for NSPARC, Live-SR, and similar modes |
+| Integrated intensity per ms of exposure | median integrated intensity divided by the camera exposure, or by the pixel dwell time × accumulation; comparable across exposure changes |
 
 These need enough beads: tilt at least 3 spread over the field, curvature
 and uniformity at least 6, the averaged PSF at least 3 whose box fits in
@@ -413,9 +436,11 @@ the stack. When not computed, the report says why.
 - **Image-scanning modes** (NSPARC, Live-SR): compared with the base model
   (ratios below 1 are expected) and with an image-scanning model.
 
-All use a scalar high-NA model with matched refractive indices; the
-published closed-form values are shown alongside. A vectorial and
-refractive-index-mismatch model is not yet included (STATUS D1).
+By default all use a scalar high-NA model with matched refractive indices,
+with the published closed-form values shown alongside. A profile's
+`[theory]` table (chapter 4) switches to the vectorial model and/or adds
+refractive-index mismatch and coverslip deviations; the report names the
+model used.
 
 ### 6.5 Status
 
@@ -424,7 +449,7 @@ Each channel and the whole session get one status, shown on reports:
 | Status | When |
 |---|---|
 | **FAIL** | no bead accepted, a spec limit failed, or a Westgard rejection rule broken |
-| **WARNING** | a Westgard warning (1₂ₛ) |
+| **WARNING** | a Westgard warning (1₂ₛ), or acquisition settings (exposure, dwell time, accumulation, gain, laser power, pinhole) changed since the configuration's previous session, which makes the comparison with control limits questionable |
 | **PASS** | spec limits and/or control limits were checked and passed |
 | **NOT EVALUATED** | no spec limits set and no control limits yet |
 
@@ -473,12 +498,22 @@ psfwidget track exclude --db qc.sqlite 17 --reason "dirty slide" [--channel 1]
 psfwidget track include --db qc.sqlite 17 --reason "slide was fine"
 psfwidget track export --db qc.sqlite --out qc.csv
 psfwidget track backup --db qc.sqlite --out qc_copy.sqlite
+psfwidget track import --db qc.sqlite --from other_pc.sqlite [--dry-run]
+psfwidget track restore-check backups/qc_20261117T020000Z.sqlite --against qc.sqlite --out drill/
 psfwidget track audit  --db qc.sqlite [--since 2026-10-01] [--until 2026-12-31] [--csv audit.csv]
 ```
 
 `--instrument`, `--objective`, and `--channel` narrow `status` and `chart`.
 Event kinds: `service`, `alignment`, `objective`, `laser`, `baseline` (limits
 only), `other`.
+
+`track import` copies another results database's sessions, events,
+exclusions, approvals, and audit trail into this one, keeping the original
+users and times; what is already present is skipped, so importing twice
+changes nothing, and the import itself is audited. `track restore-check` is
+the backup restore drill: it verifies a backup's integrity and SHA-256,
+restores a temporary copy, compares it with the live database, and writes a
+drill record to sign (exit status 4 on any problem).
 
 **Nothing in the database is ever changed or deleted.** Exclusions,
 inclusions, events, and approvals are added as new rows and written to the
@@ -563,7 +598,10 @@ Template tokens: `{instrument}`, `{objective}`, `{date}`, `{yyyy}`, `{mm}`,
 
 **Schedules** are written in plain words: `every 15 minutes`, `every 2
 hours`, `every 1 day`, `daily 07:30`, `weekly monday 07:30`, `monthly 1
-07:30` (day 1 to 28), or `off`, in the computer's local time. A calendar job
+07:30` (day 1 to 28), `cron <minute> <hour> <day> <month> <weekday>` (e.g.
+`cron 30 7 * * 1-5`: 07:30 on weekdays; lists, ranges, steps, and names such
+as `mon` or `jan` work as in cron), or `off`, in the computer's local time. A
+calendar or cron job
 first runs at its first scheduled time after the configuration is first
 used.
 
@@ -652,7 +690,14 @@ if no signature matches the report's current content.
 
 ```bash
 psfwidget track audit --db qc.sqlite --since 2026-10-01 --until 2026-12-31 --csv audit.csv
+psfwidget report audit --db qc.sqlite --since 2026-10-01 --until 2026-12-31 --out reviews/
 ```
+
+The audit review report (HTML and PDF) counts the entries by action and
+user, then lists every exclusion and inclusion, event, approval, import, and
+database upgrade in the period, and finally every entry. Sign it after
+review like any report: `psfwidget approve <report> --db qc.sqlite --meaning
+"audit trail reviewed"`.
 
 ### 10.3 Installation qualification
 
@@ -691,8 +736,10 @@ with ResultsDatabase("qc.sqlite") as db:
 Scripted GUI-equivalent work, including manual review, uses
 `psfwidget.napari.session.AnalysisSession` (no Qt needed): `open`,
 `set_value`, `analyze`, `decide`, `record`, `write_report`, `approve`. All
-public functions have docstrings (`help(analyze_stack)`). A generated API
-reference is planned for v1.0 (STATUS D7).
+public functions have docstrings (`help(analyze_stack)`). The API reference
+is generated from them: it is published with each release, and
+`python tools/build_api_docs.py site/api` builds it locally (needs the
+`docs` extra).
 
 ---
 
@@ -725,7 +772,7 @@ reference is planned for v1.0 (STATUS D7).
 | 1 | `info --strict`: not ready for analysis; `analyze`: not ready; `selftest`: a check failed |
 | 2 | error (bad input, unreadable file, invalid profile or configuration, database error) |
 | 3 | `analyze --fail-on-spec`: a channel failed its spec limits |
-| 4 | `track status --fail-on-rejection`: a latest session broke a rejection rule |
+| 4 | `track status --fail-on-rejection`: a latest session broke a rejection rule; `track restore-check`: the backup failed a check |
 | 5 | `run --fail-on-alert`: an alert was raised |
 | 6 | `run`: another run is in progress |
 | 7 | `verify`: no signature matches the report |
@@ -735,10 +782,12 @@ reference is planned for v1.0 (STATUS D7).
 Acquisition: `voxel_z_um`, `voxel_y_um`, `voxel_x_um`, `numerical_aperture`,
 `immersion_ri`, `objective_name`, `magnification`, `modality`,
 `resolution_enhancement`, `acquired_utc`, `significant_bits`,
-`bead_diameter_nm`, `instrument_id`, `objective_id`.
+`bead_diameter_nm`, `instrument_id`, `objective_id`, `psf_model`,
+`sample_ri`, `coverslip_ri`, `coverslip_um`, `bead_depth_um`.
 Per channel (`channel.<index>.<key>`): `name`, `excitation_nm`,
 `emission_nm`, `detection_band_nm`, `pinhole_airy`, `pinhole_um`,
-`preset_id`.
+`preset_id`, `exposure_ms`, `dwell_us`, `accumulation`, `detector_gain`,
+`laser_power`.
 
 ### 13.3 Analysis settings (`--setting`, GUI box, `[analysis]`)
 
@@ -771,7 +820,7 @@ Bead summaries: `fwhm_x_um`, `fwhm_y_um`, `fwhm_z_um` (and `_raw_um`),
 Channel-level: `tilt_deg`, `focal_range_um`, `curvature_sag_um`,
 `uniformity_corner_ratio`, `chromatic_lateral_nm`, `chromatic_axial_nm`,
 `strehl`, `psf_similarity`, `axial_skewness`, `axial_asymmetry`,
-`ratio_lateral_ism`, `ratio_axial_ism`.
+`ratio_lateral_ism`, `ratio_axial_ism`, `intensity_per_ms`.
 Tracked by default: `fwhm_x_um`, `fwhm_y_um`, `fwhm_z_um`, `xy_major_um`,
 `xy_minor_um`, `xz_major_um`, `yz_major_um`, `ratio_x`, `ratio_y`,
 `ratio_z`, `ellipticity_xy`, `integrated_intensity`, `sbr`,

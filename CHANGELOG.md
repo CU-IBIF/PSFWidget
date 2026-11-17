@@ -124,6 +124,23 @@ All notable changes to this project are documented here. The format follows
     `psfwidget.profiles.write`);
   - npe2 plugin manifest and a synthetic bead sample (T7.4);
   - a GUI job in CI (headless napari under a virtual display).
+- Vectorial (Richards–Wolf) and refractive-index-mismatch (Gibson–Lanni)
+  theoretical PSF models, selected per profile (`[theory]`); verified against
+  MicroscPSF-Py within 0.3% (M5.1, THE-02).
+- Exposure, dwell time, accumulation, gain, and laser power per channel;
+  read from the files where possible; `intensity_per_ms`; a WARNING when they
+  change between sessions (M5.1, MET-04).
+- `psfwidget track import` (merge results databases; M5.2, TRK-10), cron
+  schedules (M5.2, AUT-03), and `psfwidget report audit` (M5.2, QA-06).
+- Generated API reference (`tools/build_api_docs.py`, pdoc) with a docstring
+  test; package build, check, and self-test in CI on three OSes; release and
+  documentation workflows; validated dependency pins; release checklist
+  (M5.3, UI-05, WP8).
+- `psfwidget track restore-check` backup restore drill (M5.3, AUT-07) and a
+  manual GUI test script (M5.3).
+- Validation preparation (M6): `tools/method_comparison.py` (VAL-01,
+  Bland–Altman), `tools/repeatability.py` (VAL-03), record templates, and
+  draft protocols VAL-01 to VAL-07.
 - Documentation: an install guide and a user manual (`docs/manual/`, drafts),
   and `docs/STATUS.md` with the status of every requirement and the
   outstanding items; README, plan, V&V plan, and CONTRIBUTING brought up to

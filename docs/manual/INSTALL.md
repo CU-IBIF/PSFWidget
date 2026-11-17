@@ -1,6 +1,6 @@
 # PSFWidget Install Guide
 
-**Draft** for version 0.0.1.dev0 (pre-release), 2026-11-14.
+**Draft** for version 0.0.1.dev0 (pre-release), updated 2026-11-17.
 Companion: [User manual](USER_MANUAL.md). Status of the software: [STATUS.md](../STATUS.md).
 
 This guide covers installing PSFWidget, checking the installation (and
@@ -116,6 +116,19 @@ python -m pip install "C:\Downloads\PSFWidget-main[napari]"
 **A specific version** (recommended for validated installations, so every PC
 runs the same code): add `@<tag or commit>` to the URL, for example
 `git+https://github.com/CU-IBIF/PSFWidget.git@v1.0.0`.
+
+**Validated installations** should also pin every dependency, so each PC has
+exactly the versions that were tested. Each release ships the pins
+(`requirements/validated-report.txt` and `requirements/validated-napari.txt`,
+also attached to the GitHub release):
+
+```bash
+python -m pip install -r validated-report.txt "psfwidget[report] @ git+https://github.com/CU-IBIF/PSFWidget.git@v1.0.0"
+```
+
+From v1.0 the package is planned to be on PyPI (or the facility's own
+index), and `python -m pip install -r validated-report.txt "psfwidget[report]==1.0.0"`
+replaces the git URL.
 
 **Behind a proxy:** set `HTTPS_PROXY` (and `HTTP_PROXY`) before running pip,
 or ask IT for the proxy settings.
@@ -265,6 +278,27 @@ After the first run:
 
 For the M4 exit criterion, leave the scheduled run going for 7 days and check
 the logs for missed runs.
+
+### 6.5 Restore drill
+
+Check once (and after any change to the backup set-up) that a backup can
+actually be restored. On a second PC, with the backup and, if reachable, the
+live database:
+
+```bash
+psfwidget track restore-check \\server\qc\backups\sp8\qc_20261117T020000Z.sqlite --against C:\PSFWidget\data\qc.sqlite --out C:\PSFWidget\qualification --user "IT name"
+```
+
+It verifies the backup's integrity and SHA-256, restores a temporary copy
+(the backup itself is not touched), counts sessions, approvals, and audit
+entries, checks that everything in the backup is also in the live database,
+draws Levey-Jennings charts from the copy, and writes
+`restore_drill_<time>.json` with a sign-off section. Exit status 0 means
+PASS.
+
+To move results to a new PC, copy the latest verified backup there as the
+new database, or merge it into an existing one with
+`psfwidget track import --db qc.sqlite --from backup.sqlite`.
 
 ---
 

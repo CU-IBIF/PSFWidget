@@ -22,9 +22,12 @@ PSFWidget is a microscope quality-control tool for point spread functions
 It has a napari GUI, a command-line interface for scheduled runs, and a
 Python API.
 
-> **Status:** pre-release (0.0.1.dev0). Milestones M0 to M4 are merged and
-> M5 (GUI and the remaining "should" requirements) is in review. Validation
-> with facility instruments and users (M6) has not started. See
+> **Status:** pre-release (0.0.1.dev0). Milestones M0 to M4 are merged; M5
+> (GUI and the remaining "should" requirements) and M5.1 to M5.3 (vectorial
+> and mismatch theory, exposure normalisation, database import, cron
+> schedules, audit review report, API reference, packaging) are in review.
+> The tools, templates, and draft protocols for validation (M6) are ready;
+> the studies with facility instruments and users have not started. See
 > [docs/STATUS.md](docs/STATUS.md) for what is done and what is outstanding.
 
 ## Documentation
@@ -40,6 +43,9 @@ Python API.
 | [Fitting accuracy](docs/validation/fitting_accuracy.md) | Bias and precision of the FWHM measurement on synthetic beads |
 | [Licence audit](docs/LICENSE_AUDIT.md) | Licences of all dependencies |
 | [Example profiles](examples/profiles/README.md) and [automation config](examples/automation/qc.toml) | Starting points for your instruments |
+| [Validation protocols](docs/validation/protocols/README.md), [templates](docs/validation/templates/), and [GUI test script](docs/validation/GUI_TEST_SCRIPT.md) | Drafts for the M6 validation studies and records |
+| [Release checklist](docs/RELEASE_CHECKLIST.md) | Steps for a validated release |
+| API reference | Published with each release; build locally with `python tools/build_api_docs.py` |
 | [CHANGELOG](CHANGELOG.md) | What changed |
 | [CONTRIBUTING](CONTRIBUTING.md) | Developer setup, checks, and conventions |
 

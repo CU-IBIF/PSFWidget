@@ -34,7 +34,8 @@ The pre-commit hooks run the same tools on each commit.
 src/psfwidget/        package (headless core + napari GUI layer); see docs/PLAN.md §4
 tests/                pytest suite (tests/test_gui_*.py need Qt and napari)
 tools/                developer scripts (traceability, test data, licence check, accuracy
-                      report, tracking demo)
+                      report, tracking demo, API reference, validation analyses)
+requirements/         validated dependency pins, regenerated for each release
 examples/profiles/    example instrument profiles
 examples/automation/  example automation configuration
 docs/                 plan, V&V plan, status, traceability matrix, licence audit
@@ -69,6 +70,13 @@ Update the user documentation with every user-visible change:
 `docs/manual/USER_MANUAL.md` (and `INSTALL.md` for installation changes),
 `docs/STATUS.md` (requirement status and outstanding items), task status in
 `docs/PLAN.md` §5, and `CHANGELOG.md`.
+
+## API reference
+
+The public API is the module list in `tools/build_api_docs.py`. Add a module
+there when it becomes public; `tests/test_api_docs.py` then requires a
+docstring on every public function and class in it. Build locally with
+`python tools/build_api_docs.py site/api` (needs the `docs` extra).
 
 ## Coding standards
 
