@@ -34,7 +34,6 @@ from psfwidget.metrics.field import (
     field_geometry,
 )
 from psfwidget.metrics.gaussian import BEAD_FWHM_PER_DIAMETER
-from psfwidget.metrics.intensity import image_mode
 from psfwidget.metrics.summary import Stats, flag_outliers, rejection_counts, summarize
 from psfwidget.profiles.spec import SpecLimits, SpecResult, evaluate
 from psfwidget.settings import AnalysisSettings
@@ -86,8 +85,6 @@ class ChannelResult:
     exposure_ms: float | None = None
     """Effective exposure per voxel: the camera exposure, or the pixel dwell time times
     the accumulation (MET-04)."""
-    image_mode: float | None = None
-    """Most common voxel value of the channel's image, for mode normalisation (MET-04)."""
 
     @property
     def channel_metrics(self) -> dict[str, float]:
@@ -105,14 +102,6 @@ class ChannelResult:
         intensity = self.summary.get("integrated_intensity")
         if self.exposure_ms and intensity is not None:
             values["intensity_per_ms"] = intensity.median / self.exposure_ms
-        if self.image_mode is not None and math.isfinite(self.image_mode):
-            values["image_mode"] = self.image_mode
-            if self.image_mode > 0:
-                peak = self.summary.get("peak")
-                if intensity is not None:
-                    values["integrated_intensity_per_mode"] = intensity.median / self.image_mode
-                if peak is not None:
-                    values["peak_per_mode"] = peak.median / self.image_mode
         if self.psf is not None:
             values["strehl"] = self.psf.strehl
             values["psf_similarity"] = self.psf.similarity
@@ -312,12 +301,6 @@ def analyze_channel(
 
     base = _expected_fwhm(theory, channel, metadata)
     volume = stack.channel(index)
-    mode = image_mode(volume)
-    if not mode > 0:
-        warnings.append(
-            f"the image mode is {mode:g} (a photon-counting or zero-offset detector), so "
-            "intensities cannot be normalised to it"
-        )
     level = saturation_level(stack)
     if stack.metadata.significant_bits is None:
         clipped = inferred_saturation(volume, level)
@@ -385,7 +368,6 @@ def analyze_channel(
         warnings=tuple(warnings),
         psf=psf,
         exposure_ms=effective_exposure_ms(channel),
-        image_mode=mode,
     )
 
 

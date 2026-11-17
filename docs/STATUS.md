@@ -112,7 +112,7 @@ implemented, verification relies on a validation activity still to do.
 | DET-07 | S | Done | 4/4 | GUI review with reason and reviewer |
 | MET-01, MET-02 | M | Done | 13/13, 16/16 | |
 | MET-03 | S | Done | 1/1 | |
-| MET-04 | M | Done | 13/13 | Normalised to exposure and to the image mode (bit depth); gain and power from profiles only (D3, D4) |
+| MET-04 | M | Done | 10/10 | Normalised to exposure; gain and power from profiles only (D3, D4) |
 | MET-05 to MET-08 | M | Done | | |
 | MET-09 | S | Part | 1/1 | On the averaged PSF only (D7) |
 | MET-10 | M | Done | 4/4 | |
