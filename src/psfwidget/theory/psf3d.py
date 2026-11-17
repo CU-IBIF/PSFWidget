@@ -27,6 +27,8 @@ from scipy import interpolate, signal
 from psfwidget.io.model import Modality
 from psfwidget.theory.analytic import NM_PER_UM, airy_unit_um
 from psfwidget.theory.model import Theory
+from psfwidget.theory.optics import Optics
+from psfwidget.theory.optics import intensity as optics_intensity
 from psfwidget.theory.scalar import _disc_mask, intensity
 
 OVERSAMPLE = 3
@@ -34,10 +36,17 @@ RADIAL_SAMPLES = 400
 
 
 def _radial(
-    wavelength_nm: float, na: float, n: float, r_max: float, z: NDArray[np.float64]
+    wavelength_nm: float,
+    na: float,
+    n: float,
+    r_max: float,
+    z: NDArray[np.float64],
+    optics: Optics | None = None,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     r = np.linspace(0.0, r_max, RADIAL_SAMPLES)
-    return r, intensity(r, z, wavelength_nm, na, n)
+    if optics is None:
+        return r, intensity(r, z, wavelength_nm, na, n)
+    return r, optics_intensity(r, z, wavelength_nm, na, n, optics)
 
 
 def _on_grid(
@@ -79,7 +88,7 @@ def theoretical_psf(
         np.asarray((np.arange(n) - (n - 1) / 2.0) * step, dtype=np.float64)
         for n, step in zip(fine_shape, fine_step, strict=True)
     ]
-    z = axes[0]
+    z = axes[0] + theory.focus_um  # centred on the PSF maximum
     radius = np.hypot(axes[1][:, None], axes[2][None, :])
     r_max = float(radius.max()) + 1e-9
     na, n = theory.numerical_aperture, theory.refractive_index
@@ -87,17 +96,17 @@ def theoretical_psf(
 
     if modality is Modality.MULTIPHOTON:
         assert theory.excitation_nm is not None
-        r, values = _radial(theory.excitation_nm, na, n, r_max, z)
+        r, values = _radial(theory.excitation_nm, na, n, r_max, z, theory.optics)
         psf = _on_grid(r, values, radius) ** 2
     elif modality is Modality.WIDEFIELD:
         assert theory.emission_nm is not None
-        r, values = _radial(theory.emission_nm, na, n, r_max, z)
+        r, values = _radial(theory.emission_nm, na, n, r_max, z, theory.optics)
         psf = _on_grid(r, values, radius)
     else:
         assert theory.excitation_nm is not None
         assert theory.emission_nm is not None
-        r, excitation = _radial(theory.excitation_nm, na, n, r_max, z)
-        r, emission = _radial(theory.emission_nm, na, n, r_max, z)
+        r, excitation = _radial(theory.excitation_nm, na, n, r_max, z, theory.optics)
+        r, emission = _radial(theory.emission_nm, na, n, r_max, z, theory.optics)
         detection = _on_grid(r, emission, radius)
         pinhole = theory.pinhole_au or 0.0
         pinhole_radius = pinhole * airy_unit_um(theory.emission_nm, na) / 2.0

@@ -83,6 +83,15 @@ class AcquisitionMetadata:
     bead_diameter_nm: Sourced[float] | None = None
     instrument_id: Sourced[str] | None = None
     objective_id: Sourced[str] | None = None
+    psf_model: Sourced[str] | None = None
+    """``"scalar"`` (default) or ``"vectorial"`` theoretical model (THE-02)."""
+    sample_ri: Sourced[float] | None = None
+    """Refractive index of the medium around the beads (mountant)."""
+    coverslip_ri: Sourced[float] | None = None
+    coverslip_um: Sourced[float] | None = None
+    """Coverslip thickness; the objective's design value is assumed when unknown."""
+    bead_depth_um: Sourced[float] | None = None
+    """Depth of the beads below the coverslip; 0 for beads on the coverslip."""
     channels: tuple[ChannelMetadata, ...] = ()
     warnings: tuple[str, ...] = ()
 

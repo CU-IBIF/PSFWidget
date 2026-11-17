@@ -673,9 +673,13 @@ from psfwidget.tracking.store import ResultsDatabase
 
 profile = load_profile("sp8.toml")
 print([s.name for s in list_series("beads.lif")])
-stack = read_stack("beads.lif", series=2, profile=profile,
-                   overrides=parse_assignments(["channel.0.emission_nm=515"]))
-print(stack.problems())                     # [] when ready
+stack = read_stack(
+    "beads.lif",
+    series=2,
+    profile=profile,
+    overrides=parse_assignments(["channel.0.emission_nm=515"]),
+)
+print(stack.problems())  # [] when ready
 result = analyze_stack(stack, spec_limits=profile.spec)
 for channel in result.channels:
     print(channel.name, channel.summary["fwhm_z_um"].median, channel.channel_metrics)

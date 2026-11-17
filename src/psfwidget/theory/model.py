@@ -7,6 +7,13 @@ from dataclasses import dataclass
 from psfwidget.io.model import AcquisitionMetadata, ChannelMetadata, Modality
 from psfwidget.theory import analytic
 from psfwidget.theory.analytic import AnalyticWidth
+from psfwidget.theory.optics import (
+    DESIGN_COVERSLIP_RI,
+    DESIGN_COVERSLIP_UM,
+    Optics,
+    OpticsWidth,
+    optics_width,
+)
 from psfwidget.theory.scalar import ism_width, scalar_width
 
 
@@ -35,6 +42,12 @@ class Theory:
     """FWHM of the image-scanning (pixel-reassignment) model, for resolution-enhanced
     modes such as NSPARC and Live-SR (THE-09)."""
     ism_axial_um: float | None = None
+    optics: Optics | None = None
+    """The vectorial and/or mismatch settings used (THE-02); ``None`` for the matched
+    scalar model."""
+    focus_um: float = 0.0
+    """Stage position of the PSF maximum relative to the nominal focus (moves with
+    refractive-index mismatch)."""
 
 
 class TheoryUnavailableError(ValueError):
@@ -86,6 +99,44 @@ def _enhancement_notes(metadata: AcquisitionMetadata, modality: Modality) -> lis
     ]
 
 
+def optics_for(metadata: AcquisitionMetadata) -> tuple[Optics, list[str]]:
+    """Return the model refinements the metadata asks for (THE-02), with notes."""
+    notes: list[str] = []
+    depth = 0.0
+    if metadata.bead_depth_um is not None:
+        depth = metadata.bead_depth_um.value
+    elif metadata.sample_ri is not None:
+        notes.append("bead depth unknown; beads assumed on the coverslip (depth 0)")
+    optics = Optics(
+        vectorial=metadata.psf_model is not None and metadata.psf_model.value == "vectorial",
+        sample_ri=None if metadata.sample_ri is None else metadata.sample_ri.value,
+        depth_um=depth,
+        coverslip_ri=(
+            DESIGN_COVERSLIP_RI if metadata.coverslip_ri is None else metadata.coverslip_ri.value
+        ),
+        coverslip_um=(
+            DESIGN_COVERSLIP_UM if metadata.coverslip_um is None else metadata.coverslip_um.value
+        ),
+    )
+    return optics, notes
+
+
+def _width(
+    optics: Optics,
+    modality: str,
+    excitation: float | None,
+    emission: float | None,
+    na: float,
+    n: float,
+    pinhole: float | None,
+) -> OpticsWidth:
+    """Return the model width: the matched scalar model unless refinements are set."""
+    if optics.is_default:
+        width = scalar_width(modality, excitation, emission or 0.0, na, n, pinhole)
+        return OpticsWidth(width.lateral_um, width.axial_um, width.model)
+    return optics_width(modality, excitation, emission, na, n, pinhole, optics)
+
+
 def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> Theory:
     """Return the theoretical FWHM of one channel.
 
@@ -121,11 +172,13 @@ def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> T
     n = metadata.immersion_ri.value
     modality = metadata.modality.value
     notes: list[str] = []
+    optics, optics_notes = optics_for(metadata)
+    notes.extend(optics_notes)
 
     if multiphoton:
         assert channel.excitation_nm is not None
         laser = channel.excitation_nm.value
-        scalar = scalar_width("multiphoton", laser, 0.0, na, n)
+        scalar = _width(optics, "multiphoton", laser, None, na, n, None)
         multiphoton_form = analytic.multiphoton(laser, na, n)
         if laser < 650:
             notes.append(
@@ -143,6 +196,8 @@ def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> T
             refractive_index=n,
             pinhole_au=None,
             analytic=multiphoton_form,
+            optics=None if optics.is_default else optics,
+            focus_um=scalar.focus_um,
             notes=(*notes, *_enhancement_notes(metadata, modality)),
         )
 
@@ -150,7 +205,7 @@ def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> T
     emission = channel.emission_nm.value
     if modality is Modality.WIDEFIELD:
         excitation = None if channel.excitation_nm is None else channel.excitation_nm.value
-        scalar = scalar_width("widefield", None, emission, na, n)
+        scalar = _width(optics, "widefield", None, emission, na, n, None)
         closed_form: AnalyticWidth | None = analytic.widefield(emission, na, n)
         pinhole = None
     else:
@@ -160,7 +215,7 @@ def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> T
         pinhole, how = pinhole_airy_units(channel, metadata)
         if how:
             notes.append(how)
-        scalar = scalar_width(modality.value, excitation, emission, na, n, round(pinhole, 4))
+        scalar = _width(optics, modality.value, excitation, emission, na, n, round(pinhole, 4))
         closed_form = analytic.confocal(excitation, emission, na, n, pinhole)
         if closed_form is None:
             notes.append("no closed-form formula between 0.25 and 1 AU")
@@ -186,6 +241,8 @@ def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> T
         pinhole_au=pinhole,
         analytic=closed_form,
         notes=tuple(notes),
+        optics=None if optics.is_default else optics,
+        focus_um=scalar.focus_um,
         ism_lateral_um=None if ism is None else ism.lateral_um,
         ism_axial_um=None if ism is None else ism.axial_um,
     )

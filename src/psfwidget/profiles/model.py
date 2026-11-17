@@ -63,7 +63,8 @@ _CHANNEL_KEYS = {
     "pinhole_um",
 }
 _CHANNEL_MATCH_KEYS = {"name", "excitation_nm", "index"}
-_TOP_LEVEL_KEYS = {"instrument", "bead", "objective", "channel", "spec", "tracking"}
+_TOP_LEVEL_KEYS = {"instrument", "bead", "objective", "channel", "spec", "tracking", "theory"}
+_THEORY_KEYS = {"model", "sample_ri", "coverslip_ri", "coverslip_um", "bead_depth_um"}
 
 
 class ProfileError(ValueError):
@@ -132,6 +133,12 @@ class InstrumentProfile:
     channels: tuple[ChannelPreset, ...] = ()
     spec: SpecLimits = field(default_factory=SpecLimits)
     tracking: TrackingSettings = field(default_factory=TrackingSettings)
+    psf_model: str | None = None
+    """``[theory] model``: ``"scalar"`` or ``"vectorial"`` (THE-02)."""
+    sample_ri: float | None = None
+    coverslip_ri: float | None = None
+    coverslip_um: float | None = None
+    bead_depth_um: float | None = None
     sha256: str | None = None
     """SHA-256 of the profile file, when loaded from one (QA-03)."""
 
@@ -212,6 +219,11 @@ class InstrumentProfile:
             resolution_enhancement=self.resolution_enhancement,
             bead_diameter_nm=self.bead_diameter_nm,
             instrument_id=self.instrument_id,
+            psf_model=self.psf_model,
+            sample_ri=self.sample_ri,
+            coverslip_ri=self.coverslip_ri,
+            coverslip_um=self.coverslip_um,
+            bead_depth_um=self.bead_depth_um,
             channels=channels,
         )
         return overrides, warnings
@@ -271,6 +283,7 @@ def parse_profile(data: dict[str, Any], where: str = "profile") -> InstrumentPro
     if "instrument" not in data:
         raise ProfileError(f"{where}: an [instrument] table with an 'id' is required")
     bead = _table(data, "bead", _BEAD_KEYS, where)
+    theory = _table(data, "theory", _THEORY_KEYS, where)
 
     objectives: list[ObjectivePreset] = []
     for number, table in enumerate(_array(data, "objective", where), start=1):
@@ -365,6 +378,11 @@ def parse_profile(data: dict[str, Any], where: str = "profile") -> InstrumentPro
         channels=tuple(channels),
         spec=spec,
         tracking=tracking,
+        psf_model=_value(theory, "model", "psf_model", f"{where}: [theory]"),
+        sample_ri=_value(theory, "sample_ri", "sample_ri", f"{where}: [theory]"),
+        coverslip_ri=_value(theory, "coverslip_ri", "coverslip_ri", f"{where}: [theory]"),
+        coverslip_um=_value(theory, "coverslip_um", "coverslip_um", f"{where}: [theory]"),
+        bead_depth_um=_value(theory, "bead_depth_um", "bead_depth_um", f"{where}: [theory]"),
     )
 
 
