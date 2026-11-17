@@ -35,8 +35,16 @@ _FLOAT_FIELDS = frozenset(
         "emission_nm",
         "pinhole_airy",
         "pinhole_um",
+        "sample_ri",
+        "coverslip_ri",
+        "coverslip_um",
+        "exposure_ms",
+        "dwell_us",
+        "accumulation",
     }
 )
+_NON_NEGATIVE_FIELDS = frozenset({"bead_depth_um", "detector_gain", "laser_power"})
+PSF_MODELS = ("scalar", "vectorial")
 _STRING_FIELDS = frozenset(
     {
         "objective_name",
@@ -64,6 +72,11 @@ class ChannelOverrides:
     pinhole_airy: float | None = None
     pinhole_um: float | None = None
     preset_id: str | None = None
+    exposure_ms: float | None = None
+    dwell_us: float | None = None
+    accumulation: float | None = None
+    detector_gain: float | None = None
+    laser_power: float | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +97,11 @@ class Overrides:
     bead_diameter_nm: float | None = None
     instrument_id: str | None = None
     objective_id: str | None = None
+    psf_model: str | None = None
+    sample_ri: float | None = None
+    coverslip_ri: float | None = None
+    coverslip_um: float | None = None
+    bead_depth_um: float | None = None
     channels: Mapping[int, ChannelOverrides] = field(default_factory=dict)
 
 
@@ -128,6 +146,18 @@ def _coerce(name: str, value: object) -> Any:
         text = str(value).strip()
         if not text:
             raise InvalidMetadataError(f"{name} must not be empty")
+        return text
+    if name in _NON_NEGATIVE_FIELDS:
+        number = float(value)  # type: ignore[arg-type]
+        if not math.isfinite(number) or number < 0:
+            raise InvalidMetadataError(f"{name} must be 0 or more, got {value!r}")
+        return number
+    if name == "psf_model":
+        text = str(value).strip().lower()
+        if text not in PSF_MODELS:
+            raise InvalidMetadataError(
+                f"psf_model must be one of {', '.join(PSF_MODELS)}; got {value!r}"
+            )
         return text
     if name == "significant_bits":
         if isinstance(value, float) and not value.is_integer():
@@ -258,6 +288,11 @@ def plausibility_warnings(metadata: AcquisitionMetadata) -> list[str]:
             f"numerical aperture {na.value:g} exceeds the immersion refractive index "
             f"{ri.value:g}; one of them is wrong"
         )
+    for label, item in (("sample", metadata.sample_ri), ("coverslip", metadata.coverslip_ri)):
+        if item is not None and not 1.0 <= item.value <= 1.8:
+            found.append(f"{label} refractive index {item.value:g} is outside 1.0-1.8")
+    if metadata.coverslip_um is not None and not 50 <= metadata.coverslip_um.value <= 500:
+        found.append(f"coverslip thickness {metadata.coverslip_um.value:g} µm is outside 50-500")
     multiphoton = metadata.modality is not None and (
         metadata.modality.value is Modality.MULTIPHOTON
     )

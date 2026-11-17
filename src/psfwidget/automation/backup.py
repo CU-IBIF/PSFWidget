@@ -145,3 +145,109 @@ def lower_priority() -> bool:
         return True
     except OSError:
         return False
+
+
+@dataclass(frozen=True)
+class RestoreCheck:
+    """The outcome of a backup restore drill (AUT-07, QA-04)."""
+
+    backup: Path
+    sha256: str
+    counts: dict[str, int]
+    latest_session_utc: str | None
+    differences: tuple[str, ...]
+    """How the backup differs from the live database, if one was given."""
+    charts: tuple[Path, ...]
+
+    @property
+    def passed(self) -> bool:
+        """Whether the backup verified and holds everything the comparison expects."""
+        return not self.differences
+
+
+COUNTED_TABLES = (
+    "sessions",
+    "channel_results",
+    "metrics",
+    "beads",
+    "events",
+    "exclusions",
+    "approvals",
+    "audit_log",
+)
+
+
+def _counts(connection: sqlite3.Connection) -> dict[str, int]:
+    tables = {
+        r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
+    return {
+        table: int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+        for table in COUNTED_TABLES
+        if table in tables
+    }
+
+
+def restore_check(
+    backup: Path, *, against: Path | None = None, charts: Path | None = None
+) -> RestoreCheck:
+    """Verify a backup, open a restored copy, and compare it with the live database.
+
+    The backup itself is never opened for writing: a temporary copy is
+    restored and checked. With ``against``, every session and event in the
+    backup must also be in the live database (the live one may have more,
+    recorded since the backup). With ``charts``, Levey-Jennings charts are
+    drawn from the restored copy, as a user would after a restore.
+
+    Raises
+    ------
+    BackupError
+        If the backup fails its integrity or SHA-256 check.
+    """
+    import shutil
+    import tempfile
+
+    digest = verify(backup)
+    differences: list[str] = []
+    drawn: list[Path] = []
+    with tempfile.TemporaryDirectory(prefix="psfwidget-restore-") as temp:
+        restored = Path(temp) / backup.name
+        shutil.copy2(backup, restored)
+        with ResultsDatabase(restored) as db:
+            counts = _counts(db._connection)
+            latest = db._connection.execute("SELECT MAX(recorded_utc) FROM sessions").fetchone()[0]
+            backup_uuids = {
+                table: {r[0] for r in db._connection.execute(f"SELECT uuid FROM {table}")}
+                for table in ("sessions", "events")
+            }
+            if charts is not None:
+                from psfwidget.tracking.chart import ChartError, draw
+                from psfwidget.tracking.control import series_from_database
+                from psfwidget.tracking.settings import TrackingSettings
+
+                settings = TrackingSettings()
+                for configuration in db.configurations():
+                    series = series_from_database(db, configuration, "fwhm_z_um", settings)
+                    try:
+                        drawn.append(draw(series, charts / f"{configuration.slug}_fwhm_z_um.png"))
+                    except ChartError as exc:
+                        differences.append(f"chart for {configuration.label}: {exc}")
+    if against is not None:
+        live = sqlite3.connect(f"file:{against.resolve()}?mode=ro", uri=True)
+        try:
+            live_counts = _counts(live)
+            for table in ("sessions", "events"):
+                live_uuids = {r[0] for r in live.execute(f"SELECT uuid FROM {table}")}
+                missing = backup_uuids[table] - live_uuids
+                if missing:
+                    differences.append(
+                        f"{len(missing)} {table} in the backup are not in {against.name}"
+                    )
+        finally:
+            live.close()
+        for table, count in counts.items():
+            if live_counts.get(table, 0) < count:
+                differences.append(
+                    f"{table}: backup has {count}, {against.name} only {live_counts.get(table, 0)}"
+                )
+    return RestoreCheck(backup, digest, counts, latest, tuple(differences), tuple(drawn))

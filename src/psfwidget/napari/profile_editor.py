@@ -84,6 +84,7 @@ class ProfileEditor(QWidget):
         self.viewer = napari_viewer
         self.path: Path | None = None
         self._kept_tracking: dict[str, Any] = {}
+        self._kept_theory: dict[str, Any] = {}
 
         layout = QVBoxLayout(self)
         buttons = QHBoxLayout()
@@ -218,6 +219,7 @@ class ProfileEditor(QWidget):
         metrics = tracking.pop("metrics", None)
         values["metrics"] = ", ".join(metrics) if metrics else ""
         self._kept_tracking = tracking
+        self._kept_theory = dict(data.get("theory", {}))
         for key, edit in self.fields.items():
             item = values.get(key, "")
             edit.setText("" if item is None else str(item))
@@ -241,7 +243,10 @@ class ProfileEditor(QWidget):
                     row.append(str(channel.get(column, "")))
             self._add_row(self.channels, row)
         self._say(
-            "Hand-written tracking rules are kept." if self._kept_tracking else "", error=False
+            "Hand-written tracking rules and [theory] settings are kept."
+            if self._kept_tracking or self._kept_theory
+            else "",
+            error=False,
         )
 
     # ------------------------------------------------------------ data out
@@ -328,6 +333,8 @@ class ProfileEditor(QWidget):
                 m.strip() for m in self._text("metrics").split(",") if m.strip()
             ]
         tracking.update(self._kept_tracking)
+        if self._kept_theory:
+            data["theory"] = dict(self._kept_theory)
         if tracking:
             data["tracking"] = tracking
         return data

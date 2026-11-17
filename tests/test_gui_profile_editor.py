@@ -61,3 +61,20 @@ def test_profile_editor(qtbot: Any, tmp_path: Path) -> None:
     data = editor.to_data()
     assert data["channel"][0]["match"] == {"excitation_nm": 488}
     assert data["objective"][0]["numerical_aperture"] == 1.4
+
+
+@pytest.mark.req("UI-03", "THE-02")
+def test_profile_editor_keeps_theory_settings(qtbot: Any, tmp_path: Path) -> None:
+    source = tmp_path / "p.toml"
+    source.write_text(
+        '[instrument]\nid = "x"\n[theory]\nmodel = "vectorial"\nsample_ri = 1.46\n',
+        encoding="utf-8",
+    )
+    editor = ProfileEditor()
+    qtbot.addWidget(editor)
+    editor.load(source)
+    saved = editor.save(tmp_path / "out.toml")
+    assert saved is not None
+    profile = load_profile(saved)
+    assert profile.psf_model == "vectorial"
+    assert profile.sample_ri == 1.46

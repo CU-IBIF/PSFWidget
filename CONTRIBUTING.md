@@ -31,12 +31,15 @@ The pre-commit hooks run the same tools on each commit.
 ## Project layout
 
 ```
-src/psfwidget/      package (headless core + napari GUI layer); see docs/PLAN.md §4
-tests/              pytest suite
-tools/              developer scripts (traceability, test data, licence check, accuracy report,
-                    tracking demo)
-examples/profiles/  example instrument profiles
-docs/               plan, V&V plan, traceability matrix
+src/psfwidget/        package (headless core + napari GUI layer); see docs/PLAN.md §4
+tests/                pytest suite (tests/test_gui_*.py need Qt and napari)
+tools/                developer scripts (traceability, test data, licence check, accuracy
+                      report, tracking demo, API reference, validation analyses)
+requirements/         validated dependency pins, regenerated for each release
+examples/profiles/    example instrument profiles
+examples/automation/  example automation configuration
+docs/                 plan, V&V plan, status, traceability matrix, licence audit
+docs/manual/          install guide and user manual
 ```
 
 Keep all analysis logic in the headless core. The CLI (`psfwidget.automation`)
@@ -44,6 +47,36 @@ and GUI (`psfwidget.napari`) should only call the core. Optional dependencies
 (format readers, theory models, reporting, napari) belong in the matching extra
 in `pyproject.toml` and are imported only inside the subpackage that needs them,
 so `import psfwidget` works with the core dependencies alone.
+
+## GUI tests
+
+The napari widgets are tested in a real viewer. Install the GUI extras and
+run the GUI tests (on a headless Linux machine, under a virtual display; CI
+does this in its *GUI* job):
+
+```bash
+python -m pip install -e ".[dev,gui-test]"
+QT_QPA_PLATFORM=xcb xvfb-run -a python -m pytest tests/test_gui_analysis.py \
+    tests/test_gui_tracking.py tests/test_gui_profile_editor.py tests/test_review_session.py \
+    --cov --cov-config=tests/gui-coverage.toml
+```
+
+Without a display the viewer test is skipped with a message. Keep widget
+logic in `psfwidget.napari.session` (no Qt) so the main test matrix covers it.
+
+## Documentation
+
+Update the user documentation with every user-visible change:
+`docs/manual/USER_MANUAL.md` (and `INSTALL.md` for installation changes),
+`docs/STATUS.md` (requirement status and outstanding items), task status in
+`docs/PLAN.md` §5, and `CHANGELOG.md`.
+
+## API reference
+
+The public API is the module list in `tools/build_api_docs.py`. Add a module
+there when it becomes public; `tests/test_api_docs.py` then requires a
+docstring on every public function and class in it. Build locally with
+`python tools/build_api_docs.py site/api` (needs the `docs` extra).
 
 ## Coding standards
 

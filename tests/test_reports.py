@@ -184,7 +184,10 @@ def test_templates_fill_tokens_and_never_overwrite(tmp_path: Path) -> None:
 
 
 @pytest.mark.req("REP-05")
-@pytest.mark.parametrize("template", ["", "{colour}", "/abs/{date}", "../{date}", "{date"])
+@pytest.mark.parametrize(
+    "template",
+    ["", "{colour}", "/abs/{date}", "\\\\server\\{date}", "C:/x/{date}", "../{date}", "{date"],
+)
 def test_bad_templates_are_rejected(template: str) -> None:
     with pytest.raises(paths.TemplateError):
         paths.check_template(template)
@@ -229,7 +232,7 @@ def _optics() -> Overrides:
 # ---------------------------------------------------------------- session reports
 
 
-@pytest.mark.req("REP-01", "REP-04", "REP-05", "REP-06", "REP-07")
+@pytest.mark.req("REP-01", "REP-04", "REP-05", "REP-06", "REP-07", "THE-07")
 def test_session_report_and_exports(tracked: tuple[Path, Path, list[int]], tmp_path: Path) -> None:
     database, profile_path, ids = tracked
     profile = load_profile(profile_path)

@@ -28,6 +28,7 @@ from psfwidget.io._common import (
     file_value,
     pick_excitation,
     step_from_coordinates,
+    with_channel_settings,
 )
 from psfwidget.io.metadata import positive
 from psfwidget.io.model import (
@@ -133,6 +134,17 @@ def optics_from_xml(element: Element, n_channels: int) -> AcquisitionMetadata:
 
     objective = " ".join((main.get("ObjectiveName") or "").split())
     enhancement = "STED" if main.get("IsSTEDActive") == "1" else None
+    dwell_s = positive(main.get("PixelDwellTime"))
+    frames = positive(main.get("FrameAccumulation")) or 1.0
+    lines = positive(main.get("LineAccumulation")) or 1.0
+    metadata = with_channel_settings(
+        metadata,
+        {
+            "dwell_us": None if dwell_s is None else dwell_s * 1e6,
+            "accumulation": frames * lines if main.get("FrameAccumulation") else None,
+        },
+        "LAS X confocal settings (whole acquisition)",
+    )
     return replace(
         metadata,
         numerical_aperture=file_value(positive(main.get("NumericalAperture"))),

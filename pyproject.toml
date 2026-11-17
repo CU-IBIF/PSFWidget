@@ -15,7 +15,6 @@ classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Framework :: napari",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
@@ -51,12 +50,15 @@ test = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
 ]
+docs = [
+    "pdoc>=15",
+]
 gui-test = [
     "psfwidget[napari,test]",
     "pytest-qt>=4.4",
 ]
 dev = [
-    "psfwidget[report,test]",
+    "psfwidget[report,test,docs]",
     "mypy>=1.10",
     "packaging>=23.0",
     "pre-commit>=3.7",
@@ -111,7 +113,15 @@ ignore = [
 allowed-confusables = ["−", "×", "ρ", "σ", "–"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["psfwidget", "traceability", "fetch_test_data", "check_licenses", "fitting_accuracy", "demo_tracking"]
+known-first-party = [
+    "build_api_docs",
+    "check_licenses",
+    "demo_tracking",
+    "fetch_test_data",
+    "fitting_accuracy",
+    "psfwidget",
+    "traceability",
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
@@ -131,7 +141,10 @@ mypy_path = "src"
 [[tool.mypy.overrides]]
 # The GUI dependencies are optional; napari ships no type information, and
 # qtpy is typed only when a Qt binding is installed.
-module = ["napari", "napari.*", "npe2", "npe2.*", "qtpy", "qtpy.*", "pytestqt", "pytestqt.*"]
+module = [
+    "napari", "napari.*", "npe2", "npe2.*", "qtpy", "qtpy.*", "pytestqt", "pytestqt.*",
+    "pdoc", "pdoc.*",
+]
 ignore_missing_imports = true
 follow_untyped_imports = false
 

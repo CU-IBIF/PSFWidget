@@ -117,3 +117,48 @@ def test_lower_priority_in_a_child_process() -> None:
     before, after, ok, step = int(output[0]), int(output[1]), output[2], int(output[3])
     assert ok == "True"
     assert after == min(before + step, 19)
+
+
+@pytest.mark.req("AUT-07", "QA-04")
+def test_restore_drill(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from psfwidget.automation import cli
+
+    database = _database(tmp_path / "qc.sqlite")
+    made = backup.backup_database(database, tmp_path / "share", 5, T0)
+    check = backup.restore_check(made.path, against=database)
+    assert check.passed
+    assert check.counts["approvals"] == 1
+    out = tmp_path / "drill"
+    assert (
+        cli.main(
+            [
+                "track",
+                "restore-check",
+                str(made.path),
+                "--against",
+                str(database),
+                "--out",
+                str(out),
+                "--user",
+                "it",
+            ]
+        )
+        == 0
+    )
+    assert "Result: PASS" in capsys.readouterr().out
+    record = json.loads(next(out.glob("restore_drill_*.json")).read_text("utf-8"))
+    assert record["result"] == "PASS"
+    assert record["user"] == "it"
+    assert made.path.read_bytes()  # the backup itself was not modified
+    assert backup.verify(made.path) == made.sha256
+    # A live database missing what the backup holds is a difference.
+    with ResultsDatabase(tmp_path / "empty.sqlite"):
+        pass
+    mismatch = backup.restore_check(made.path, against=tmp_path / "empty.sqlite")
+    assert not mismatch.passed
+    assert any("approvals" in d for d in mismatch.differences)
+    corrupt = bytearray(made.path.read_bytes())
+    corrupt[-10] ^= 0xFF
+    made.path.write_bytes(bytes(corrupt))
+    assert cli.main(["track", "restore-check", str(made.path)]) == 4
+    assert "FAIL" in capsys.readouterr().out

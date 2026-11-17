@@ -1,0 +1,90 @@
+name: Release
+
+# Runs when a version tag (v1.0.0, …) is pushed. Builds and checks the
+# packages, installs the wheel and runs the self-test on all three platforms,
+# attaches the packages and the validated dependency pins to a GitHub
+# release, and publishes to PyPI after a maintainer approves the "pypi"
+# environment (trusted publishing; no token is stored). See
+# docs/RELEASE_CHECKLIST.md for the steps around it.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Check that the tag matches the package version
+        run: |
+          VERSION=$(python -c "import re;print(re.search(r'__version__ = \"(.+)\"', open('src/psfwidget/__about__.py').read()).group(1))")
+          test "v${VERSION}" = "${GITHUB_REF_NAME}"
+      - run: python -m pip install build twine
+      - run: python -m build --outdir dist
+      - run: python -m twine check dist/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist
+
+  selftest:
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist
+      - shell: bash
+        run: |
+          WHEEL=$(ls dist/*.whl)
+          python -m pip install "${WHEEL}[report]"
+          python -m psfwidget selftest --out qualification
+      - uses: actions/upload-artifact@v7
+        with:
+          name: selftest-${{ matrix.os }}
+          path: qualification
+
+  github-release:
+    needs: selftest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+      - name: Create the GitHub release with the packages, pins, and self-test records
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${GITHUB_REF_NAME}" --verify-tag --title "PSFWidget ${GITHUB_REF_NAME}"
+          --notes-file CHANGELOG.md
+          artifacts/dist/* requirements/validated-*.txt artifacts/selftest-*/*.json
+
+  pypi:
+    needs: github-release
+    runs-on: ubuntu-latest
+    environment: pypi   # requires a maintainer's approval in the repository settings
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1

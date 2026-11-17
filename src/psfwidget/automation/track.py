@@ -222,6 +222,61 @@ def _run_backup(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _run_restore_check(args: argparse.Namespace) -> int:
+    import json
+    import socket
+    from datetime import UTC, datetime
+
+    from psfwidget.automation.backup import BackupError, restore_check
+
+    backup = Path(args.backup)
+    charts = Path(args.out) / "charts" if args.out else None
+    try:
+        check = restore_check(
+            backup, against=Path(args.against) if args.against else None, charts=charts
+        )
+    except BackupError as exc:
+        print(f"FAIL: {exc}")
+        return EXIT_REJECTION
+    print(f"Backup {backup.name}: integrity and SHA-256 verified ({check.sha256[:12]}…)")
+    print("Rows: " + ", ".join(f"{t} {n}" for t, n in check.counts.items()))
+    print(f"Latest session recorded: {check.latest_session_utc or '-'}")
+    for difference in check.differences:
+        print(f"  difference: {difference}")
+    print("Result: " + ("PASS" if check.passed else "FAIL"))
+    if args.out:
+        out = Path(args.out)
+        out.mkdir(parents=True, exist_ok=True)
+        record = {
+            "record": "PSFWidget backup restore drill (AUT-07, QA-04)",
+            "utc": datetime.now(UTC).replace(microsecond=0).isoformat(),
+            "host": socket.gethostname(),
+            "user": args.user or "",
+            "backup": str(backup.resolve()),
+            "sha256": check.sha256,
+            "against": args.against,
+            "counts": check.counts,
+            "latest_session_utc": check.latest_session_utc,
+            "differences": list(check.differences),
+            "charts": [str(c) for c in check.charts],
+            "result": "PASS" if check.passed else "FAIL",
+            "sign_off": {"performed_by": "", "reviewed_by": "", "date": "", "comments": ""},
+        }
+        target = out / f"restore_drill_{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
+        target.write_text(json.dumps(record, indent=2), encoding="utf-8")
+        print(f"Record: {target}")
+    return EXIT_OK if check.passed else EXIT_REJECTION
+
+
+def _run_import(args: argparse.Namespace) -> int:
+    from psfwidget.tracking.merge import import_database
+
+    with ResultsDatabase(args.db) as db:
+        summary = import_database(db, args.source, user=args.user, dry_run=args.dry_run)
+    print(summary.describe() + (" (dry run: nothing written)" if args.dry_run else ""))
+    return EXIT_OK
+
+
 def _run_audit(args: argparse.Namespace) -> int:
     since = parse_time(args.since) if args.since else None
     until = parse_time(args.until) if args.until else None
@@ -366,6 +421,42 @@ def add_parser(commands: Any) -> None:
     _database(backup)
     backup.add_argument("--out", required=True, help="new database file")
     backup.set_defaults(run=_run_backup)
+
+    merge = sub.add_parser(
+        "import",
+        help="copy another results database's sessions, events, exclusions, and approvals",
+        description=(
+            "Copy what another PSFWidget results database has and this one lacks, keeping the "
+            "original users and times, and audit the import (TRK-10). Importing twice changes "
+            "nothing."
+        ),
+    )
+    _database(merge)
+    merge.add_argument(
+        "--from",
+        dest="source",
+        required=True,
+        metavar="FILE",
+        help="the database to copy from (opened read-only)",
+    )
+    merge.add_argument("--dry-run", action="store_true", help="report what would be copied")
+    _user(merge)
+    merge.set_defaults(run=_run_import)
+
+    drill = sub.add_parser(
+        "restore-check",
+        help="restore drill: verify a backup, open a copy, compare with the live database",
+        description=(
+            "Verify a backup's integrity and SHA-256, restore a temporary copy, count its "
+            "rows, optionally compare it with the live database and draw charts from it, and "
+            "write a drill record for sign-off (AUT-07, QA-04). Exit status 4 on any problem."
+        ),
+    )
+    drill.add_argument("backup", help="backup file (with its .sha256 next to it)")
+    drill.add_argument("--against", metavar="DB", help="the live database to compare with")
+    drill.add_argument("--out", metavar="DIR", help="folder for the drill record and charts")
+    drill.add_argument("--user", help="your name for the drill record")
+    drill.set_defaults(run=_run_restore_check)
 
     audit = sub.add_parser("audit", help="print or export the audit log (QA-06)")
     _database(audit)

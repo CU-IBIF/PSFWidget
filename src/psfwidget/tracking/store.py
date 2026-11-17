@@ -712,6 +712,7 @@ class ResultsDatabase:
                 {
                     "event_id": event_id,
                     "kind": kind.value,
+                    "description": description,
                     "instrument_id": instrument_id,
                     "rebaseline": rebaseline,
                     "baseline": baseline,

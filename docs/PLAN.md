@@ -1,7 +1,8 @@
 # PSFWidget: Project Plan
 
-**Status:** Draft v0.1, for review
-**Date:** 2026-11-10
+**Status:** Draft v0.3, for review (v0.2: stakeholder answers of 2026-11-13; v0.3: status updated after M5)
+**Date:** 2026-11-14
+**Current status and outstanding items:** [STATUS.md](STATUS.md)
 **Companion document:** [V&V Plan](VV_PLAN.md)
 
 ---
@@ -32,7 +33,7 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 - A multi-user web server or dashboard.
 - Deconvolution itself. v1.0 only exports averaged PSFs for use in deconvolution software.
 
-### 1.3 Proposed technology baseline (to be confirmed)
+### 1.3 Technology baseline (confirmed in M0–M5; changes marked)
 
 | Concern | Proposed choice | Rationale |
 |---|---|---|
@@ -41,10 +42,10 @@ PSFWidget is a tool for microscope quality control based on the point spread fun
 | Numerics | `numpy`, `scipy` | Levenberg-Marquardt fits with analytic Jacobians give the fit uncertainties; `scikit-image` and `lmfit` turned out not to be needed |
 | Theoretical PSF | Models implemented in PSFWidget (analytical formulas, then scalar Gibson-Lanni, then vectorial), cross-checked against `MicroscPSF-Py` (MIT) | `psfmodels` is GPL-3 (see `docs/LICENSE_AUDIT.md`) |
 | Storage | SQLite through Python's built-in `sqlite3` | Single file, portable, no server needed. *Changed in M3* from SQLAlchemy + Alembic: the schema is small, a version table covers migrations, and two dependencies are avoided. Append-only rules are enforced by SQLite triggers |
-| Plotting | `matplotlib` for static report figures (optional `report` extra); `plotly` for interactive HTML | Static figures for PDF, interactive charts for HTML |
+| Plotting | `matplotlib` for report figures and charts (optional `report` extra), and for the interactive Levey-Jennings charts in the GUI | *Changed in M5:* interactive charts live in the napari tracking widget (matplotlib's Qt canvas); HTML reports carry static images, so `plotly` is not needed |
 | Reports | A block-based report model rendered to self-contained HTML and to PDF with `reportlab` (BSD); XLSX with `openpyxl` (MIT) | *Changed in M4* from Jinja2 + `weasyprint`: one block list produces both outputs without templates, and reportlab installs from wheels on every OS, whereas weasyprint needs the Pango system libraries, which are awkward on Windows |
 | Scheduling | Built-in scheduler (`psfwidget watch`) **and** a CLI that OS schedulers can call (`psfwidget run`, from cron or Windows Task Scheduler) | Works on facility PCs without a service running. *Changed in M4* from `APScheduler`: job state (last run, files handled) is kept in a file in the output folder, so a run started by cron and one started by the built-in loop agree on what is due, with no extra dependency |
-| GUI | napari plugin (npe2) | Fits the repository name and gives a 3D viewer for free |
+| GUI | napari plugin (npe2) with PySide6 (LGPL) | Fits the repository name and gives a 3D viewer for free. PyQt (GPL) is excluded |
 | Packaging/CI | `pyproject.toml`, `pytest`, GitHub Actions, `pre-commit` (ruff, mypy) | |
 
 ---
@@ -223,27 +224,36 @@ original, accurate, complete, consistent, enduring, and available.
 
 ## 4. Architecture overview
 
+*Updated 2026-11-14 to match the code.*
+
 ```
 psfwidget/
-├── io/            # Format readers → unified ImageStack(data, voxel_size, channels, metadata, provenance)
-├── profiles/      # Instrument / objective / channel profiles, spec limits (YAML)
-├── detect/        # Bead detection, filtering, cropping
-├── metrics/       # Fitting (1D/2D/3D Gaussian), intensity, SBR/SNR, asymmetry, field maps, chromatic
-├── theory/        # Analytical FWHM formulas, Gibson-Lanni / vectorial PSF wrappers, comparison
-├── average/       # Sub-pixel registration + averaged PSF export
-├── tracking/      # SQLAlchemy models, baselines, Westgard engine, events
-├── report/        # Report model, figures, HTML/PDF renderers, status logic, path templating, publishing
-├── automation/    # CLI (argparse), config file, schedules, watch-folder runs, run logs, alerts
-├── napari/        # Dock widgets (analysis, tracking, profiles) – thin layer over the core
-└── api.py         # Public, stable Python API
+├── io/            # Format readers → ImageStack (lazy channels, voxel size, metadata with origins, provenance)
+├── profiles/      # Instrument profiles (TOML): objectives, channels, beads, spec limits, tracking; TOML writer
+├── detect/        # Bead candidate detection (matched filter after hot-pixel removal)
+├── metrics/       # Per-bead fits (1D, 2D, 3D Gaussian), intensity, SNR/SBR, summaries; field geometry and chromatic shifts
+├── theory/        # Analytical formulas, scalar model (widefield, confocal, spinning disk, multiphoton, image scanning), 3D theoretical image
+├── average/       # Sub-voxel registration, averaged PSF, comparison with theory, OME-TIFF export
+├── analysis.py    # The pipeline: analyze_stack → FieldResult
+├── review.py      # Manual include/exclude of beads (DET-07)
+├── tracking/      # SQLite store (append-only, audited, approvals), baselines, Westgard engine, events, charts
+├── report/        # Report model, figures, HTML/PDF renderers, status logic, path templates, publishing
+├── automation/    # CLI (argparse), automation config, schedules, unattended runs, backups, GLP commands
+└── napari/        # Dock widgets (analysis, tracking, profile editor), session logic without Qt, plugin manifest
 ```
+
+The public Python API is the core packages' documented functions (chiefly
+`psfwidget.io.read_stack`, `psfwidget.profiles.load_profile`,
+`psfwidget.analysis.analyze_stack`, `psfwidget.tracking.store.ResultsDatabase`,
+and `psfwidget.napari.session.AnalysisSession`); see the user manual's API
+chapter. A separate `api.py` facade was not needed.
 
 **Design principles**
 
 - **Headless core.** All logic lives in the core packages. The GUI and CLI are thin layers, which makes scheduling and testing straightforward.
-- **One pipeline.** `load → resolve metadata → detect → measure → compare → persist → report`. Each stage has typed inputs and outputs (dataclasses or pydantic models) and can be unit-tested on its own.
+- **One pipeline.** `load → resolve metadata → detect → measure → compare → persist → report`. Each stage has typed inputs and outputs (frozen dataclasses) and can be unit-tested on its own.
 - **Configuration as data.** Analysis parameters are a versioned, serializable object stored with every result, which gives NFR-03 reproducibility.
-- **Database schema** (initial): `Instrument`, `Objective`, `ChannelConfig`, `Session` (one acquisition), `Field` (series or position), `Bead` (per-bead metrics), `SessionSummary` (aggregated metrics), `Baseline`, `Event`, `Exclusion`, `RuleViolation`, `Run` (automation log). Migrations use Alembic.
+- **Database schema** (version 2): `sessions` (one acquisition, with settings, metadata, file hash, host, and profile and configuration hashes), `channel_results`, `metrics` (bead summaries and channel-level metrics), `beads`, `events`, `exclusions`, `approvals`, and `audit_log`. Every table except `schema_version` is append-only by trigger. Migrations are in-place, additive, and audited (`psfwidget.tracking.schema`).
 
 ---
 
@@ -272,7 +282,7 @@ Task IDs map to requirements (in brackets) for traceability.
 - T2.3 1D Gaussian profile fitting X/Y/Z [MET-01, MET-10]. **Done** (3×3 line bundles; R², reduced χ², and FWHM standard error).
 - T2.4 2D Gaussian fits for XY/XZ/YZ planes (rotated elliptical) [MET-02, MET-08]. **Done.**
 - T2.5 3D Gaussian fit [MET-03]. **Done:** an axis-aligned 3D Gaussian fitted to each bead's box (Levenberg–Marquardt), with bead-size-corrected FWHM x, y, z and R², summarised and tracked alongside the 1D values; a bead whose 3D fit fails keeps its 1D results with a note.
-- T2.6 Intensity metrics: integrated density, peak, background, SBR/SNR [MET-04 … MET-07]. **Done**, except normalisation to exposure or gain (MET-04), which needs exposure metadata the readers do not extract yet.
+- T2.6 Intensity metrics: integrated density, peak, background, SBR/SNR [MET-04 … MET-07]. **Done**; normalisation to exposure added in M5.1 (T10.2).
 - T2.7 Axial asymmetry metrics [MET-09]. **Done** on the averaged PSF of each channel (skewness of the axial energy profile and energy above / below focus), reported and tracked; per-bead values are not computed. The SP8 test stack gives an energy ratio of 0.7 to 0.8, matching its lobe below focus.
 - T2.8 Field maps, tilt and curvature surface fits, illumination uniformity [MET-11, MET-12]. **Done** as fitted values (focus-plane tilt and focus range, curvature sag at the field corner, corner-to-centre bead intensity), shown in the session report with a field-map figure (bead focus offsets and lateral FWHM across the field), written to the channel CSV, and tracked like the bead summaries. On the LSM 980 TetraSpeck stack: about 0.4° tilt and 80–90 nm sag.
 - T2.9 Chromatic registration [MET-13]. **Done:** beads matched across channels by mutual nearest neighbour; median x, y, z shift of each channel from the first analysed channel, in nm, reported and tracked. On the LSM 980 TetraSpeck stack, AF647 is 45 nm lateral and −137 nm axial from AF488.
@@ -282,7 +292,7 @@ Task IDs map to requirements (in brackets) for traceability.
 
 ### WP3: Theoretical PSF and comparison
 - T3.1 Analytical FWHM formulas (widefield and confocal, with pinhole in Airy units) with citations [THE-01]. **Done**, together with a numerical scalar model (any pinhole size) that the ratios use; see `psfwidget/theory/`.
-- T3.2 Gibson-Lanni and vectorial PSF models at the acquisition sampling, implemented in PSFWidget [THE-02].
+- T3.2 Gibson-Lanni and vectorial PSF models at the acquisition sampling, implemented in PSFWidget [THE-02]. **Done in M5.1** (T10.1).
 - T3.3 Ratios, Strehl estimate, similarity score [THE-03 … THE-05]. **Done:** the theoretical bead image on the acquisition grid (`psfwidget.theory.psf3d`: scalar model for each modality, pinhole convolution, bead sphere, voxel integration) is compared with the averaged PSF: Strehl estimate = peak ratio at equal energy, similarity = Pearson r; both reported and tracked. Beads rendered from the theoretical PSF give a Strehl of 1.00 ± 0.08; the SP8 test stack gives 0.12 and r = 0.70, consistent with its spherical aberration.
 - T3.4 Spec limit configuration and pass/fail evaluation [THE-06]. **Done** (`[spec]` table in instrument profiles).
 - T3.5 Comparison figures [THE-07].
@@ -297,7 +307,7 @@ Task IDs map to requirements (in brackets) for traceability.
 - T4.5 Events, re-baselining, exclusions, and audit trail [TRK-06, TRK-07, NFR-07]. **Done.**
 - T4.6 Levey-Jennings plotting (static and interactive), with spec-limit overlay and event markers [TRK-03, TRK-08]. **Static charts done** (PNG, SVG, PDF); interactive charts come with the HTML reports in WP5.
 - T4.7 Drift and trend summary [TRK-09]. **Done** (least-squares slope over the last 10 sessions of the current baseline).
-- T4.8 Backup and export/import [TRK-10]. **Backup and CSV export done**; merging another database (import) is not implemented.
+- T4.8 Backup and export/import [TRK-10]. **Backup and CSV export done**; import added in M5.2 (`psfwidget track import`, T10.3).
 
 ### WP5: Reporting and export
 - T5.1 Figure library (bead overview, orthogonal views, profile fits, field maps, LJ) [REP-01, REP-02]. **Done** apart from field maps, which come with the field-map metrics in M5.
@@ -311,7 +321,7 @@ Task IDs map to requirements (in brackets) for traceability.
 - T6.1 CLI commands [AUT-01]. **Done:** `info`; `analyze` (with `--db`, `--report html,pdf`, `--xlsx`); `track` (status, chart, event, exclude, include, export, backup, audit); `report trend`; `run`, `watch`, and `check-config`. Ingestion runs through `run`; database import is still open (TRK-10).
 - T6.2 Config file schema and validation [AUT-05]. **Done:** TOML, unknown keys and wrong types rejected with the table and key named, paths relative to the config file.
 - T6.3 Watch-folder ingestion with deduplication and profile matching [AUT-02]. **Done:** one profile per watched folder, file patterns, optional recursion, a settle time so files still being written are left alone, deduplication by file hash against the database, and a ledger so unchanged files (including ones that failed) are not re-read every run. Matching profiles by file-name pattern within one folder is not offered; use one folder per instrument.
-- T6.4 Scheduler [AUT-03]. **Done:** plain-word schedules (`every 15 minutes`, `daily 07:30`, `weekly monday 07:30`, `monthly 1 07:30`), the built-in `watch` loop, and cron and Task Scheduler recipes in the README. Full cron expressions are not accepted. A lock file stops overlapping runs.
+- T6.4 Scheduler [AUT-03]. **Done:** plain-word schedules (`every 15 minutes`, `daily 07:30`, `weekly monday 07:30`, `monthly 1 07:30`), the built-in `watch` loop, and cron and Task Scheduler recipes in the README. Cron expressions added in M5.2 (T10.4). A lock file stops overlapping runs.
 - T6.5 Run logging, error isolation, alert or status files [AUT-04, AUT-06]. **Done:** a running log, one JSON summary per run, per-file error isolation, `STATUS.json` after every run, and `ALERT.txt` while a latest session FAILs or a run had errors.
 - T6.6 Scheduled, checksum-verified database backup to a network folder with retention; reduced process priority for scheduled runs [AUT-07, NFR-11]. **Done:** a `backup` job (`[backup]` folder, schedule, keep), copies verified with SQLite's integrity check and stored with a `.sha256` file, retention that removes only PSFWidget's own backups, failed backups raised as alerts; scheduled runs lower their priority (nice +10, or below-normal on Windows); a database path on a network share (UNC path, network drive, or NFS/SMB mount) is refused. A restore drill is still to be done in V&V.
 
@@ -320,7 +330,7 @@ Task IDs map to requirements (in brackets) for traceability.
 - T9.2 Report review and approval: `psfwidget approve`, append-only approval records, report versioning, and an approval block on reports [QA-02]. **Done** with one change: a signature cannot be written inside the file it signs, so the approval is a separate `<report>.signature.json` next to the report plus an append-only database record, both tied to the report's SHA-256. `psfwidget verify` shows whether a report is signed and unchanged. Re-reviews and re-issued reports get the next revision number. Reports can also be approved, rejected, and checked from the analysis widget (section 6), signed with the reviewer's name, the meaning, and a comment.
 - T9.3 Profile and config hashes recorded with every result and run [QA-03]. **Done** for database records and run summaries.
 - T9.4 `psfwidget selftest` with an IQ/OQ record [QA-05]. **Done:** five known-answer checks (theory formulas, FWHM of synthetic beads within 3%, bit-identical re-analysis, append-only database, HTML and PDF report) and the environment (OS, Python, package versions, host, user), written as JSON with a sign-off section.
-- T9.5 Audit-trail export and review report for a period [QA-06]. **Done** as CSV export and printing for a period (`psfwidget track audit --since --until --csv`); a formatted audit report is not offered.
+- T9.5 Audit-trail export and review report for a period [QA-06]. **Done** as CSV export and printing for a period (`psfwidget track audit --since --until --csv`); the audit review report (`psfwidget report audit`) added in M5.2 (T10.5).
 - T9.6 Validation document set and release checklist [QA-07].
 
 ### WP7: napari GUI
@@ -330,10 +340,72 @@ Task IDs map to requirements (in brackets) for traceability.
 - T7.4 npe2 manifest, sample data contribution. **Done:** three widgets under *Plugins → PSFWidget* and a synthetic bead field under *File → Open Sample*.
 
 ### WP8: Documentation and release
-- T8.1 User guide: acquisition SOP for bead slides (bead size, mounting, sampling, exposure without saturation), quick-start, and metric definitions.
-- T8.2 API reference (mkdocs or sphinx).
-- T8.3 Packaging: PyPI and napari hub, with an optional standalone installer (e.g. conda constructor).
+- T8.1 User guide: acquisition SOP for bead slides (bead size, mounting, sampling, exposure without saturation), quick-start, and metric definitions. **Draft done:** `docs/manual/INSTALL.md` and `docs/manual/USER_MANUAL.md`.
+- T8.2 API reference (mkdocs or sphinx). **Done with pdoc** in M5.3 (T10.6).
+- T8.3 Packaging: PyPI and napari hub, with an optional standalone installer (e.g. conda constructor). **Prepared** in M5.3 (T10.7): wheel, sdist, release workflow, validated pins; napari hub listing and a standalone installer not done.
 - T8.4 Release notes and V&V summary report.
+
+### WP10: Completion to v1.0 (development)
+
+Added 2026-11-17 from the outstanding items in [STATUS.md](STATUS.md). Grouped into milestones M5.1 to M5.3 (§6).
+
+- **T10.1 Vectorial and refractive-index-mismatch PSF model** [THE-02] (M5.1, ~2 weeks, developer).
+  - Vectorial (Richards–Wolf) model for high NA, unpolarised (averaged) excitation and emission, at the acquisition sampling.
+  - Refractive-index mismatch and coverslip (Gibson–Lanni optical path difference): sample RI, coverslip RI and thickness, and bead depth as metadata, profile, and override keys.
+  - Choice of model per profile (`[theory] model = "scalar" | "vectorial"`); reports name the model.
+  - *Acceptance:* reduces to the scalar model within 1% at low NA and to the matched case at zero depth; agrees with an independent implementation (e.g. MicroscPSF-Py, MIT) within 2%; NFR-04 still met.
+  - **Done (2026-11-17):** within 0.5% of scalar at NA ≤ 0.25; a matched sample only moves the focus; within 0.3% of MicroscPSF-Py's exact Gibson–Lanni integration at 0–10 µm depth. Like Gibson–Lanni, the aperture is limited to the sample index (no supercritical-angle fluorescence); Fresnel transmission is not modelled. Default results unchanged.
+- **T10.2 Exposure normalisation of intensity** [MET-04] (M5.1, ~1 week, developer; needs facility files with different exposures).
+  - Read exposure time or pixel dwell time, and detector gain where recorded, per channel (ND2, LIF, CZI, OME), with origins and override keys.
+  - A normalised metric (integrated intensity per ms of exposure), tracked separately; a warning when gain or laser power differs from the configuration's baseline, since those are not linear.
+  - *Acceptance:* values extracted on the facility files; doubling the exposure in a synthetic test halves nothing else.
+  - **Done (2026-11-17):** dwell time from the SP8 LIF (with accumulation), LSM 980 CZI, and AX R ND2; camera exposure from the CSU ND2 and its OME-TIFF export; `intensity_per_ms` tracked; a session whose exposure, dwell, accumulation, gain, power, or pinhole differs from the previous one gets a WARNING naming the change. Gain and laser power come from profiles or `--set` (files store them per detector or laser).
+- **T10.3 Import (merge) of another results database** [TRK-10] (M5.2, ~1 week, developer).
+  - `psfwidget track import --db TARGET --from OTHER [--dry-run]`: copies sessions, events, exclusions, and approvals by their UUIDs, keeps the original users and times, skips what is already present, and audits the import with the source file's SHA-256.
+  - *Acceptance:* backup → import into an empty database reproduces every row; importing twice changes nothing; append-only rules hold.
+  - **Done (2026-11-17).**
+- **T10.4 Cron expressions in schedules** [AUT-03] (M5.2, ~3 days, developer).
+  - `cron <minute> <hour> <day> <month> <weekday>` alongside the plain-word schedules, with a small built-in parser (no new dependency).
+  - *Acceptance:* table tests of next/latest occurrences, including ranges, steps, lists, and daylight-saving changes.
+  - **Done (2026-11-17).**
+- **T10.5 Audit review report** [QA-06] (M5.2, ~3 days, developer).
+  - `psfwidget report audit --db --since --until`: HTML and PDF with counts by action and user, every exclusion, inclusion, event, approval, and schema migration in the period, ready to be signed with `psfwidget approve`.
+  - *Acceptance:* report test on a database with every kind of entry.
+  - **Done (2026-11-17).** Event audit entries now include the description.
+- **T10.6 Generated API reference** [UI-05] (M5.3, ~1 week, developer).
+  - Define the public API explicitly (`__all__` in each package), complete the docstrings, and generate the reference (pdoc, Unlicense) in CI, with the manuals, published to GitHub Pages.
+  - *Acceptance:* the reference builds without warnings in CI; every public name is documented.
+  - **Done (2026-11-17):** 40 public modules (`tools/build_api_docs.py`), a test that every public function and class has a docstring, a CI job, and a Pages workflow from `main`.
+- **T10.7 Packaging for v1.0** [WP8, T8.3] (M5.3 preparation, M6 release; ~1 week, developer with facility IT).
+  - Build and check the wheel and sdist in CI; a tagged-release workflow that publishes to PyPI (trusted publishing) or the facility's index, as IT prefers; a pinned requirements (lock) file for validated installations; a release checklist; version 1.0.0 at M6.
+  - *Acceptance:* a clean install from the built wheel passes `psfwidget selftest` on Windows, macOS, and Linux.
+  - **Prepared (2026-11-17):** CI builds, checks, installs, and self-tests the wheel on all three OSes; `release.yml` (tag → GitHub release → PyPI after approval); validated pins in `requirements/`; [release checklist](RELEASE_CHECKLIST.md). The release itself is part of M6.
+
+### WP11: Validation execution
+
+Each study follows a protocol written and approved **before** it starts (VV_PLAN §7), and every finding is logged as an `anomaly` issue (VV_PLAN §6). The developer prepares protocols, tools, and templates; the facility acquires the data and runs the studies.
+
+- **T11.1 Method comparison with MetroloJ_QC and/or PSFj** [VAL-01, NFR-02] (M6, facility + developer).
+  - Protocol; a tool that reads MetroloJ_QC and PSFj results and pairs them with PSFWidget's by bead position; Bland–Altman analysis per FWHM metric.
+  - ≥ 30 fields: ≥ 3 instruments, ≥ 2 objectives, ≥ 2 wavelengths, all four formats.
+  - *Acceptance (VV_PLAN):* mean bias ≤ 5%; 95% limits of agreement within ±10% or within the inter-bead SD.
+  - **Prepared:** `tools/method_comparison.py` and [draft protocol](validation/protocols/VAL-01.md); check the column mapping against a real MetroloJ_QC/PSFj export.
+- **T11.2 Perturbation, repeatability, and parallel-run studies** [VAL-02, VAL-03, VAL-05; VAL-04 from the same data] (M5–M6, facility).
+  - VAL-03 first, as it sets realistic control limits: the same slide 10× in a day, and by 3 operators over 5 days; CV of FWHM ≤ 5% laterally and ≤ 7% axially.
+  - VAL-02: deliberate perturbations (correction collar, wrong immersion or RI mismatch, tilted slide, opened pinhole, undersampled z); each must move the expected metric and be flagged.
+  - VAL-05: ≥ 4 weeks of scheduled runs on 1–2 production microscopes alongside the current QC routine; every event the routine catches is caught; ≤ 1 unexplained rejection per instrument per month.
+  - Tooling: a study script that summarises repeatability (CV per metric and configuration) from a results database.
+  - **Prepared:** `tools/repeatability.py` and draft protocols [VAL-02](validation/protocols/VAL-02.md), [VAL-03](validation/protocols/VAL-03.md), [VAL-04](validation/protocols/VAL-04.md), [VAL-05](validation/protocols/VAL-05.md).
+- **T11.3 Backup restore drill** [AUT-07, QA-04] (M5, facility IT + developer).
+  - A written procedure and a `psfwidget track restore` check: verify a backup against its `.sha256`, open it on another PC, compare session, approval, and audit counts with the source, and draw the charts.
+  - *Acceptance:* restored within the time IT sets, with no difference; recorded.
+  - **Prepared:** `psfwidget track restore-check BACKUP --against DB --out DIR` writes a drill record for sign-off; to be run by IT.
+- **T11.4 GUI checks on Windows and macOS** [UI-01 to UI-04, NFR-05] (M5, facility + developer).
+  - A manual GUI test script (every widget action, with expected results) run on Windows 10/11 and the two latest macOS versions, with screenshots and anomalies logged.
+  - **Prepared:** [GUI test script](validation/GUI_TEST_SCRIPT.md) with a signed record table.
+- **T11.5 Signed validation records** [QA-07] (M6, project lead + facility manager).
+  - Templates: protocol, test record, anomaly log, and V&V summary report; the CI requirement-coverage report frozen per release; document control (version, storage, retention); sign-off by the facility manager.
+  - **Prepared:** [templates](validation/templates/) and [draft protocols VAL-01 to VAL-07](validation/protocols/README.md).
 
 ---
 
@@ -349,7 +421,10 @@ Durations are indicative estimates for roughly one developer, with facility staf
 | **M3: Tracking and LJ** | WP4 | Sessions persist; baselines and Westgard rules pass rule-engine tests; LJ charts render with events | Week 13 |
 | **M4: Reporting and automation (alpha)** | WP5, WP6 | Session and trend reports in HTML and PDF; scheduled watch-folder run works end to end unattended for 1 week on a test machine | Week 17 |
 | **M5: GUI and Shoulds (beta)** | WP7; multiphoton theory (T3.7); GLP records (T9.1 to T9.5); backups (T6.6); remaining Shoulds in WP2 and WP3 (field maps, chromatic, averaged PSF with its OME-TIFF export, vectorial model, Strehl, image-scanning model) | GUI usability session completed; beta deployed on 1–2 facility microscopes | Week 22 |
-| **M6: Validation and v1.0 release** | WP8, T9.6, V&V execution | All Must requirements verified; NFR-02 agreement study passed; ≥ 4 weeks of parallel run against the current QC method; V&V summary report signed off | Week 28 |
+| **M5.1: Theory and intensity** | T10.1, T10.2 | THE-02 model verified against an independent implementation; normalised intensity on facility files | Week 24 |
+| **M5.2: Records and automation** | T10.3, T10.4, T10.5 | Import, cron schedules, and the audit report tested | Week 25 |
+| **M5.3: Release readiness** | T10.6, T10.7 (preparation), T11.3, T11.4 | API reference built in CI; wheel installs and passes the self-test on 3 OSes; restore drill and GUI checks recorded | Week 26 |
+| **M6: Validation and v1.0 release** | WP8, T9.6, WP11 (T11.1, T11.2, T11.5), T10.7 release | All Must requirements verified; NFR-02 agreement study passed; ≥ 4 weeks of parallel run against the current QC method; V&V summary report signed off | Week 28 |
 
 **Progress (2026-11-13):**
 
@@ -358,7 +433,8 @@ Durations are indicative estimates for roughly one developer, with facility staf
 - **M2 (core metrics) is implemented.** `psfwidget analyze` detects beads, measures FWHM in X/Y/Z and the XY/XZ/YZ planes, integrated intensity, SBR, SNR, and ellipticity, compares with theory, checks spec limits, and writes CSV and JSON. NFR-01 (as amended) is met on synthetic data, and NFR-04 is met (31 s for a 1024 × 1024 × 100 field with 50 beads on 4 cores). Open within M2's scope: exposure normalisation of intensity (MET-04), the 3D Gaussian fit (MET-03, a Should), and pixel-integration bias for camera data (about +4% at the Nyquist limit, documented in the accuracy report).
 - **M3 (tracking) is implemented.** `psfwidget analyze --db` records results in an append-only SQLite database filed by instrument, objective, channel, and modality. `psfwidget track` reports each configuration's latest session against Westgard rules, draws Levey-Jennings charts with events and spec limits, records events (optionally resetting the baseline), excludes and re-includes sessions with a reason, exports CSV, backs up the database, and prints the audit log. Not done: merging databases (TRK-10 import) and interactive charts (WP5).
 - **M4 (reporting and automation) is implemented.** Session reports (bead overview, XY/XZ/YZ views, profile fits against theory, spec and Westgard checks, bead table, provenance) and trend reports (latest status, violations, events, Levey-Jennings charts) are written as HTML and PDF, with CSV and XLSX exports, under configurable folder templates. `psfwidget run` and `psfwidget watch` process watched folders on a schedule, write weekly trend reports, log every run, and raise `ALERT.txt`. A simulated four weeks of daily acquisitions runs unattended in the test suite. Deferred to M5: the averaged-PSF OME-TIFF export (REP-04, with MET-14). Still to do for the exit criterion: one week unattended on a facility machine.
-- **M5 (started 2026-11-14) is implemented apart from THE-02.**
+- **M5 (started 2026-11-14) and M5.1–M5.3 (2026-11-17) are implemented.** M5.1 added the vectorial and refractive-index-mismatch model (THE-02) and exposure normalisation (MET-04); M5.2 database import, cron schedules, and the audit review report; M5.3 the API reference, packaging and release workflows, the restore drill command, and the GUI test script. Validation tools, templates, and draft protocols for M6 are ready. See [STATUS.md](STATUS.md) for what remains.
+- **M5 (started 2026-11-14) is implemented apart from THE-02** (since done in M5.1).
   - napari GUI (T7.1–T7.4) with manual bead review (DET-07), tested in a headless viewer in its own CI job.
   - Multiphoton theory (THE-10).
   - GLP records: schema 2 with host and profile/config hashes, approvals with `approve`/`verify`, `selftest` IQ/OQ record, and audit export (QA-01 to QA-06).

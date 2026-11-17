@@ -141,3 +141,39 @@ def to_zyx(data: NDArray[Any], dims: Sequence[str]) -> NDArray[Any]:
     present = [dims[i] for i in kept]
     data = data.transpose([present.index(axis) for axis in "ZYX" if axis in present])
     return data if "Z" in present else data[np.newaxis]
+
+
+def with_channel_settings(
+    metadata: AcquisitionMetadata, values: dict[str, float | None], note: str = ""
+) -> AcquisitionMetadata:
+    """Set acquisition settings (exposure, dwell time, …) on every channel that lacks them.
+
+    Used when the file states one value for the whole acquisition.
+    """
+    from dataclasses import replace
+
+    present = {k: v for k, v in values.items() if v is not None}
+    if not present:
+        return metadata
+    channels = tuple(
+        replace(
+            channel,
+            **{  # type: ignore[arg-type]
+                key: Sourced(value, "file", note)
+                for key, value in present.items()
+                if getattr(channel, key) is None
+            },
+        )
+        for channel in metadata.channels
+    )
+    return replace(metadata, channels=channels)
+
+
+def single_value(values: list[float]) -> float | None:
+    """Return the value if all are the same (within 0.1%), else ``None``."""
+    if not values:
+        return None
+    first = values[0]
+    if all(abs(v - first) <= 1e-3 * abs(first) for v in values):
+        return first
+    return None

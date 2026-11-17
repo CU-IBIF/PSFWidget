@@ -62,6 +62,16 @@ class ChannelMetadata:
     pinhole_um: Sourced[float] | None = None
     preset_id: Sourced[str] | None = None
     """Identifier of the instrument-profile channel preset that matched."""
+    exposure_ms: Sourced[float] | None = None
+    """Camera exposure time (widefield, spinning disk)."""
+    dwell_us: Sourced[float] | None = None
+    """Pixel dwell time (point scanning)."""
+    accumulation: Sourced[float] | None = None
+    """Line or frame accumulation: how many scans are summed (averaging is 1)."""
+    detector_gain: Sourced[float] | None = None
+    """Detector gain or voltage, in the instrument's own units (for change detection only)."""
+    laser_power: Sourced[float] | None = None
+    """Laser power, in the instrument's own units (for change detection only)."""
 
 
 @dataclass(frozen=True)
@@ -83,6 +93,15 @@ class AcquisitionMetadata:
     bead_diameter_nm: Sourced[float] | None = None
     instrument_id: Sourced[str] | None = None
     objective_id: Sourced[str] | None = None
+    psf_model: Sourced[str] | None = None
+    """``"scalar"`` (default) or ``"vectorial"`` theoretical model (THE-02)."""
+    sample_ri: Sourced[float] | None = None
+    """Refractive index of the medium around the beads (mountant)."""
+    coverslip_ri: Sourced[float] | None = None
+    coverslip_um: Sourced[float] | None = None
+    """Coverslip thickness; the objective's design value is assumed when unknown."""
+    bead_depth_um: Sourced[float] | None = None
+    """Depth of the beads below the coverslip; 0 for beads on the coverslip."""
     channels: tuple[ChannelMetadata, ...] = ()
     warnings: tuple[str, ...] = ()
 

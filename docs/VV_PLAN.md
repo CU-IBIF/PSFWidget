@@ -1,7 +1,8 @@
 # PSFWidget: Verification & Validation (V&V) Plan
 
-**Status:** Draft v0.1, for review
-**Date:** 2026-11-10
+**Status:** Draft v0.2, for review (v0.2: QA and NFR-11 rows, M4 and M5 status)
+**Date:** 2026-11-14
+**Verification status per requirement:** [STATUS.md](STATUS.md) §2
 **Companion document:** [Project Plan & Requirements](PLAN.md)
 
 ---
@@ -176,6 +177,8 @@ The matrix will be maintained as a machine-readable file (`docs/traceability.csv
 **M4 status (2026-11-13).** Automated: report rendering (`tests/test_reports.py`: every block type in HTML and PDF, PDF character mapping, templates and collision handling, status logic, session report sections and provenance, XLSX sheets, trend report period filtering); automation (`tests/test_automation.py`: schedule parsing and due times, config validation messages, ingest with a corrupt file, a file still being written, a duplicate, and a missing folder, lock handling, CLI). The watch-folder scenario has no "unknown-profile file" case, because each watched folder has exactly one profile; a file whose metadata is incomplete even with that profile is skipped and listed in the run summary. A **compressed soak test** (`test_four_weeks_unattended`) simulates 29 days of daily acquisitions with the scheduler waking every 4 hours: every file is recorded once, four weekly trend reports are written, and the injected wide session raises `ALERT.txt`. Still open for the M4 gate: the real 7-day soak on a Windows and a Linux machine, and the PDF text-extraction check (PDFs are checked for validity and size only).
 
 **M5 GUI status (2026-11-14).** The GUI is tested in a headless napari viewer under a virtual display (`tests/test_gui_*.py`, CI job *GUI*): opening a file, editing metadata (including a rejected invalid value), analysis in a worker thread with the busy indicator (UI-04), bead exclusion and undo, recording, report writing, the 3D view, the tracking chart's hover and click mapping, exclusion with the audit entry, events, and the profile editor's load, validate, and save. The plugin manifest is validated with `npe2 validate`, and every widget and the sample data are opened through napari's plugin system. The core and the GUI-free session logic are measured in the main test matrix; the Qt widgets have their own coverage gate (85%) in the GUI job. The manual GUI test script and VAL-06 usability session are still to be done with facility staff.
+
+**M5.1–M5.3 and M6 preparation (2026-11-17).** Automated verification added for THE-02 (limits of the vectorial and mismatch models, and agreement with the exact Gibson–Lanni integration of MicroscPSF-Py within 0.3%, `tests/test_theory_optics.py`), MET-04 (settings read from all four facility formats; normalisation; settings-change warnings), TRK-10 (import, idempotence, backup round trip), AUT-03 (cron table tests), QA-06 (audit review report), UI-05 (every public name documented; pdoc build in CI), and the restore drill (AUT-07, QA-04). CI now also builds, checks, and self-tests the packages on Windows, macOS, and Linux. Prepared for M6: the GUI test script (T11.4), `tools/method_comparison.py` (VAL-01) and `tools/repeatability.py` (VAL-03), the record templates, and draft protocols VAL-01 to VAL-07 in `docs/validation/`, to be completed and approved before execution.
 ---
 
 ## 6. Anomaly management
