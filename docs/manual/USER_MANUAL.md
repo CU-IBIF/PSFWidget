@@ -530,8 +530,19 @@ channel the metric summary against theory, the theory used, the Westgard
 checks against earlier sessions (when recorded), the spec checks, field
 geometry and registration with a **field map** (bead focus offsets, lateral
 FWHM, and axial FWHM across the field of view), the averaged-PSF comparison,
-a bead overview (maximum projection with accepted and rejected beads), and
-XY/XZ/YZ views of a representative bead.
+a bead overview (maximum projection with accepted and rejected beads), an
+image panel, and a profile figure.
+
+The **image panel** shows XY, XZ, and YZ slices through the centre of three
+images, one row each: the **closest single bead** (nearest the median lateral
+FWHM, background subtracted), the **average PSF** of all accepted beads
+(with the number of beads averaged), and the **model**. All panels share one
+physical scale at true aspect ratio; in XZ and YZ, z runs horizontally so the
+rows stay compact. Each image is scaled to its own peak on one grey scale, so
+compare shapes rather than brightness: an elongated, asymmetric, or tilted
+average against a compact model points to aberration. The average row is
+left out when fewer than three beads can be averaged, and the model row when
+there is no theory.
 
 The **profile figure** compares, along x, y, and z, three curves centred and
 scaled to a peak of 1: (1) the **model**, the theoretical PSF with the bead

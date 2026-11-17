@@ -310,11 +310,25 @@ def _figures(stack: ImageStack, channel: ChannelResult, result: FieldResult) -> 
         else result.metadata.bead_diameter_nm.value / 1000.0
     )
     if bead is not None:
+        image, count = figures.orthogonal_comparison(
+            volume, bead, channel, voxel, result.settings, bead_diameter_um=diameter
+        )
+        rows = [f"bead {bead.bead_id}, closest to the median lateral FWHM"]
+        if count is not None:
+            rows.append(f"the average PSF of the {count} accepted beads across the field of view")
+        if channel.theory is not None:
+            rows.append("the model (theoretical PSF with the bead size)")
         blocks.append(
             doc.Figure(
-                figures.orthogonal_views(volume, bead, channel, voxel, result.settings),
-                f"Bead {bead.bead_id}, closest to the median lateral FWHM: slices through its "
-                "centre at true aspect ratio.",
+                image,
+                "XY, XZ, and YZ slices through the centre of "
+                + ", ".join(rows[:-1])
+                + (" and " if len(rows) > 1 else "")
+                + rows[-1]
+                + " (one row each), all at one scale and true aspect ratio, with z running "
+                "horizontally in XZ and YZ. Each image is "
+                "scaled to its own peak (the bead after subtracting its background). Hatching "
+                "marks any part of the window outside the stack.",
             )
         )
         blocks.append(

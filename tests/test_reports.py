@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import zipfile
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -258,6 +259,8 @@ def test_session_report_and_exports(tracked: tuple[Path, Path, list[int]], tmp_p
         assert expected in html, expected
     assert sum(isinstance(b, doc.Figure) for b in report.blocks) == 4  # with the field map
     assert "average PSF of all accepted beads" in html
+    assert "slices through the centre of bead" in html
+    assert "accepted beads across the field of view" in html
     assert "Right: axial FWHM" in html
     # The bead table is in Appendix A, after the provenance, accepted beads first.
     headings = [b.text for b in report.blocks if isinstance(b, doc.Heading)]
@@ -381,3 +384,27 @@ def test_cli_reports(
         == 2
     )
     capsys.readouterr()
+
+
+@pytest.mark.req("THE-07", "MET-14")
+def test_orthogonal_comparison_rows(tracked: tuple[Path, Path, list[int]]) -> None:
+    from psfwidget.report import figures
+
+    database, profile_path, _ = tracked
+    profile = load_profile(profile_path)
+    stack = read_stack(database.parent / "day6.tif", profile=profile)
+    settings = AnalysisSettings()
+    result = analyze_stack(stack, settings, profile.spec)
+    channel = result.channels[0]
+    bead = figures.representative_bead(channel)
+    assert bead is not None
+    volume, voxel = stack.channel(channel.index), stack.voxel_size_um
+    image, count = figures.orthogonal_comparison(volume, bead, channel, voxel, settings)
+    assert image.startswith(b"\x89PNG")
+    assert count is not None
+    assert count >= 3
+    # Without enough beads to average, the average row is left out.
+    alone = replace(channel, beads=(bead,))
+    image, count = figures.orthogonal_comparison(volume, bead, alone, voxel, settings)
+    assert image.startswith(b"\x89PNG")
+    assert count is None

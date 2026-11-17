@@ -127,7 +127,7 @@ implemented, verification relies on a validation activity still to do.
 | THE-03 | M | Done | 8/8 | |
 | THE-04, THE-05 | S | Done | 2/2, 3/3 | |
 | THE-06 | M | Done | 4/4 | No limits shipped; facility sets them (F8) |
-| THE-07 | M | Done | 1/1 | Orthogonal views and profile fits in session reports |
+| THE-07 | M | Done | 1/1 | Image panel (closest bead, average PSF, model) and profile fits in session reports |
 | THE-08, THE-09 | M/S | Done | 8/8, 2/2 | |
 | THE-10 | M | Done | 10/10 | No facility multiphoton stack yet (F6) |
 | TRK-01 to TRK-08 | M/S | Done | | |
