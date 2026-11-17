@@ -130,7 +130,8 @@ All notable changes to this project are documented here. The format follows
   axial FWHM panel.
 - Session report image panel: XY, XZ, and YZ slices of the closest single
   bead, the average PSF of all accepted beads, and the model, one row each at
-  one physical scale (z horizontal in XZ and YZ), each scaled to its own peak.
+  one physical scale (z horizontal in XZ and YZ), each scaled to its own peak;
+  hatching marks any part of the window outside the stack.
   It replaces the single-bead orthogonal views.
 - Vectorial (Richards–Wolf) and refractive-index-mismatch (Gibson–Lanni)
   theoretical PSF models, selected per profile (`[theory]`); verified against

@@ -327,7 +327,8 @@ def _figures(stack: ImageStack, channel: ChannelResult, result: FieldResult) -> 
                 + rows[-1]
                 + " (one row each), all at one scale and true aspect ratio, with z running "
                 "horizontally in XZ and YZ. Each image is "
-                "scaled to its own peak (the bead after subtracting its background).",
+                "scaled to its own peak (the bead after subtracting its background). Hatching "
+                "marks any part of the window outside the stack.",
             )
         )
         blocks.append(

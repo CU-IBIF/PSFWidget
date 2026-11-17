@@ -251,7 +251,7 @@ def orthogonal_comparison(
     columns = (("XY", 2, 1), ("XZ", 0, 2), ("YZ", 0, 1))  # name, horizontal, vertical axis
     widths = [2 * limits[h] + steps[h] for _, h, _ in columns]
     row_height_um = max(2 * limits[v] + steps[v] for _, _, v in columns)
-    inch_per_um = 7.0 / sum(widths)
+    inch_per_um = 6.6 / sum(widths)
     row_inches = row_height_um * inch_per_um + 0.75
     figure = _figure(9.0, row_inches * len(rows) + 0.3)
     grid = figure.add_gridspec(
@@ -260,7 +260,7 @@ def orthogonal_comparison(
         width_ratios=widths,
         left=0.1,
         right=0.98,
-        wspace=0.22,
+        wspace=0.4,
         hspace=0.6,
         bottom=0.55 / figure.get_figheight(),
         top=1 - 0.3 / figure.get_figheight(),
@@ -280,6 +280,10 @@ def orthogonal_comparison(
                 (plane.shape[0] - 0.5 - centre_v) * step_v,
                 (-0.5 - centre_v) * step_v,
             )
+            # Hatch the part of the window outside the stack (a bead near its edge).
+            axes.set_facecolor(SURFACE)
+            axes.patch.set_hatch("////")
+            axes.patch.set_edgecolor(INK_MUTED)
             axes.imshow(
                 plane, cmap="gray", vmin=0.0, vmax=1.0, extent=extent, interpolation="nearest"
             )
