@@ -169,4 +169,5 @@ implemented, verification relies on a validation activity still to do.
 | M5.1 Theory and intensity | In review | – |
 | M5.2 Records and automation | In review | – |
 | M5.3 Release readiness | In review | restore drill and GUI checks to run (V7, V8) |
+| M5.4 GUI revision (facility feedback, crash on load) | [Plan in review](M5.4_GUI_REVISION_PLAN.md) | M5.4a stable loading, M5.4b review workflow, M5.4c reports |
 | M6 Validation and v1.0 | Prepared | studies V1–V6, records V9, release D1 |
