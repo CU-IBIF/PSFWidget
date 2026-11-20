@@ -196,7 +196,8 @@ All notable changes to this project are documented here. The format follows
 - Series dialog (M5.4a, IMP-02): files with several series ask which one to
   open, on drop and on *Browse*; the widget's *Series* line has a *Change…*
   button.
-- GUI tests run on Windows in CI as well as Linux.
+- GUI tests also run on Windows in CI, not yet blocking: the tests that draw
+  images fail on the CI machines' software OpenGL.
 
 ### Fixed
 - napari raised `AttributeError: 'NoneType' object has no attribute 'height'`

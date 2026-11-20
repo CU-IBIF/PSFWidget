@@ -75,6 +75,10 @@ jobs:
       matrix:
         # Windows added in M5.4a: the facility PCs run Windows (DEF-01, NFR-05).
         os: [ubuntu-latest, windows-latest]
+    # Not yet blocking on Windows: the runner's software OpenGL fails napari's
+    # first OpenGL call (GL_MAX_TEXTURE_SIZE, "invalid operation") in every test
+    # that draws an image, while the other GUI tests pass. Remove once fixed.
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     env:
       # UTF-8 output on Windows: npe2 and pytest print characters (e.g. a tick)
       # that the runner's default cp1252 console cannot encode.

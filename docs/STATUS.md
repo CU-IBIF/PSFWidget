@@ -74,7 +74,7 @@ Still open:
 | V5 | VAL-05 ≥ 4-week parallel run against the current QC routine | TRK-05, AUT-* | M6 |
 | V6 | VAL-07 report fitness review and sign-off | REP-* , QA-02 | M6 |
 | V7 | Backup restore drill (procedure and `psfwidget track restore-check` ready, T11.3) | AUT-07, QA-04 | M5.3 |
-| V8 | Manual GUI test script on Windows and macOS ([script ready](validation/GUI_TEST_SCRIPT.md), T11.4; CI runs the GUI tests on Linux only) | UI-01 to UI-04, NFR-05 | M5 |
+| V8 | Manual GUI test script on Windows and macOS ([script ready](validation/GUI_TEST_SCRIPT.md), T11.4). CI runs the GUI tests on Linux; on Windows, CI runs them without blocking, because the 9 that draw images fail on the CI machines' software OpenGL | UI-01 to UI-04, NFR-05 | M5 |
 | V9 | **⚠ Gate** Validation records: [draft protocols](validation/protocols/README.md) to complete and approve before each study, then [test records, anomaly log, and V&V summary](validation/templates/) signed (OECD GLP No. 17) | QA-07 | M6 |
 
 ### 1.4 Known limitations of the current results
@@ -145,7 +145,7 @@ implemented, verification relies on a validation activity still to do.
 | NFR-02 | M | V&V | – | VAL-01 (V1) |
 | NFR-03 | M | Done | 3/3 | |
 | NFR-04 | S | Done (manual) | – | 25 s on 4 cores; automate (D8) |
-| NFR-05 | M | Done (CI) | – | CI on Windows, macOS, Linux; GUI tests on Linux only (V8) |
+| NFR-05 | M | Done (CI) | – | CI on Windows, macOS, Linux; GUI tests blocking on Linux, non-blocking on Windows (V8) |
 | NFR-06, NFR-07 | M | Done | 6/6, 11/11 | |
 | NFR-08 | S | V&V | – | VAL-06 (F2) |
 | NFR-09 | S | Done (CI) | – | 95% core coverage; 87% GUI |
