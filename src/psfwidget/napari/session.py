@@ -298,6 +298,19 @@ class AnalysisSession:
 
     # ------------------------------------------------------------ display
 
+    def display_scale(self) -> tuple[float, float, float]:
+        """Voxel size ``(z, y, x)`` in µm for display, with 1 for any unknown axis.
+
+        A file that does not record its voxel size is still shown, so the user
+        can see it and fill in the missing value in the metadata table.
+        """
+        if self.stack is None:
+            return (1.0, 1.0, 1.0)
+        meta = self.stack.metadata
+        values = (meta.voxel_z_um, meta.voxel_y_um, meta.voxel_x_um)
+        z, y, x = (1.0 if v is None else float(v.value) for v in values)
+        return (z, y, x)
+
     def image_layers(self) -> list[ImageLayer]:
         """Return one image layer per channel, at physical scale."""
         if self.stack is None:
@@ -319,7 +332,7 @@ class AnalysisSession:
                 ImageLayer(
                     name=f"{stem} [{label}]",
                     data=data,
-                    scale=self.stack.voxel_size_um,
+                    scale=self.display_scale(),
                     colormap=CHANNEL_COLOURS[index % len(CHANNEL_COLOURS)]
                     if self.stack.n_channels > 1
                     else "gray",

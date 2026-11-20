@@ -70,7 +70,7 @@ Requirement IDs are stable and are referenced by the V&V traceability matrix. Pr
 | ID | Requirement | Pri |
 |---|---|---|
 | IMP-01 | The system shall import 3D image stacks from Nikon `.nd2`, Leica `.lif`, Zeiss `.czi`, and `.tif`/`.ome.tif` files. | M |
-| IMP-02 | The system shall support multi-series containers (multiple positions or series in `.lif`/`.nd2`/`.czi`) and let the user select one, several, or all series. | M |
+| IMP-02 | The system shall support multi-series containers (multiple positions or series in `.lif`/`.nd2`/`.czi`) and let the user select one, several, or all series. In the GUI, a file with more than one series shall show a dialog listing each series (index, name, dimensions, data type) to select one, both on drag and drop and on *Browse* (M5.4a). | M |
 | IMP-03 | The system shall support multichannel stacks and analyze each channel independently. | M |
 | IMP-04 | The system shall extract voxel size (x, y, z) from file metadata, plus objective NA, immersion refractive index, emission and excitation wavelength, pinhole size, and modality where available. | M |
 | IMP-05 | The system shall allow any metadata value to be entered or overridden manually, and shall record whether each value came from the file or from the user. | M |
@@ -79,6 +79,7 @@ Requirement IDs are stable and are referenced by the V&V traceability matrix. Pr
 | IMP-08 | The system shall handle stacks larger than RAM by lazy or chunked loading (e.g. dask). | S |
 | IMP-09 | The system shall record a SHA-256 hash of each source file for provenance. | S |
 | IMP-10 | The system shall support instrument profiles (microscope, objective, channel presets) that supply default metadata, including values no file records such as bead diameter and the bead dye's emission peak, and link results to a tracked configuration. | M |
+| IMP-11 | The napari plugin shall provide a reader so that `.nd2`, `.lif`, `.czi`, `.tif`, `.tiff`, and `.ome.tif` files can be opened by drag and drop and by *File → Open*, loading the file into the PSF analysis widget (M5.4a). | M |
 
 ### 3.2 Bead detection and selection (DET)
 

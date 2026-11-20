@@ -154,6 +154,7 @@ module = [
     "psfwidget.napari.analysis_widget",
     "psfwidget.napari.tracking_widget",
     "psfwidget.napari.profile_editor",
+    "psfwidget.napari.series_dialog",
 ]
 disallow_subclassing_any = false
 

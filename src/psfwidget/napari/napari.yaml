@@ -11,9 +11,16 @@ contributions:
     - id: psfwidget.profile_editor
       title: Instrument profile editor
       python_name: psfwidget.napari.profile_editor:ProfileEditor
+    - id: psfwidget.get_reader
+      title: Open a bead stack in PSF analysis
+      python_name: psfwidget.napari.reader:get_reader
     - id: psfwidget.sample_beads
       title: Synthetic bead field
       python_name: psfwidget.napari.sample:bead_field
+  readers:
+    - command: psfwidget.get_reader
+      filename_patterns: ["*.nd2", "*.lif", "*.czi", "*.tif", "*.tiff"]
+      accepts_directories: false
   widgets:
     - command: psfwidget.analysis
       display_name: PSF analysis

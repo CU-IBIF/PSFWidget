@@ -109,13 +109,33 @@ The widget is a column of numbered sections. Long steps run in the background
 
 **1. File**
 
-1. *Browse…* to the bead stack. The *Series* list fills with the file's
-   series (positions, scenes) and their sizes.
-2. Choose the *Series*.
-3. Optionally *Browse…* to an instrument *Profile*. It is needed to record
+The quickest way: **drag the file onto the napari window** (or use *File →
+Open*). PSFWidget reads `.nd2`, `.lif`, `.czi`, `.tif`, `.tiff`, and
+`.ome.tif` files. The *PSF analysis* widget opens if it is not open already,
+and the file is loaded with the profile currently in the *Profile* field. If
+napari asks which plugin to use (another installed plugin also reads TIFF or
+ND2 files), choose **PSFWidget**; tick *Remember* to make it the default for
+that file type, or set it later under *File → Preferences → Plugins*.
+
+Or step by step:
+
+1. *Browse…* to the bead stack.
+2. Optionally *Browse…* to an instrument *Profile*. It is needed to record
    results (it names the instrument) and supplies values the file lacks.
-4. Press *Open*. Each channel appears as an image layer at its physical
+3. Press *Open*. Each channel appears as an image layer at its physical
    scale (µm).
+
+**Files with several series.** LIF projects, multi-scene CZI files, and
+multi-position ND2 files hold several series. When you drop or browse to such
+a file, a dialog lists each series with its name, number of channels, number
+of z-planes, image size, and data type. Select one and press *OK* (or
+double-click it). *Cancel* keeps the file that was open before. The *Series*
+line then shows the chosen series, for example `4 of 6: 1AU_field5_avg_uni`;
+*Change…* picks another series of the same file, and *Open* loads it.
+
+A file that does not record its voxel size is still shown (at 1 µm per
+voxel along the unknown axis). Fill in the missing value in the metadata
+table and the image rescales.
 
 **2. Metadata**
 

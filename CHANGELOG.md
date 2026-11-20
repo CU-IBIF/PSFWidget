@@ -190,6 +190,25 @@ All notable changes to this project are documented here. The format follows
   model, the excitation (laser) wavelength required instead of the emission,
   multiphoton modes read from ND2, CZI, and OME-TIFF files, and a profile
   template.
+- Drag and drop (M5.4a, IMP-11): a napari reader opens `.nd2`, `.lif`, `.czi`,
+  `.tif`, `.tiff`, and `.ome.tif` files dropped onto napari (or opened with
+  *File → Open*) in the PSF analysis widget.
+- Series dialog (M5.4a, IMP-02): files with several series ask which one to
+  open, on drop and on *Browse*; the widget's *Series* line has a *Change…*
+  button.
+- GUI tests run on Windows in CI as well as Linux.
+
+### Fixed
+- napari raised `AttributeError: 'NoneType' object has no attribute 'height'`
+  from its layer list when a file was opened (DEF-01, seen on Windows). The
+  analysis widget now updates its layers in place instead of removing and
+  re-adding them, and guards napari's layer-list drawing against rows that
+  vanish while it draws.
+- A file without a recorded voxel size could not be shown in the GUI; it is
+  now shown at 1 µm per voxel along the unknown axis until the value is
+  filled in. Errors after a background step now appear in the widget instead
+  of the terminal.
+
 
 ### Changed
 - Reports use a block-based model with `reportlab` for PDF instead of
