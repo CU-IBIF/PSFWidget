@@ -45,12 +45,14 @@ the bottom of the PSF analysis widget.
 | A1 | Start `napari` from the PSFWidget environment | napari opens without errors in the terminal |
 | A2 | *Plugins → PSFWidget* | three entries: PSF analysis; PSF tracking (Levey-Jennings); Instrument profile editor |
 | A3 | *File → Open Sample → PSFWidget → Synthetic 100 nm bead field* | an image layer "synthetic beads" appears; the scale bar (if shown) reads µm |
+| A4 | Drag each of an `.nd2`, `.lif`, `.czi`, `.tif`, and `.ome.tif` bead file onto the napari window (IMP-11) | each opens in the *PSF analysis* widget (opened if needed) with one image layer per channel and its metadata; if napari asks for a plugin, PSFWidget is offered |
+| A5 | Drag the SP8 `.lif` (6 series) onto napari; choose series 4 (IMP-02) | a dialog lists 6 series with names, channels, z-planes, size, and type; after *OK* the *Series* line reads `4 of 6: …`; *Cancel* on a second drop keeps series 4 open |
 
 ### B. Analysis widget (UI-01, UI-04)
 
 | ID | Do | Expected |
 |---|---|---|
-| B1 | Open *PSF analysis*; *Browse…* to the plain TIFF; *Open* | the series list fills; an image layer appears; the metadata table shows NA, immersion RI, and emission as **missing** (red); "Not ready: …" is shown; *Analyse* is disabled |
+| B1 | Open *PSF analysis*; *Browse…* to the plain TIFF; *Open* | the *Series* line shows the file's one series; an image layer appears; the metadata table shows NA, immersion RI, and emission as **missing** (red); "Not ready: …" is shown; *Analyse* is disabled |
 | B2 | Type `1.4` for numerical aperture, `1.518` for immersion RI, `widefield` for modality, and `520` for ch 0 emission | each row turns blue (*user*); "Ready for analysis." appears; *Analyse* is enabled |
 | B3 | Type `lots` as the numerical aperture | the value is refused with a message naming the field; the table is unchanged |
 | B4 | Press *Analyse* and, while it runs, pan and zoom the image | the progress bar moves; the viewer stays responsive (UI-04) |
@@ -109,6 +111,7 @@ Use a database with at least 10 sessions (e.g. `python tools/demo_tracking.py OU
 | G1 | At 100% and 150–200% display scaling | text readable; no clipped buttons; widgets scroll if the window is small |
 | G2 | Open a corrupt or non-image file | a clear message; napari keeps running |
 | G3 | Close napari while an analysis is running | napari closes without hanging |
+| G4 | Open five files one after another (drag and drop), then open one while another is still loading; analyse and review beads ten times (DEF-01) | no error dialog or traceback in the terminal; the layer list shows one image layer per channel and one bead layer per analysed channel |
 
 ---
 
@@ -119,6 +122,8 @@ Use a database with at least 10 sessions (e.g. `python tools/demo_tracking.py OU
 | A1 | | |
 | A2 | | |
 | A3 | | |
+| A4 | | |
+| A5 | | |
 | B1 | | |
 | B2 | | |
 | B3 | | |
@@ -151,6 +156,7 @@ Use a database with at least 10 sessions (e.g. `python tools/demo_tracking.py OU
 | G1 | | |
 | G2 | | |
 | G3 | | |
+| G4 | | |
 
 | | Name | Signature | Date |
 |---|---|---|---|
