@@ -1,6 +1,6 @@
 id,priority,requirement,methods,activities
 IMP-01,M,"The system shall import 3D image stacks from Nikon `.nd2`, Leica `.lif`, Zeiss `.czi`, and `.tif`/`.ome.tif` files.","I, S",GOLD-IO reader tests; cross-platform install test
-IMP-02,M,"The system shall support multi-series containers (multiple positions or series in `.lif`/`.nd2`/`.czi`) and let the user select one, several, or all series.",I,GOLD-IO multi-series and multichannel fixtures
+IMP-02,M,"The system shall support multi-series containers (multiple positions or series in `.lif`/`.nd2`/`.czi`) and let the user select one, several, or all series. In the GUI, a file with more than one series shall show a dialog listing each series (index, name, dimensions, data type) to select one, both on drag and drop and on *Browse* (M5.4a).",I,GOLD-IO multi-series and multichannel fixtures
 IMP-03,M,The system shall support multichannel stacks and analyze each channel independently.,I,GOLD-IO multi-series and multichannel fixtures
 IMP-04,M,"The system shall extract voxel size (x, y, z) from file metadata, plus objective NA, immersion refractive index, emission and excitation wavelength, pinhole size, and modality where available.","U, I",Metadata resolver tests; GOLD-IO metadata fixtures
 IMP-05,M,"The system shall allow any metadata value to be entered or overridden manually, and shall record whether each value came from the file or from the user.","U, I",Metadata resolver tests; GOLD-IO metadata fixtures
@@ -9,6 +9,7 @@ IMP-07,S,The system shall support time-lapse or mosaic data by letting the user 
 IMP-08,S,The system shall handle stacks larger than RAM by lazy or chunked loading (e.g. dask).,"I, S",Time/tile selection tests; large-file lazy-load test (memory cap)
 IMP-09,S,The system shall record a SHA-256 hash of each source file for provenance.,U,Hash tests
 IMP-10,M,"The system shall support instrument profiles (microscope, objective, channel presets) that supply default metadata, including values no file records such as bead diameter and the bead dye's emission peak, and link results to a tracked configuration.","U, I",Profile schema validation; profile → session linking
+IMP-11,M,"The napari plugin shall provide a reader so that `.nd2`, `.lif`, `.czi`, `.tif`, `.tiff`, and `.ome.tif` files can be opened by drag and drop and by *File → Open*, loading the file into the PSF analysis widget (M5.4a).","I, S","Reader claims each extension; dropping each golden format opens it in the widget; manual drag and drop on Windows (GUI test script A3, A4)"
 DET-01,M,The system shall automatically detect candidate beads in a 3D field (e.g. by LoG or DoG filtering followed by local maxima detection).,U,SYN-A/SYN-C detection and filter tests
 DET-02,M,The system shall reject beads that are too close to the image border in xy or z for the configured crop size.,U,SYN-A/SYN-C detection and filter tests
 DET-03,M,"The system shall reject beads whose crop region overlaps another bead (minimum separation configurable, default ≥ 4× expected lateral FWHM laterally and ≥ 2× axial FWHM).",U,SYN-A/SYN-C detection and filter tests

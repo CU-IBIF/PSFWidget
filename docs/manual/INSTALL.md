@@ -1,6 +1,6 @@
 # PSFWidget Install Guide
 
-**Draft** for version 0.0.1.dev0 (pre-release), updated 2026-11-17.
+**Draft** for version 0.0.1.dev0 (pre-release), updated 2026-11-20.
 Companion: [User manual](USER_MANUAL.md). Status of the software: [STATUS.md](../STATUS.md).
 
 This guide covers installing PSFWidget, checking the installation (and
@@ -179,8 +179,14 @@ Then:
 
 1. *File → Open Sample → PSFWidget → Synthetic 100 nm bead field*.
 2. *Plugins → PSFWidget → PSF analysis*. The dock widget appears on the right.
+3. Drag one of your bead files onto the napari window. It opens in the *PSF
+   analysis* widget; for a file with several series, a dialog asks which one.
 
 If napari does not start, see §8.
+
+PSFWidget is tested with napari 0.10.0 and PySide6 6.12 on Linux, and with the
+same versions on Windows in CI. Record the versions on each acquisition PC
+with `napari --info` (keep the output with the IQ record).
 
 ---
 
@@ -334,6 +340,8 @@ event with new control limits.
 | napari: `Could not load the Qt platform plugin "xcb"` (Linux) | Install the Qt system libraries, e.g. on Ubuntu: `sudo apt install libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0 libxcb-randr0 libxcb-render-util0 libxcb-image0 libegl1 libgl1-mesa-dri`. |
 | napari opens but the canvas is black or it crashes on start (remote desktop, virtual machine) | No OpenGL. Update the graphics driver, or use a machine with a GPU; on Windows remote desktop, try `set QT_OPENGL=software` before `napari`. |
 | Two Qt bindings installed (PyQt and PySide6) cause import errors | Use a fresh environment with only the `[napari]` extra (it installs PySide6; PyQt is excluded for licensing). |
+| Dropping a file opens it as plain layers, not in *PSF analysis*, or napari asks which plugin to use | Another plugin (napari's TIFF reader, napari-nd2) also reads the file type. Choose **PSFWidget** in the dialog and tick *Remember*, or set it in *File → Preferences → Plugins → File extension readers*. |
+| An error mentioning `_paint_loading` or `'NoneType' object has no attribute 'height'` | A napari layer-list problem fixed in PSFWidget 0.0.1.dev0 of 2026-11-20 (DEF-01). Upgrade PSFWidget (§7). If it still appears, send the full message and `napari --info`. |
 | PSFWidget is missing from napari's *Plugins* menu | napari is running from another environment. Start `napari` from the environment where PSFWidget is installed. |
 | `check-config` refuses the database path | It is on a network share. Put the database on the local disk (§6.1). |
 | The self-test fails a check | Keep the JSON record and report it (it names the failing check). Do not use the installation for QC until it passes. |

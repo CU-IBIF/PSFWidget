@@ -108,6 +108,7 @@ Legend: **U** = Unit, **I** = Integration, **S** = System, **V** = Validation, *
 | IMP-07, IMP-08 | I, S | Time/tile selection tests; large-file lazy-load test (memory cap) |
 | IMP-09 | U | Hash tests |
 | IMP-10 | U, I | Profile schema validation; profile → session linking |
+| IMP-11 | I, S | Reader claims each extension; dropping each golden format opens it in the widget; manual drag and drop on Windows (GUI test script A3, A4) |
 | DET-01 … DET-06, DET-08 | U | SYN-A/SYN-C detection and filter tests |
 | DET-07 | S | GUI test script |
 | MET-01, MET-02, MET-03, MET-08, MET-10 | U, V | Fitting Monte Carlo (SYN-A); VAL-01 |

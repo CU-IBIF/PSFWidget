@@ -34,6 +34,9 @@ from qtpy.QtWidgets import (
 )
 
 from psfwidget.automation.glp import DEFAULT_MEANING
+from psfwidget.io.model import SeriesInfo
+from psfwidget.napari._compat import guard_layer_list
+from psfwidget.napari.series_dialog import choose_series
 from psfwidget.napari.session import AnalysisSession, default_user
 
 ACCEPTED_COLOUR = "#0ca30c"
@@ -58,8 +61,14 @@ class AnalysisWidget(QWidget):
 
     def __init__(self, napari_viewer: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        guard_layer_list()  # DEF-01
         self.viewer = napari_viewer
         self.session = AnalysisSession()
+        self.series_chooser: Callable[..., int | None] = choose_series
+        """Asks the user for a series; replaced in tests."""
+        self.series_index = 0
+        self._series: list[SeriesInfo] = []
+        self._series_path: str | None = None
         self._image_layers: list[Any] = []
         self._point_layers: dict[int, Any] = {}
         self._worker: Any = None
@@ -75,8 +84,12 @@ class AnalysisWidget(QWidget):
         browse = QPushButton("Browse…")
         browse.clicked.connect(self._browse_file)
         form.addRow("File", _row(self.path_edit, browse))
-        self.series_combo = QComboBox()
-        form.addRow("Series", self.series_combo)
+        self.series_label = QLabel("–")
+        self.series_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.change_series_button = QPushButton("Change…")
+        self.change_series_button.clicked.connect(self.change_series)
+        self.change_series_button.setEnabled(False)
+        form.addRow("Series", _row(self.series_label, self.change_series_button))
         self.profile_edit = QLineEdit()
         self.profile_edit.setPlaceholderText("optional instrument profile (.toml)")
         profile_browse = QPushButton("Browse…")
@@ -238,7 +251,14 @@ class AnalysisWidget(QWidget):
         self._busy(True)
         self._say(f"{what}…")
         worker = create_worker(work, _start_thread=False)
-        worker.returned.connect(done)
+
+        def finish(value: Any) -> None:
+            try:
+                done(value)
+            except Exception as exc:  # shown to the user rather than raised in the event loop
+                self._say(f"{what} failed: {exc}", error=True)
+
+        worker.returned.connect(finish)
         worker.errored.connect(lambda exc: self._say(f"{what} failed: {exc}", error=True))
         worker.finished.connect(lambda: self._busy(False))
         self._worker = worker
@@ -260,8 +280,7 @@ class AnalysisWidget(QWidget):
     def _browse_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Open bead stack", "", FILE_FILTER)
         if path:
-            self.path_edit.setText(path)
-            self._list_series(path)
+            self.select_file(path)
 
     def _browse_profile(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Instrument profile", "", "TOML (*.toml)")
@@ -284,16 +303,66 @@ class AnalysisWidget(QWidget):
         if path:
             self.report_edit.setText(path)
 
-    def _list_series(self, path: str) -> None:
+    def _show_series(self) -> None:
+        chosen = [item for item in self._series if item.index == self.series_index]
+        if chosen:
+            item = chosen[0]
+            sizes = " ".join(f"{k}{v}" for k, v in item.sizes.items())
+            total = f" of {len(self._series)}" if len(self._series) > 1 else ""
+            self.series_label.setText(f"{item.index}{total}: {item.name} ({sizes})")
+        else:
+            self.series_label.setText("–")
+        self.change_series_button.setEnabled(len(self._series) > 1)
+
+    def select_file(self, path: str | Path) -> bool:
+        """Choose a file and, if it holds several series, ask which one (IMP-02).
+
+        Returns ``False`` if the file cannot be read or the user cancels; the
+        previous choice is then kept.
+        """
         from psfwidget.io import list_series
 
-        self.series_combo.clear()
+        path = str(path)
         try:
-            for item in list_series(path):
-                sizes = " ".join(f"{k}{v}" for k, v in item.sizes.items())
-                self.series_combo.addItem(f"{item.index}: {item.name} ({sizes})", item.index)
+            series = list_series(path)
         except Exception as exc:  # shown to the user rather than raised in the event loop
-            self._say(str(exc), error=True)
+            self._say(f"Cannot read {Path(path).name}: {exc}", error=True)
+            return False
+        if not series:
+            self._say(f"{Path(path).name} holds no image series.", error=True)
+            return False
+        index = series[0].index
+        if len(series) > 1:
+            chosen = self.series_chooser(Path(path).name, series, index, self)
+            if chosen is None:
+                self._say(f"No series chosen; {Path(path).name} was not selected.")
+                return False
+            index = chosen
+        self.path_edit.setText(path)
+        self._series, self._series_path, self.series_index = series, path, index
+        self._show_series()
+        return True
+
+    def change_series(self) -> None:
+        """Choose another series of the current file; *Open* loads it."""
+        if self._series_path is None or len(self._series) < 2:
+            return
+        chosen = self.series_chooser(
+            Path(self._series_path).name, self._series, self.series_index, self
+        )
+        if chosen is not None and chosen != self.series_index:
+            self.series_index = chosen
+            self._show_series()
+            self._say(f"Series {chosen} chosen; press Open to load it.")
+
+    def load_path(self, path: str | Path) -> None:
+        """Select a file (asking for the series if needed) and open it.
+
+        Used when a file is dropped onto napari or opened with *File → Open*
+        (IMP-11).
+        """
+        if self.select_file(path):
+            self.open_file()
 
     # ------------------------------------------------------------ actions
 
@@ -303,9 +372,9 @@ class AnalysisWidget(QWidget):
         if not path:
             self._say("Choose a file first.", error=True)
             return
-        if self.series_combo.count() == 0:
-            self._list_series(path)
-        series = self.series_combo.currentData() or 0
+        if path != self._series_path and not self.select_file(path):
+            return
+        series = self.series_index
         profile = self.profile_edit.text().strip() or None
 
         def work() -> AnalysisSession:
@@ -317,21 +386,13 @@ class AnalysisWidget(QWidget):
         self._run(work, lambda _: self._opened(), "Opening")
 
     def _opened(self) -> None:
-        for layer in self._image_layers + list(self._point_layers.values()):
+        self._sync_images()
+        # Keep the bead layers (empty until the next analysis), so the layer list
+        # changes as little as possible while napari draws it (DEF-01).
+        for layer in self._point_layers.values():
             if layer in self.viewer.layers:
-                self.viewer.layers.remove(layer)
-        self._point_layers = {}
-        self._image_layers = [
-            self.viewer.add_image(
-                spec.data,
-                name=spec.name,
-                scale=spec.scale,
-                colormap=spec.colormap,
-                contrast_limits=spec.contrast_limits,
-                blending="additive",
-            )
-            for spec in self.session.image_layers()
-        ]
+                layer.selected_data = set()
+                layer.data = np.empty((0, 3))
         self._fill_metadata()
         self.channel_combo.clear()
         self.summary_table.setRowCount(0)
@@ -339,6 +400,51 @@ class AnalysisWidget(QWidget):
         stack = self.session.stack
         assert stack is not None
         self._say(f"Opened {stack.provenance.path.name}, series {stack.provenance.series_index}.")
+
+    def _sync_images(self) -> None:
+        """Show the open stack's channels, reusing the existing image layers.
+
+        Removing and re-adding layers while napari's layer list is drawing can
+        make napari raise on a stale row (DEF-01), so layers are updated in
+        place; they are only added or removed when the number of channels
+        changes.
+        """
+        specs = self.session.image_layers()
+        existing = [layer for layer in self._image_layers if layer in self.viewer.layers]
+        layers = []
+        added = False
+        for number, spec in enumerate(specs):
+            layer = existing[number] if number < len(existing) else None
+            if layer is not None and layer.data.ndim == spec.data.ndim:
+                layer.data = spec.data
+                layer.scale = spec.scale
+                layer.name = spec.name
+                layer.colormap = spec.colormap
+                layer.reset_contrast_limits_range()
+                layer.contrast_limits = spec.contrast_limits
+            else:
+                if layer is not None:
+                    self.viewer.layers.remove(layer)
+                layer = self.viewer.add_image(
+                    spec.data,
+                    name=spec.name,
+                    scale=spec.scale,
+                    colormap=spec.colormap,
+                    contrast_limits=spec.contrast_limits,
+                    blending="additive",
+                )
+                added = True
+            layers.append(layer)
+        for layer in existing[len(specs) :]:
+            self.viewer.layers.remove(layer)
+        self._image_layers = layers
+        if added:  # keep the bead markers above the images
+            for points in self._point_layers.values():
+                if points in self.viewer.layers:
+                    self.viewer.layers.move(
+                        self.viewer.layers.index(points), len(self.viewer.layers)
+                    )
+        self.viewer.reset_view()
 
     def _fill_metadata(self) -> None:
         self._filling = True
@@ -383,6 +489,8 @@ class AnalysisWidget(QWidget):
             self._say(f"{key}: {exc}", error=True)
         else:
             self._say(f"{key} set." if item.text().strip() else f"{key} override removed.")
+            if key.startswith("voxel"):
+                self._sync_images()  # show the stack at its new scale
         self._fill_metadata()
 
     def analyze(self) -> None:
@@ -413,28 +521,39 @@ class AnalysisWidget(QWidget):
         self._update_buttons()
 
     def _show_points(self) -> None:
-        selected = {index: set(layer.selected_data) for index, layer in self._point_layers.items()}
-        for layer in self._point_layers.values():
-            if layer in self.viewer.layers:
-                self.viewer.layers.remove(layer)
-        self._point_layers = {}
+        """Show each channel's beads, updating the existing layers in place (DEF-01)."""
         result = self.session.result
         assert result is not None
+        layers: dict[int, Any] = {}
         for channel, points in zip(result.channels, self.session.bead_points(), strict=True):
             size = 3 * max(channel.expected_fwhm_um[0], 0.1)
-            colours = np.where(points.accepted, ACCEPTED_COLOUR, REJECTED_COLOUR)
-            layer = self.viewer.add_points(
-                points.coordinates,
-                name=points.name,
-                features=points.features,
-                size=size,
-                face_color="transparent",
-                border_color=list(colours),
-                border_width=0.12,
-                symbol="disc",
-            )
-            layer.selected_data = selected.get(channel.index, set())
-            self._point_layers[channel.index] = layer
+            colours = [str(c) for c in np.where(points.accepted, ACCEPTED_COLOUR, REJECTED_COLOUR)]
+            layer = self._point_layers.get(channel.index)
+            if layer is not None and layer in self.viewer.layers:
+                selected = set(layer.selected_data)
+                layer.data = points.coordinates
+                layer.features = points.features
+                layer.size = size
+                if colours:
+                    layer.border_color = colours
+                layer.name = points.name
+                layer.selected_data = {i for i in selected if i < len(points.coordinates)}
+            else:
+                layer = self.viewer.add_points(
+                    points.coordinates,
+                    name=points.name,
+                    features=points.features,
+                    size=size,
+                    face_color="transparent",
+                    border_color=colours or "transparent",
+                    border_width=0.12,
+                    symbol="disc",
+                )
+            layers[channel.index] = layer
+        for index, layer in self._point_layers.items():
+            if index not in layers and layer in self.viewer.layers:
+                self.viewer.layers.remove(layer)
+        self._point_layers = layers
 
     def _show_summary(self) -> None:
         index = self.channel_combo.currentData()

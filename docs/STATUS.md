@@ -1,9 +1,9 @@
 # PSFWidget: Project Status and Outstanding Items
 
-**Date:** 2026-11-17 (updated after milestones M5.1–M5.3 and the M6 preparation)
+**Date:** 2026-11-20 (updated after milestone M5.4a)
 **Version:** 0.0.1.dev0 (pre-release)
 **Milestones:** M0 to M5 merged ([pull request 8](https://github.com/CU-IBIF/PSFWidget/pull/8)); M5.1 to M5.3 in review ([pull request 9](https://github.com/CU-IBIF/PSFWidget/pull/9)); M6 (validation and v1.0): tools, templates, and draft protocols ready, studies not started.
-**Companion documents:** [Project Plan](PLAN.md), [V&V Plan](VV_PLAN.md), [traceability matrix](traceability.csv), [Install guide](manual/INSTALL.md), [User manual](manual/USER_MANUAL.md)
+**Companion documents:** [Project Plan](PLAN.md), [V&V Plan](VV_PLAN.md), [traceability matrix](traceability.csv), [Install guide](manual/INSTALL.md), [User manual](manual/USER_MANUAL.md), [Theoretical PSF](THEORY.md)
 
 This page is the single place to see what is done and what is not. The
 "Tests" column counts the automated tests linked to each requirement with
@@ -74,7 +74,7 @@ Still open:
 | V5 | VAL-05 ≥ 4-week parallel run against the current QC routine | TRK-05, AUT-* | M6 |
 | V6 | VAL-07 report fitness review and sign-off | REP-* , QA-02 | M6 |
 | V7 | Backup restore drill (procedure and `psfwidget track restore-check` ready, T11.3) | AUT-07, QA-04 | M5.3 |
-| V8 | Manual GUI test script on Windows and macOS ([script ready](validation/GUI_TEST_SCRIPT.md), T11.4; CI runs the GUI tests on Linux only) | UI-01 to UI-04, NFR-05 | M5 |
+| V8 | Manual GUI test script on Windows and macOS ([script ready](validation/GUI_TEST_SCRIPT.md), T11.4). CI runs the GUI tests on Linux; on Windows, CI runs them without blocking, because the 9 that draw images fail on the CI machines' software OpenGL | UI-01 to UI-04, NFR-05 | M5 |
 | V9 | **⚠ Gate** Validation records: [draft protocols](validation/protocols/README.md) to complete and approve before each study, then [test records, anomaly log, and V&V summary](validation/templates/) signed (OECD GLP No. 17) | QA-07 | M6 |
 
 ### 1.4 Known limitations of the current results
@@ -99,7 +99,7 @@ implemented, verification relies on a validation activity still to do.
 | ID | Pri | Status | Tests | Note |
 |---|---|---|---|---|
 | IMP-01 | M | Done | 38/38 | ND2, LIF, CZI, TIFF, OME-TIFF |
-| IMP-02 | M | Done | 13/13 | Multi-position ND2 golden file still missing (F7) |
+| IMP-02 | M | Done | 24/24 | GUI series dialog (M5.4a); multi-position ND2 golden file still missing (F7) |
 | IMP-03 | M | Done | 22/22 | |
 | IMP-04 | M | Done | 13/13 | |
 | IMP-05 | M | Done | 13/13 | `--set`, profiles, GUI table |
@@ -108,6 +108,7 @@ implemented, verification relies on a validation activity still to do.
 | IMP-08 | S | Done | 12/12 | |
 | IMP-09 | S | Done | 11/11 | |
 | IMP-10 | M | Done | 17/17 | |
+| IMP-11 | M | Done | 11/11 | Drag and drop (M5.4a); manual check on the facility PC open (A4) |
 | DET-01 to DET-06, DET-08 | M/S | Done | 1/1 each and more | |
 | DET-07 | S | Done | 4/4 | GUI review with reason and reviewer |
 | MET-01, MET-02 | M | Done | 13/13, 16/16 | |
@@ -144,7 +145,7 @@ implemented, verification relies on a validation activity still to do.
 | NFR-02 | M | V&V | – | VAL-01 (V1) |
 | NFR-03 | M | Done | 3/3 | |
 | NFR-04 | S | Done (manual) | – | 25 s on 4 cores; automate (D8) |
-| NFR-05 | M | Done (CI) | – | CI on Windows, macOS, Linux; GUI tests on Linux only (V8) |
+| NFR-05 | M | Done (CI) | – | CI on Windows, macOS, Linux; GUI tests blocking on Linux, non-blocking on Windows (V8) |
 | NFR-06, NFR-07 | M | Done | 6/6, 11/11 | |
 | NFR-08 | S | V&V | – | VAL-06 (F2) |
 | NFR-09 | S | Done (CI) | – | 95% core coverage; 87% GUI |
@@ -169,4 +170,5 @@ implemented, verification relies on a validation activity still to do.
 | M5.1 Theory and intensity | In review | – |
 | M5.2 Records and automation | In review | – |
 | M5.3 Release readiness | In review | restore drill and GUI checks to run (V7, V8) |
+| M5.4 GUI revision (facility feedback, crash on load) | [Plan](M5.4_GUI_REVISION_PLAN.md); M5.4a done, in review | Facility re-test of M5.4a (A4, A5, G4); M5.4b review workflow; M5.4c reports |
 | M6 Validation and v1.0 | Prepared | studies V1–V6, records V9, release D1 |
