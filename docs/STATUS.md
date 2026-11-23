@@ -3,7 +3,7 @@
 **Date:** 2026-11-20 (updated after milestone M5.4a)
 **Version:** 0.0.1.dev0 (pre-release)
 **Milestones:** M0 to M5 merged ([pull request 8](https://github.com/CU-IBIF/PSFWidget/pull/8)); M5.1 to M5.3 in review ([pull request 9](https://github.com/CU-IBIF/PSFWidget/pull/9)); M6 (validation and v1.0): tools, templates, and draft protocols ready, studies not started.
-**Companion documents:** [Project Plan](PLAN.md), [V&V Plan](VV_PLAN.md), [traceability matrix](traceability.csv), [Install guide](manual/INSTALL.md), [User manual](manual/USER_MANUAL.md)
+**Companion documents:** [Project Plan](PLAN.md), [V&V Plan](VV_PLAN.md), [traceability matrix](traceability.csv), [Install guide](manual/INSTALL.md), [User manual](manual/USER_MANUAL.md), [Theoretical PSF](THEORY.md)
 
 This page is the single place to see what is done and what is not. The
 "Tests" column counts the automated tests linked to each requirement with

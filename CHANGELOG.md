@@ -190,6 +190,10 @@ All notable changes to this project are documented here. The format follows
   model, the excitation (laser) wavelength required instead of the emission,
   multiphoton modes read from ND2, CZI, and OME-TIFF files, and a profile
   template.
+- `docs/THEORY.md`: how the theoretical PSF is calculated (models by modality,
+  vectorial and Gibson–Lanni refinements, image-scanning model, closed-form
+  formulas, bead-size correction, the 3D model image, limits, verification,
+  and references); linked from the user manual §6.4 and the README.
 - Drag and drop (M5.4a, IMP-11): a napari reader opens `.nd2`, `.lif`, `.czi`,
   `.tif`, `.tiff`, and `.ome.tif` files dropped onto napari (or opened with
   *File → Open*) in the PSF analysis widget.

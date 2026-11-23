@@ -1,7 +1,7 @@
 """Theoretical PSFs and empirical-vs-theoretical comparison (WP3).
 
-Requirements: THE-01, THE-03, THE-08. The Gibson-Lanni and vectorial
-models (THE-02) follow in WP3.
+Requirements: THE-01 to THE-10, including the vectorial and Gibson-Lanni
+models (THE-02). How the models work is explained in ``docs/THEORY.md``.
 """
 
 from psfwidget.theory.analytic import AnalyticWidth

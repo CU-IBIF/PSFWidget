@@ -462,6 +462,10 @@ with the published closed-form values shown alongside. A profile's
 refractive-index mismatch and coverslip deviations; the report names the
 model used.
 
+[How PSFWidget calculates the theoretical PSF](../THEORY.md) gives the
+equations, the inputs each modality needs, the bead-size correction, what is
+not modelled, and how the models are verified.
+
 ### 6.5 Status
 
 Each channel and the whole session get one status, shown on reports:

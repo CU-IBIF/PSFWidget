@@ -39,6 +39,7 @@ Python API.
 | [Status and outstanding items](docs/STATUS.md) | What works, what is missing, and what is waiting on whom |
 | [Project plan](docs/PLAN.md) | Requirements, tasks, milestones, risks, and decisions |
 | [V&V plan](docs/VV_PLAN.md) | How each requirement is verified and validated |
+| [Theoretical PSF](docs/THEORY.md) | How the expected PSF is calculated: models, inputs, bead-size correction, limits, verification |
 | [Traceability matrix](docs/traceability.csv) | Requirement → verification method → activity |
 | [Fitting accuracy](docs/validation/fitting_accuracy.md) | Bias and precision of the FWHM measurement on synthetic beads |
 | [Licence audit](docs/LICENSE_AUDIT.md) | Licences of all dependencies |
