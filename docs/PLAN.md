@@ -155,7 +155,7 @@ All metrics are computed per bead and summarized per field as n, mean, SD, media
 
 | ID | Requirement | Pri |
 |---|---|---|
-| REP-01 | The system shall generate a **session report** (one acquisition): metadata, bead overview (MIP with accepted and rejected beads marked), metric summary tables, per-bead tables, orthogonal views, profile fits, theoretical comparison, field maps, and pass/fail status. | M |
+| REP-01 | The system shall generate a **session report** (one acquisition): metadata, bead overview (MIP with accepted and rejected beads marked), metric summary tables, per-bead tables (a sample of accepted beads in each channel section; in the appendices, all accepted beads and any a reviewer changed, with automatic rejections counted by reason; every bead stays in the CSV/XLSX export, changed M5.4), orthogonal views, profile fits, theoretical comparison, field maps, and pass/fail status. | M |
 | REP-02 | The system shall generate a **trend report** (one instrument or configuration over a date range): LJ charts, rule violations, events, and a summary table. | M |
 | REP-03 | Reports shall be available as **HTML** (self-contained, one file) and **PDF**. | M |
 | REP-04 | Raw results shall be exportable as **CSV** and **XLSX**, and the averaged PSF as **OME-TIFF**. | M |

@@ -585,9 +585,12 @@ regenerated from the same data shows the same beads.
 Then come the provenance (software version, settings, file name and SHA-256,
 operator) and all metadata with origins, and the **appendices**, one per
 channel (Appendix A for the first channel, B for the second, and so on). Each
-starts on a new page and lists every candidate bead of its channel: accepted
-beads first, then rejected beads with their reasons, each group in bead
-order.
+starts on a new page and lists the channel's accepted beads, then any beads a
+reviewer excluded, with the reviewer and reason, each group in bead order.
+Beads rejected by the automatic checks are not listed, to keep the report
+short; the caption counts them by reason (for example `low SNR 12, edge 4`).
+Every bead, with its reasons, is in the bead export (`<name>_beads.csv`, or
+the Excel file).
 
 ### 8.2 Trend report
 

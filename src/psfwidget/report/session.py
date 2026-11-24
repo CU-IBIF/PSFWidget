@@ -13,8 +13,10 @@ import numpy as np
 from psfwidget.analysis import ChannelResult, FieldResult
 from psfwidget.io.model import ACQUISITION_FIELDS, CHANNEL_FIELDS, ImageStack, Sourced
 from psfwidget.metrics.bead import BeadResult
+from psfwidget.metrics.summary import rejection_counts
 from psfwidget.report import document as doc
 from psfwidget.report.status import ChannelStatus, MetricCheck, field_status, overall
+from psfwidget.review import MANUAL_EXCLUSION
 from psfwidget.serialize import plain
 from psfwidget.tracking.chart import metric_label
 
@@ -254,11 +256,24 @@ def _spec_table(channel: ChannelResult) -> doc.Table | None:
     )
 
 
+def excluded_by_reviewer(bead: BeadResult) -> bool:
+    """Return whether a reviewer, not the automatic checks, rejected the bead."""
+    return not bead.accepted and any(r.startswith(MANUAL_EXCLUSION) for r in bead.reasons)
+
+
 def _bead_table(channel: ChannelResult) -> doc.Table:
-    """Every bead, accepted first and then rejected, each group by bead id."""
+    """Return the table of accepted beads, then reviewer exclusions, by bead id (REP-01).
+
+    Beads rejected by the automatic checks are only counted by reason, to keep
+    the report short; every bead is in the bead export (CSV or Excel).
+    """
+    accepted = sorted(channel.accepted, key=lambda b: b.bead_id)
+    excluded = sorted(
+        (b for b in channel.beads if excluded_by_reviewer(b)), key=lambda b: b.bead_id
+    )
+    automatic = [b for b in channel.beads if not b.accepted and not excluded_by_reviewer(b)]
     rows = []
-    ordered = sorted(channel.beads, key=lambda b: (not b.accepted, b.bead_id))
-    for bead in ordered:
+    for bead in (*accepted, *excluded):
         rows.append(
             (
                 str(bead.bead_id),
@@ -272,6 +287,16 @@ def _bead_table(channel: ChannelResult) -> doc.Table:
                 fmt(bead.snr, 3),
                 "; ".join(bead.reasons + bead.notes) or "-",
             )
+        )
+    caption = f"{len(accepted)} accepted beads" if accepted else "No accepted beads"
+    if excluded:
+        caption += f", then {len(excluded)} excluded by a reviewer"
+    caption += " (FWHM in µm)." if accepted or excluded else "."
+    if automatic:
+        counts = ", ".join(f"{kind} {n}" for kind, n in rejection_counts(automatic).items())
+        caption += (
+            f" Not listed: {len(automatic)} beads rejected by the automatic checks ({counts}); "
+            "every bead, with its reasons, is in the bead export (CSV or Excel)."
         )
     return doc.Table(
         (
@@ -288,10 +313,7 @@ def _bead_table(channel: ChannelResult) -> doc.Table:
         ),
         tuple(rows),
         frozenset({3, 4, 5, 6, 7, 8}),
-        caption=(
-            f"{len(channel.accepted)} accepted, then {len(channel.beads) - len(channel.accepted)} "
-            "rejected beads (FWHM in µm)."
-        ),
+        caption=caption,
     )
 
 
@@ -452,7 +474,7 @@ def _sample_table(result: FieldResult, channel: ChannelResult, appendix: str) ->
         ("Bead", "z, y, x (px)", "FWHM x", "FWHM y", "FWHM z", "Ratio x", "Ratio z", "SNR"),
         rows,
         frozenset({2, 3, 4, 5, 6, 7}),
-        caption=f"{which}; FWHM in µm. Every bead, with rejection reasons, is in {appendix}.",
+        caption=f"{which}; FWHM in µm. All accepted beads are in {appendix}.",
     )
 
 
@@ -559,7 +581,9 @@ def build_session_report(
             blocks.append(_sample_table(result, channel, _appendix(number)))
         else:
             blocks.append(
-                doc.Paragraph(f"No accepted beads; every candidate is in {_appendix(number)}.")
+                doc.Paragraph(
+                    f"No accepted beads; the rejections are summarised in {_appendix(number)}."
+                )
             )
 
     blocks.append(doc.PageBreak())
@@ -573,12 +597,15 @@ def build_session_report(
         blocks.append(doc.Heading(f"{_appendix(number)}: beads of {name}"))
         blocks.append(
             doc.Paragraph(
-                "Every candidate bead: accepted beads first, then rejected beads with the "
-                "reasons, each group in bead order.",
+                "Accepted beads, then any beads a reviewer excluded, each group in bead "
+                "order. Beads rejected by the automatic checks are counted below the table, "
+                "not listed.",
                 muted=True,
             )
         )
-        blocks.append(_bead_table(channel))
+        table = _bead_table(channel)
+        # A channel with nothing to list gets the counts alone, not an empty table.
+        blocks.append(table if table.rows else doc.Paragraph(table.caption or ""))
     report = doc.Report(
         title="PSF quality control: session report",
         subtitle=subtitle,

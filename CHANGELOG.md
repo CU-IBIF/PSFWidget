@@ -194,6 +194,10 @@ All notable changes to this project are documented here. The format follows
   chosen at random but reproducibly (seeded from the file's SHA-256, series,
   and channel); the full bead tables move to one appendix per channel
   (Appendix A, B, …).
+- Session report appendices list accepted beads and beads a reviewer
+  excluded (with the reviewer and reason), but not beads rejected by the
+  automatic checks: those are counted by reason in the caption. Every bead
+  stays in the CSV and Excel bead export (M5.4 D11, REP-01).
 - `docs/THEORY.md`: how the theoretical PSF is calculated (models by modality,
   vectorial and Gibson–Lanni refinements, image-scanning model, closed-form
   formulas, bead-size correction, the 3D model image, limits, verification,

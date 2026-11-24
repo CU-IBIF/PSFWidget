@@ -283,8 +283,12 @@ def test_session_report_and_exports(tracked: tuple[Path, Path, list[int]], tmp_p
     bead_table = next(
         b for b in report.blocks if isinstance(b, doc.Table) and b.header[:2] == ("Bead", "Status")
     )
-    bead_statuses = [row[1] for row in bead_table.rows]
-    assert bead_statuses == sorted(bead_statuses, key=lambda status: status != "accepted")
+    # Only accepted beads are listed (no reviewer here); automatic rejections are counted.
+    assert {row[1] for row in bead_table.rows} == {"accepted"}
+    assert len(bead_table.rows) == len(result.channels[0].accepted)
+    rejected = len(result.channels[0].beads) - len(result.channels[0].accepted)
+    if rejected:
+        assert f"Not listed: {rejected} beads rejected" in (bead_table.caption or "")
     accepted_ids = [int(row[0]) for row in bead_table.rows if row[1] == "accepted"]
     assert accepted_ids == sorted(accepted_ids)
     assert "Accepted beads across the field" in html
@@ -485,3 +489,73 @@ def test_pdf_headings_stay_with_what_follows() -> None:
     ]
     sizes = [len(getattr(f, "_content", ())) for f in grouped]
     assert sizes == [0, 3, 3, 0, 1, 0]
+
+
+@pytest.mark.req("REP-01", "DET-07", "QA-01")
+def test_appendix_lists_reviewer_exclusions_but_not_automatic_rejections(
+    tracked: tuple[Path, Path, list[int]], tmp_path: Path
+) -> None:
+    from dataclasses import replace
+
+    from psfwidget.review import Decision, review
+
+    database, profile_path, _ = tracked
+    profile = load_profile(profile_path)
+    stack = read_stack(database.parent / "day6.tif", profile=profile)
+    result = analyze_stack(stack, AnalysisSettings(), profile.spec)
+    channel = result.channels[0]
+    # One bead fails an automatic check (the field's beads are all clean otherwise).
+    dim = channel.accepted[-1]
+    beads = tuple(b.reject("SNR 2.1 below 5") if b is dim else b for b in channel.beads)
+    result = replace(result, channels=(replace(channel, beads=beads), *result.channels[1:]))
+    target = channel.accepted[0].bead_id
+    reviewed = review(result, {0: {target: Decision(False, "dust on the bead", "ab")}})
+    report, _ = build_session_report(reviewed, stack=stack)
+    table = next(
+        b for b in report.blocks if isinstance(b, doc.Table) and b.header[:2] == ("Bead", "Status")
+    )
+    rows = {int(row[0]): row for row in table.rows}
+    assert target in rows  # the reviewer's exclusion stays in the record
+    assert rows[target][1] == "rejected"
+    assert "excluded by reviewer ab: dust on the bead" in rows[target][-1]
+    assert list(rows)[-1] == target  # after the accepted beads
+    automatic = [b for b in reviewed.channels[0].beads if not b.accepted and b.bead_id != target]
+    assert automatic  # the test field has beads the automatic checks reject
+    for bead in automatic:
+        assert bead.bead_id not in rows
+    assert f"Not listed: {len(automatic)} beads rejected" in (table.caption or "")
+    assert "low SNR 1" in (table.caption or "")  # counted by reason
+    # The bead export keeps every bead, with its reasons.
+    import csv
+
+    from psfwidget.automation.analyze import write_outputs
+
+    exported = next(p for p in write_outputs(reviewed, tmp_path) if p.name.endswith("_beads.csv"))
+    with exported.open(encoding="utf-8") as handle:
+        statuses = {
+            int(r["bead_id"]): r["status"] for r in csv.DictReader(handle) if r["channel"] == "0"
+        }
+    assert len(statuses) == len(reviewed.channels[0].beads)
+    assert statuses[dim.bead_id] == "rejected"
+    assert "1 excluded by a reviewer" in (table.caption or "")
+
+
+@pytest.mark.req("REP-01")
+def test_appendix_of_a_channel_without_accepted_beads_has_no_empty_table(
+    tracked: tuple[Path, Path, list[int]],
+) -> None:
+    from dataclasses import replace
+
+    database, profile_path, _ = tracked
+    profile = load_profile(profile_path)
+    stack = read_stack(database.parent / "day6.tif", profile=profile)
+    result = analyze_stack(stack, AnalysisSettings(), profile.spec)
+    channel = result.channels[0]
+    beads = tuple(b.reject("SNR 2.1 below 5") for b in channel.beads)
+    empty = replace(result, channels=(replace(channel, beads=beads),))
+    report, _ = build_session_report(empty)
+    assert not any(
+        isinstance(b, doc.Table) and b.header[:2] == ("Bead", "Status") for b in report.blocks
+    )
+    texts = [b.text for b in report.blocks if isinstance(b, doc.Paragraph)]
+    assert any(t.startswith("No accepted beads. Not listed: ") for t in texts)
