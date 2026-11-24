@@ -13,8 +13,10 @@ to read the results, see the [user manual](manual/USER_MANUAL.md) §6.
 In short: PSFWidget integrates the focal field of an ideal objective
 numerically, combines the excitation and emission PSFs according to the
 microscope's modality, and measures the FWHM of the result. The
-textbook formulas are reported alongside for reference. The numerical model
-is the reference for every *measured ÷ theory* ratio.
+textbook formulas are reported alongside for reference. Both the scalar and
+the vectorial (Richards–Wolf) model are calculated and reported for every
+channel (§3.3). One of them, scalar unless the profile chooses vectorial, is the
+reference for the *measured ÷ theory* ratios, spec limits, and tracking.
 
 ---
 
@@ -81,10 +83,13 @@ FWHM** in the reports.
 
 ---
 
-## 3. Optional refinements
+## 3. Refinements: vectorial focusing and refractive-index mismatch
 
-An instrument profile's `[theory]` table can ask for either or both of two
-refinements (user manual §4):
+An instrument profile's `[theory]` table can make the vectorial model the
+reference (`model = "vectorial"`) and can add refractive-index mismatch
+(user manual §4). Both the scalar and the vectorial model are always
+calculated and reported (§3.3); the setting only chooses which one is the
+reference:
 
 ```toml
 [theory]
@@ -133,6 +138,36 @@ When the NA is larger than the sample's index, the aperture is limited to
 the sample index, as in the Gibson–Lanni model. Rays beyond that angle do
 not propagate into the sample.
 
+
+### 3.3 Both models in every report
+
+Every channel gets both FWHM pairs, computed with the same settings
+(wavelengths, pinhole, and any refractive-index mismatch), whichever model
+the profile chooses:
+
+- the **summary table** has a theory and a ratio column for each model
+  (*Scalar theory*, *Ratio*, *Vectorial theory*, *Ratio*), and its caption
+  names the reference model;
+- the **theory paragraph** gives the reference model's widths, then both;
+- the **channel CSV** has `theory_scalar_lateral_um`,
+  `theory_scalar_axial_um`, `theory_vectorial_lateral_um`, and
+  `theory_vectorial_axial_um`, next to `theory_lateral_um` and
+  `theory_axial_um` (the reference); `run.json` holds the same values;
+- the **command line** and the **GUI summary** print both.
+
+The reference model's ratios are the per-bead ratios' medians. The other
+model's ratios are the median FWHM divided by its width, which is the same
+quantity, as the theory is one number per channel.
+
+Only the reference model sets the PASS/FAIL status and the tracked ratios,
+so changing it in a profile shifts those values, and calls for a tracking
+event with new control limits. The default stays scalar, so existing control
+limits are unaffected.
+
+At NA 1.4 the vectorial model is wider laterally than the scalar model, by
+about 10% for widefield and about 6% for confocal, and about 1–2% shorter
+axially. For example, SP8 confocal at 515 nm: scalar 176 nm × 397 nm,
+vectorial 187 nm × 389 nm.
 ---
 
 ## 4. Resolution-enhanced modes (NSPARC, Live-SR)

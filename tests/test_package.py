@@ -27,7 +27,20 @@ SUBPACKAGES = [
 
 
 def test_version_is_semver() -> None:
-    assert re.fullmatch(r"\d+\.\d+\.\d+((a|b|rc)\d+)?(\.dev\d+)?", psfwidget.__version__)
+    """A release is X.Y.Z; any other build adds .devN and the commit (e.g. +g1b89b85)."""
+    assert re.fullmatch(
+        r"\d+\.\d+\.\d+((a|b|rc)\d+)?(\.dev\d+)?(\+[0-9a-z.]+)?", psfwidget.__version__
+    )
+
+
+def test_version_comes_from_git() -> None:
+    from packaging.version import Version
+
+    version = Version(psfwidget.__version__)
+    assert version > Version("0.0.1.dev0")  # the last hand-set version
+    if version.is_devrelease:  # not a tagged release: the commit is recorded
+        assert version.local is not None
+        assert "g" in version.local
 
 
 @pytest.mark.parametrize("name", SUBPACKAGES)

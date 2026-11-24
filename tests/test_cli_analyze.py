@@ -85,6 +85,11 @@ def test_analyze_writes_four_files(
     (channel,) = _read(tmp_path / "beads_channels.csv")
     assert channel["accepted"] == "8"
     assert channel["theory_model"] == "scalar widefield (emission PSF)"
+    # Both models are reported; the scalar one is the reference.
+    assert channel["theory_scalar_lateral_um"] == channel["theory_lateral_um"]
+    assert float(channel["theory_vectorial_lateral_um"]) > float(channel["theory_lateral_um"])
+    assert float(channel["theory_vectorial_axial_um"]) > 0
+    assert "both models: scalar lateral" in out
     assert channel["analytic_regime"] == "widefield"
 
     run = json.loads((tmp_path / "beads_run.json").read_text("utf-8"))

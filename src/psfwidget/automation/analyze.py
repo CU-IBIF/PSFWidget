@@ -33,6 +33,10 @@ CHANNEL_FIELDS: tuple[str, ...] = (
     "theory_model",
     "theory_lateral_um",
     "theory_axial_um",
+    "theory_scalar_lateral_um",
+    "theory_scalar_axial_um",
+    "theory_vectorial_lateral_um",
+    "theory_vectorial_axial_um",
     "analytic_regime",
     "analytic_lateral_um",
     "analytic_axial_um",
@@ -97,6 +101,10 @@ def channel_row(channel: ChannelResult) -> dict[str, Any]:
         "theory_model": None if theory is None else theory.model,
         "theory_lateral_um": None if theory is None else theory.lateral_um,
         "theory_axial_um": None if theory is None else theory.axial_um,
+        "theory_scalar_lateral_um": None if theory is None else theory.scalar_lateral_um,
+        "theory_scalar_axial_um": None if theory is None else theory.scalar_axial_um,
+        "theory_vectorial_lateral_um": None if theory is None else theory.vectorial_lateral_um,
+        "theory_vectorial_axial_um": None if theory is None else theory.vectorial_axial_um,
         "analytic_regime": None if closed_form is None else closed_form.regime,
         "analytic_lateral_um": None if closed_form is None else closed_form.lateral_um,
         "analytic_axial_um": None if closed_form is None else closed_form.axial_um,
@@ -231,7 +239,14 @@ def format_text(result: FieldResult) -> str:
         if theory is None:
             lines.append(f"  theory: not available ({channel.theory_unavailable})")
         else:
-            lines.append(f"  theory: {theory.model}")
+            lines.append(f"  theory: {theory.model} (reference for the ratios)")
+            if theory.scalar_lateral_um is not None and theory.vectorial_lateral_um is not None:
+                lines.append(
+                    "  both models: scalar lateral "
+                    f"{_fmt(theory.scalar_lateral_um)} axial {_fmt(theory.scalar_axial_um)} µm; "
+                    f"vectorial lateral {_fmt(theory.vectorial_lateral_um)} "
+                    f"axial {_fmt(theory.vectorial_axial_um)} µm"
+                )
         lines.append(f"  {'':16}{'median':>10}{'IQR':>10}{'theory':>10}{'ratio':>8}")
         rows = (
             ("FWHM x (µm)", "fwhm_x_um", None if theory is None else theory.lateral_um, "ratio_x"),

@@ -42,8 +42,12 @@ from psfwidget.napari.session import AnalysisSession, default_user
 ACCEPTED_COLOUR = "#0ca30c"
 REJECTED_COLOUR = "#e0331f"
 FILE_FILTER = "Bead stacks (*.nd2 *.lif *.czi *.tif *.tiff);;All files (*)"
-MISSING = QColor("#f6d8d3")
-OVERRIDDEN = QColor("#dbe8f8")
+MISSING = QColor("#e0331f")
+"""Text colour (italic) of a required value that is missing."""
+OVERRIDDEN = QColor("#eb6834")
+"""Text colour (bold) of a value the user changed. Only the text is styled, never the
+fill, so the rows stay readable in napari's dark and light themes (UI-06); bold and
+italic keep the two states apart, as the two colours are close."""
 STRETCH = QHeaderView.ResizeMode.Stretch
 RIGHT = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
 
@@ -459,12 +463,15 @@ class AnalysisWidget(QWidget):
             value = QTableWidgetItem(row.value)
             source = QTableWidgetItem(row.source or "missing")
             source.setFlags(source.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            if row.required and not row.value:
+            missing = row.required and not row.value
+            changed = row.source == "user"
+            if missing or changed:
                 for item in (field, value, source):
-                    item.setBackground(MISSING)
-            elif row.source == "user":
-                for item in (field, value, source):
-                    item.setBackground(OVERRIDDEN)
+                    item.setForeground(MISSING if missing else OVERRIDDEN)
+                    font = item.font()
+                    font.setItalic(missing)
+                    font.setBold(not missing)
+                    item.setFont(font)
             for column, item in enumerate((field, value, source)):
                 self.metadata_table.setItem(number, column, item)
         self.metadata_table.resizeColumnToContents(0)
@@ -571,11 +578,24 @@ class AnalysisWidget(QWidget):
                 self.summary_table.setItem(number, column, item)
         channel = self.session.channel(index)
         lines = [f"{len(channel.accepted)} of {len(channel.beads)} beads accepted."]
-        if channel.theory is not None:
+        theory = channel.theory
+        if theory is not None:
             lines.append(
-                f"Theory ({channel.theory.model}): lateral {channel.theory.lateral_um * 1000:.0f} "
-                f"nm, axial {channel.theory.axial_um * 1000:.0f} nm."
+                f"Theory ({theory.model}, the reference for the ratios): lateral "
+                f"{theory.lateral_um * 1000:.0f} nm, axial {theory.axial_um * 1000:.0f} nm."
             )
+            both = (
+                theory.scalar_lateral_um,
+                theory.scalar_axial_um,
+                theory.vectorial_lateral_um,
+                theory.vectorial_axial_um,
+            )
+            if all(value is not None for value in both):
+                s_lat, s_ax, v_lat, v_ax = (float(value or 0.0) * 1000 for value in both)
+                lines.append(
+                    f"Scalar: lateral {s_lat:.0f} nm, axial {s_ax:.0f} nm. Vectorial "
+                    f"(Richards–Wolf): lateral {v_lat:.0f} nm, axial {v_ax:.0f} nm."
+                )
         elif channel.theory_unavailable:
             lines.append(f"No theory: {channel.theory_unavailable}")
         if channel.spec is not None:
