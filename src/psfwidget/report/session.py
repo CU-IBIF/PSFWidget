@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict
 from datetime import UTC, datetime
 
+import numpy as np
+
 from psfwidget.analysis import ChannelResult, FieldResult
 from psfwidget.io.model import ACQUISITION_FIELDS, CHANNEL_FIELDS, ImageStack, Sourced
+from psfwidget.metrics.bead import BeadResult
 from psfwidget.report import document as doc
 from psfwidget.report.status import ChannelStatus, MetricCheck, field_status, overall
 from psfwidget.serialize import plain
@@ -394,6 +398,68 @@ def _metadata_tables(result: FieldResult) -> list[doc.Block]:
     return blocks
 
 
+SAMPLE_BEADS = 10
+"""Accepted beads shown in each channel section; the rest are in the appendices."""
+
+
+def _sample_seed(result: FieldResult, channel: ChannelResult) -> int:
+    """Seed the bead sample from the file and channel, so a report is reproducible."""
+    source = result.provenance
+    key = f"{source.sha256 or source.path.name}|{source.series_index}|{channel.index}"
+    return int.from_bytes(hashlib.sha256(key.encode()).digest()[:8], "big")
+
+
+def sample_beads(
+    result: FieldResult, channel: ChannelResult, count: int = SAMPLE_BEADS
+) -> list[BeadResult]:
+    """Return up to ``count`` accepted beads chosen at random, in bead order.
+
+    The choice is seeded from the file's SHA-256 (or name), series, and
+    channel, so the same data always gives the same sample.
+    """
+    accepted = sorted(channel.accepted, key=lambda b: b.bead_id)
+    if len(accepted) <= count:
+        return accepted
+    rng = np.random.default_rng(_sample_seed(result, channel))
+    chosen = sorted(int(i) for i in rng.choice(len(accepted), size=count, replace=False))
+    return [accepted[i] for i in chosen]
+
+
+def _sample_table(result: FieldResult, channel: ChannelResult, appendix: str) -> doc.Table:
+    """Return a table of a random sample of the channel's accepted beads."""
+    beads = sample_beads(result, channel)
+    rows = tuple(
+        (
+            str(bead.bead_id),
+            f"{bead.z_px}, {bead.y_px}, {bead.x_px}",
+            fmt(bead.fwhm_x_um, 3),
+            fmt(bead.fwhm_y_um, 3),
+            fmt(bead.fwhm_z_um, 3),
+            fmt(bead.ratio_x, 3),
+            fmt(bead.ratio_z, 3),
+            fmt(bead.snr, 3),
+        )
+        for bead in beads
+    )
+    total = len(channel.accepted)
+    which = (
+        f"{len(beads)} of {total} accepted beads, chosen at random (the same beads each time "
+        "this file is reported)"
+        if len(beads) < total
+        else f"All {total} accepted beads"
+    )
+    return doc.Table(
+        ("Bead", "z, y, x (px)", "FWHM x", "FWHM y", "FWHM z", "Ratio x", "Ratio z", "SNR"),
+        rows,
+        frozenset({2, 3, 4, 5, 6, 7}),
+        caption=f"{which}; FWHM in µm. Every bead, with rejection reasons, is in {appendix}.",
+    )
+
+
+def _appendix(number: int) -> str:
+    return f"Appendix {chr(ord('A') + number)}"
+
+
 def build_session_report(
     result: FieldResult,
     *,
@@ -455,7 +521,9 @@ def build_session_report(
         )
     )
 
-    for channel, channel_status in zip(result.channels, statuses, strict=True):
+    for number, (channel, channel_status) in enumerate(
+        zip(result.channels, statuses, strict=True)
+    ):
         blocks.append(doc.PageBreak())
         title = f"Channel {channel.index}" + (f" – {channel.name}" if channel.name else "")
         blocks.append(doc.Heading(title))
@@ -486,33 +554,28 @@ def build_session_report(
             blocks.append(doc.Paragraph(f"Note: {warning}", muted=True))
         if stack is not None:
             blocks.extend(_figures(stack, channel, result))
-        blocks.append(
-            doc.Paragraph(
-                "Every bead of this channel, accepted and rejected, is listed in Appendix A.",
-                muted=True,
+        blocks.append(doc.Heading("Sample of accepted beads", 3))
+        if channel.accepted:
+            blocks.append(_sample_table(result, channel, _appendix(number)))
+        else:
+            blocks.append(
+                doc.Paragraph(f"No accepted beads; every candidate is in {_appendix(number)}.")
             )
-        )
 
     blocks.append(doc.PageBreak())
     blocks.append(doc.Heading("Provenance"))
     blocks.append(_provenance(result, operator))
     blocks.append(doc.Heading("Metadata"))
     blocks.extend(_metadata_tables(result))
-    blocks.append(doc.PageBreak())
-    blocks.append(doc.Heading("Appendix A: bead tables"))
-    blocks.append(
-        doc.Paragraph(
-            "Every candidate bead of each channel: accepted beads first, then rejected beads "
-            "with the reasons, each group in bead order.",
-            muted=True,
-        )
-    )
     for number, channel in enumerate(result.channels):
-        if number:
-            blocks.append(doc.PageBreak())  # keep each channel's heading with its table
+        blocks.append(doc.PageBreak())  # each appendix starts on its own page
+        name = f"channel {channel.index}" + (f" – {channel.name}" if channel.name else "")
+        blocks.append(doc.Heading(f"{_appendix(number)}: beads of {name}"))
         blocks.append(
-            doc.Heading(
-                f"Channel {channel.index}" + (f" – {channel.name}" if channel.name else ""), 3
+            doc.Paragraph(
+                "Every candidate bead: accepted beads first, then rejected beads with the "
+                "reasons, each group in bead order.",
+                muted=True,
             )
         )
         blocks.append(_bead_table(channel))

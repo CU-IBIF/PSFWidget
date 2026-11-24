@@ -576,10 +576,18 @@ accepted beads across the field of view. The panel titles give the three
 FWHMs. Where the average differs from the single bead, the field is not
 uniform; where both differ from the model, the instrument does.
 
+Each channel section ends with a **sample of accepted beads**: 10 accepted
+beads chosen at random, or all of them if there are fewer, in bead order,
+with their position, FWHM, ratios to theory, and signal-to-noise. The choice
+is seeded from the file's SHA-256, series, and channel, so a report
+regenerated from the same data shows the same beads.
+
 Then come the provenance (software version, settings, file name and SHA-256,
-operator) and all metadata with origins, and **Appendix A**: a table of every
-candidate bead for each channel, accepted beads first and then rejected beads
-with their reasons, each group in bead order.
+operator) and all metadata with origins, and the **appendices**, one per
+channel (Appendix A for the first channel, B for the second, and so on). Each
+starts on a new page and lists every candidate bead of its channel: accepted
+beads first, then rejected beads with their reasons, each group in bead
+order.
 
 ### 8.2 Trend report
 

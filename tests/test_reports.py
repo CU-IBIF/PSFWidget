@@ -26,7 +26,7 @@ from psfwidget.report import paths
 from psfwidget.report.publish import OutputSettings, publish_session, session_base
 from psfwidget.report.render_html import render_html
 from psfwidget.report.render_pdf import pdf_text, render_pdf
-from psfwidget.report.session import build_session_report
+from psfwidget.report.session import SAMPLE_BEADS, build_session_report, sample_beads
 from psfwidget.report.status import MetricCheck, channel_status, session_checks
 from psfwidget.report.trend import DEFAULT_CHART_METRICS, build_trend_report
 from psfwidget.settings import AnalysisSettings
@@ -262,9 +262,24 @@ def test_session_report_and_exports(tracked: tuple[Path, Path, list[int]], tmp_p
     assert "slices through the centre of bead" in html
     assert "accepted beads across the field of view" in html
     assert "Right: axial FWHM" in html
-    # The bead table is in Appendix A, after the provenance, accepted beads first.
+    # Each channel's full bead table is an appendix after the provenance, accepted first;
+    # the channel section shows a reproducible random sample of accepted beads.
     headings = [b.text for b in report.blocks if isinstance(b, doc.Heading)]
-    assert headings.index("Appendix A: bead tables") > headings.index("Provenance")
+    appendix = next(h for h in headings if h.startswith("Appendix A: beads of channel 0"))
+    assert headings.index(appendix) > headings.index("Provenance")
+    assert headings.count("Sample of accepted beads") == len(result.channels)
+    sample_table = next(
+        b
+        for b in report.blocks
+        if isinstance(b, doc.Table) and b.header[:2] == ("Bead", "z, y, x (px)")
+    )
+    channel = result.channels[0]
+    accepted = {b.bead_id for b in channel.accepted}
+    sampled = [int(row[0]) for row in sample_table.rows]
+    assert len(sampled) == min(len(accepted), SAMPLE_BEADS)
+    assert set(sampled) <= accepted
+    assert sampled == sorted(sampled)
+    assert "Appendix A" in (sample_table.caption or "")
     bead_table = next(
         b for b in report.blocks if isinstance(b, doc.Table) and b.header[:2] == ("Bead", "Status")
     )
@@ -408,3 +423,65 @@ def test_orthogonal_comparison_rows(tracked: tuple[Path, Path, list[int]]) -> No
     image, count = figures.orthogonal_comparison(volume, bead, alone, voxel, settings)
     assert image.startswith(b"\x89PNG")
     assert count is None
+
+
+@pytest.mark.req("REP-01")
+def test_bead_sample_is_random_but_reproducible(tracked: tuple[Path, Path, list[int]]) -> None:
+    from dataclasses import replace
+
+    database, profile_path, _ = tracked
+    profile = load_profile(profile_path)
+    stack = read_stack(database.parent / "day6.tif", profile=profile)
+    result = analyze_stack(stack, AnalysisSettings(), profile.spec)
+    channel = result.channels[0]
+    accepted = sorted(b.bead_id for b in channel.accepted)
+    assert sample_beads(result, channel, 3) == sample_beads(result, channel, 3)
+    chosen = [b.bead_id for b in sample_beads(result, channel, 3)]
+    assert len(chosen) == 3
+    assert set(chosen) <= set(accepted)
+    assert chosen == sorted(chosen)
+    # A different file (checksum) gives a different draw, for at least one of a few sizes.
+    other = replace(result, provenance=replace(result.provenance, sha256="0" * 64))
+    assert any(
+        sample_beads(result, channel, k) != sample_beads(other, channel, k)
+        for k in range(1, len(accepted))
+    )
+    # Fewer accepted beads than the sample size: all of them, in order.
+    assert [b.bead_id for b in sample_beads(result, channel, len(accepted) + 5)] == accepted
+
+
+@pytest.mark.req("REP-03")
+def test_pdf_headings_stay_with_what_follows() -> None:
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import KeepTogether, PageBreak, Paragraph, Spacer, Table
+
+    from psfwidget.report.render_pdf import keep_headings_with_content
+
+    def para(text: str, style: str) -> Paragraph:
+        return Paragraph(text, ParagraphStyle(style))
+
+    table = Table([["a", "b"]])
+    story = [
+        para("intro", "body"),
+        para("Channel", "h2"),
+        para("Sample", "h3"),  # consecutive headings travel together
+        KeepTogether([table]),
+        para("Appendix", "h2"),
+        para("caption", "caption"),
+        Table([["x"]] * 40),  # a long table: caption and table go with the heading
+        Spacer(1, 6),
+        para("Last", "h3"),
+        PageBreak(),  # a heading never swallows a page break
+    ]
+    grouped = keep_headings_with_content(story)
+    kinds = [type(f).__name__ for f in grouped]
+    assert kinds == [
+        "Paragraph",
+        "KeepTogether",
+        "KeepTogether",
+        "Spacer",
+        "KeepTogether",
+        "PageBreak",
+    ]
+    sizes = [len(getattr(f, "_content", ())) for f in grouped]
+    assert sizes == [0, 3, 3, 0, 1, 0]

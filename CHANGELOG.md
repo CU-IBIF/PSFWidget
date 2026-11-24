@@ -190,6 +190,10 @@ All notable changes to this project are documented here. The format follows
   model, the excitation (laser) wavelength required instead of the emission,
   multiphoton modes read from ND2, CZI, and OME-TIFF files, and a profile
   template.
+- Session report: each channel section shows a sample of 10 accepted beads,
+  chosen at random but reproducibly (seeded from the file's SHA-256, series,
+  and channel); the full bead tables move to one appendix per channel
+  (Appendix A, B, …).
 - `docs/THEORY.md`: how the theoretical PSF is calculated (models by modality,
   vectorial and Gibson–Lanni refinements, image-scanning model, closed-form
   formulas, bead-size correction, the 3D model image, limits, verification,
@@ -204,6 +208,8 @@ All notable changes to this project are documented here. The format follows
   images fail on the CI machines' software OpenGL.
 
 ### Fixed
+- PDF reports: a heading could be left alone at the foot of a page with its
+  table on the next; headings are now kept with what follows them.
 - napari raised `AttributeError: 'NoneType' object has no attribute 'height'`
   from its layer list when a file was opened (DEF-01, seen on Windows). The
   analysis widget now updates its layers in place instead of removing and
