@@ -235,6 +235,16 @@ All notable changes to this project are documented here. The format follows
 
 
 ### Changed
+- Versions come from git (hatch-vcs) instead of a fixed `0.0.1.dev0`: a
+  commit tagged `vX.Y.Z` builds as `X.Y.Z`, any other commit as a
+  development version naming the commit (e.g. `0.1.1.dev4+g1b89b85`). Every
+  build therefore has its own version, so `pip install --upgrade` picks up
+  new code without `--force-reinstall`, and each result records the exact
+  commit. The release workflow checks the packages carry the tag's version.
+- Metadata table (UI-06): values changed by the user are shown in bold
+  orange text and missing required values in italic red text; the cell fill
+  is no longer changed, as the pale fills were too bright in napari's dark
+  theme.
 - Reports use a block-based model with `reportlab` for PDF instead of
   Jinja2 templates and `weasyprint`, and scheduling uses PSFWidget's own
   state file instead of APScheduler.

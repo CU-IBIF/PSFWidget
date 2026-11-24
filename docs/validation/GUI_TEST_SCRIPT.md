@@ -52,8 +52,8 @@ the bottom of the PSF analysis widget.
 
 | ID | Do | Expected |
 |---|---|---|
-| B1 | Open *PSF analysis*; *Browse…* to the plain TIFF; *Open* | the *Series* line shows the file's one series; an image layer appears; the metadata table shows NA, immersion RI, and emission as **missing** (red); "Not ready: …" is shown; *Analyse* is disabled |
-| B2 | Type `1.4` for numerical aperture, `1.518` for immersion RI, `widefield` for modality, and `520` for ch 0 emission | each row turns blue (*user*); "Ready for analysis." appears; *Analyse* is enabled |
+| B1 | Open *PSF analysis*; *Browse…* to the plain TIFF; *Open* | the *Series* line shows the file's one series; an image layer appears; the metadata table shows NA, immersion RI, and emission as **missing** (italic red text, no cell fill); "Not ready: …" is shown; *Analyse* is disabled |
+| B2 | Type `1.4` for numerical aperture, `1.518` for immersion RI, `widefield` for modality, and `520` for ch 0 emission | each row's text turns bold orange (*user*), with no cell fill, legible in both the dark and the light theme (*View → Theme*; UI-06); "Ready for analysis." appears; *Analyse* is enabled |
 | B3 | Type `lots` as the numerical aperture | the value is refused with a message naming the field; the table is unchanged |
 | B4 | Press *Analyse* and, while it runs, pan and zoom the image | the progress bar moves; the viewer stays responsive (UI-04) |
 | B5 | When done | a *bead review* layer shows green circles (accepted) and red circles (rejected); the summary table shows medians, SD, n, and ratios; the message gives the accepted count |

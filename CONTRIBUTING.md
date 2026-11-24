@@ -146,7 +146,12 @@ Inspect a file before publishing it anywhere.
 
 ## Releases
 
-- Versions follow [semantic versioning](https://semver.org/). The version
-  lives in `src/psfwidget/__about__.py` and is stored with every result.
+- Versions follow [semantic versioning](https://semver.org/) and come from
+  git (hatch-vcs): a commit tagged `vX.Y.Z` builds as `X.Y.Z`, any other
+  commit as a development version naming the commit, such as
+  `0.1.1.dev4+g1b89b85`. Do not write a version into any file. The build
+  writes it to `src/psfwidget/_version.py` (not committed), and it is stored
+  with every result. An editable install keeps the version it was installed
+  with until you reinstall (`uv pip install -e .`).
 - Update `CHANGELOG.md` under *Unreleased* as you go. On release, move the
   entries under the new version heading and tag the commit `vX.Y.Z`.

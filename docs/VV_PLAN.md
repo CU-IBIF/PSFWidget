@@ -139,6 +139,7 @@ Legend: **U** = Unit, **I** = Integration, **S** = System, **V** = Validation, *
 | AUT-07 | I, S | Backup checksum and retention tests; restore drill |
 | UI-01 … UI-04 | S, V | GUI script; pytest-qt smoke; VAL-06 |
 | UI-05 | R, I | API docs review; API usage tests |
+| UI-06 | I, S | GUI test of row text colours after an edit; GUI test script B2 in light and dark themes |
 | NFR-01 | U | Fitting Monte Carlo |
 | NFR-02 | V | VAL-01 |
 | NFR-03 | I | Reproducibility test |

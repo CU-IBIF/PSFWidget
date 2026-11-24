@@ -11,7 +11,9 @@ later). Tick each item in the release's pull request or issue.
 - [ ] Validation records for this release are complete and signed (VV_PLAN §7; `docs/validation/`).
 - [ ] Changes to how any **tracked metric** is computed are listed in `CHANGELOG.md` with their expected effect on Levey-Jennings charts (VV_PLAN §8).
 - [ ] `CHANGELOG.md`: move *Unreleased* entries under the new version and date.
-- [ ] Set the version in `src/psfwidget/__about__.py` (e.g. `1.0.0`).
+- [ ] Choose the version (e.g. `1.0.0`). It is not written in any file: the
+      build takes it from the git tag (hatch-vcs), and the release workflow
+      checks that the packages carry it.
 - [ ] Regenerate the validated dependency pins and commit them:
 
   ```bash

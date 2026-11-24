@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.27"]
+requires = ["hatchling>=1.27", "hatch-vcs>=0.4"]
 build-backend = "hatchling.build"
 
 [project]
@@ -79,7 +79,19 @@ Homepage = "https://github.com/CU-IBIF/PSFWidget"
 Issues = "https://github.com/CU-IBIF/PSFWidget/issues"
 
 [tool.hatch.version]
-path = "src/psfwidget/__about__.py"
+# The version comes from git: a tagged commit vX.Y.Z builds as X.Y.Z; any other
+# commit as the next version's dev release plus the commit, e.g.
+# 0.1.dev187+g1b89b85, so every build has its own version and records the
+# exact commit (QA-03). See docs/RELEASE_CHECKLIST.md.
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+# Without git history (e.g. a source zip), build rather than fail; the
+# version then says it is unknown.
+fallback_version = "0.0.0+unknown"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/psfwidget/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/psfwidget"]

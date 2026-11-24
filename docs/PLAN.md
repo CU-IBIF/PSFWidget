@@ -185,6 +185,7 @@ All metrics are computed per bead and summarized per field as n, mean, SD, media
 | UI-03 | The GUI shall provide an editor for instrument profiles and spec limits. | S |
 | UI-04 | Long-running operations shall show progress and shall not freeze the UI (worker threads). | M |
 | UI-05 | A documented **Python API** shall expose all core functions. | M |
+| UI-06 | Metadata values the user changed shall be shown in bold orange text, and missing required values in italic red text, without changing the cell fill, so the table stays legible in napari's light and dark themes (M5.4). | S |
 
 ### 3.9 Non-functional requirements (NFR)
 

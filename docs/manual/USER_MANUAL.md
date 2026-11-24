@@ -142,11 +142,13 @@ table and the image rescales.
 The table lists every value PSFWidget will use, with where it came from
 (*file*, *profile*, *user*, or *missing*). Hover over a field for notes.
 
-- Missing **required** values are highlighted in red, and the line below
-  the table says *Not ready* and why.
+- Missing **required** values are shown in *italic red* text, and the line
+  below the table says *Not ready* and why.
 - To set or correct a value, type it in the *Value* column (e.g.
   `numerical_aperture` = `1.4`, `ch 0: emission nm` = `520`). Your values are
-  marked *user* and highlighted blue. Clear a value to remove your override.
+  marked *user* and shown in **bold orange** text. Clear a value to remove
+  your override. Only the text is coloured, never the cell, so the table stays
+  readable in napari's dark and light themes.
 - Invalid values are refused with a message at the bottom of the widget.
 
 Required: the voxel size, numerical aperture, immersion refractive index,

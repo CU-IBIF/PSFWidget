@@ -323,7 +323,15 @@ new database, or merge it into an existing one with
    Older databases are upgraded in place: columns and tables are added, no
    existing row is changed, and the upgrade is written to the audit log.
 
-Every result records the software version that produced it. Read the
+Each build has its own version, so `--upgrade` always picks up new code. A
+release has a plain version (`1.0.0`). A build from any other commit has a
+development version that names the commit, for example
+`0.1.1.dev4+g1b89b85` (`g` followed by the start of the commit hash). Check
+the installed version with `psfwidget --version`. Installations from before 2026-11-24
+all show `0.0.1.dev0`; `--upgrade` replaces those too.
+
+Every result records the software version that produced it, and with it the
+exact commit. Read the
 [CHANGELOG](../../CHANGELOG.md) for changes to how tracked metrics are
 computed: such a change can shift a Levey-Jennings chart, and may need an
 event with new control limits.

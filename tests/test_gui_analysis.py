@@ -176,3 +176,49 @@ def test_plugin_manifest_and_sample(make_napari_viewer: Any) -> None:
     for title in titles:
         _, widget = viewer.window.add_plugin_dock_widget("psfwidget", title)
         assert widget is not None
+
+
+@pytest.mark.req("UI-06")
+def test_metadata_rows_use_text_colour_not_fill(
+    make_napari_viewer: Any, qtbot: Any, stack_file: Path
+) -> None:
+    """Changed values are bold orange, missing ones italic red; the fill is never changed."""
+    from qtpy.QtCore import Qt
+
+    from psfwidget.napari.analysis_widget import MISSING, OVERRIDDEN
+
+    viewer = make_napari_viewer()
+    widget = AnalysisWidget(viewer)
+    viewer.window.add_dock_widget(widget)
+    widget.path_edit.setText(str(stack_file))
+    widget.open_file()
+    _wait(qtbot, widget, lambda: widget.session.stack is not None)
+
+    def cells(key: str) -> list[Any]:
+        table = widget.metadata_table
+        row = next(r for r in range(table.rowCount()) if table.item(r, 0).data(0x0100) == key)
+        return [table.item(row, column) for column in range(3)]
+
+    def look(key: str) -> set[tuple[str, bool, bool, bool]]:
+        return {
+            (
+                item.foreground().color().name(),
+                item.font().bold(),
+                item.font().italic(),
+                item.background().style() == Qt.BrushStyle.NoBrush,
+            )
+            for item in cells(key)
+        }
+
+    plain = look("voxel_z_um")  # from the file: untouched
+    assert all(not bold and not italic and no_fill for _, bold, italic, no_fill in plain)
+    missing = {(MISSING.name(), False, True, True)}  # italic red, no fill
+    changed = {(OVERRIDDEN.name(), True, False, True)}  # bold orange, no fill
+    assert look("numerical_aperture") == missing
+
+    cells("numerical_aperture")[1].setText("1.4")
+    assert look("numerical_aperture") == changed
+    assert look("voxel_z_um") == plain
+
+    cells("numerical_aperture")[1].setText("")  # override removed: missing again
+    assert look("numerical_aperture") == missing
