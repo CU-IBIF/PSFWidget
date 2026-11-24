@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from psfwidget.io.model import AcquisitionMetadata, ChannelMetadata, Modality
 from psfwidget.theory import analytic
@@ -48,6 +48,18 @@ class Theory:
     focus_um: float = 0.0
     """Stage position of the PSF maximum relative to the nominal focus (moves with
     refractive-index mismatch)."""
+    scalar_lateral_um: float | None = None
+    """FWHM of the scalar model, computed whichever model is the reference (THE-02)."""
+    scalar_axial_um: float | None = None
+    vectorial_lateral_um: float | None = None
+    """FWHM of the vectorial (Richards-Wolf) model, computed whichever model is the
+    reference. Any refractive-index mismatch settings apply to both models."""
+    vectorial_axial_um: float | None = None
+
+    @property
+    def reference_is_vectorial(self) -> bool:
+        """Whether the vectorial model is the reference for ratios, limits, and tracking."""
+        return self.optics is not None and self.optics.vectorial
 
 
 class TheoryUnavailableError(ValueError):
@@ -137,6 +149,39 @@ def _width(
     return optics_width(modality, excitation, emission, na, n, pinhole, optics)
 
 
+def _both_models(
+    optics: Optics,
+    modality: str,
+    excitation: float | None,
+    emission: float | None,
+    na: float,
+    n: float,
+    pinhole: float | None,
+    reference: OpticsWidth,
+) -> dict[str, float]:
+    """Return the scalar and vectorial FWHM, reusing the reference model's result.
+
+    The other model is computed with the same settings except ``vectorial``, so
+    any refractive-index mismatch applies to both.
+    """
+    other = _width(
+        replace(optics, vectorial=not optics.vectorial),
+        modality,
+        excitation,
+        emission,
+        na,
+        n,
+        pinhole,
+    )
+    vectorial, scalar = (reference, other) if optics.vectorial else (other, reference)
+    return {
+        "scalar_lateral_um": scalar.lateral_um,
+        "scalar_axial_um": scalar.axial_um,
+        "vectorial_lateral_um": vectorial.lateral_um,
+        "vectorial_axial_um": vectorial.axial_um,
+    }
+
+
 def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> Theory:
     """Return the theoretical FWHM of one channel.
 
@@ -199,6 +244,7 @@ def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> T
             optics=None if optics.is_default else optics,
             focus_um=scalar.focus_um,
             notes=(*notes, *_enhancement_notes(metadata, modality)),
+            **_both_models(optics, "multiphoton", laser, None, na, n, None, scalar),
         )
 
     assert channel.emission_nm is not None
@@ -245,6 +291,16 @@ def channel_theory(channel: ChannelMetadata, metadata: AcquisitionMetadata) -> T
         focus_um=scalar.focus_um,
         ism_lateral_um=None if ism is None else ism.lateral_um,
         ism_axial_um=None if ism is None else ism.axial_um,
+        **_both_models(
+            optics,
+            "widefield" if modality is Modality.WIDEFIELD else modality.value,
+            None if modality is Modality.WIDEFIELD else excitation,
+            emission,
+            na,
+            n,
+            None if pinhole is None else round(pinhole, 4),
+            scalar,
+        ),
     )
 
 

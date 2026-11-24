@@ -19,6 +19,7 @@ from psfwidget.report import document as doc
 from psfwidget.report.status import ChannelStatus, MetricCheck, field_status, overall
 from psfwidget.review import MANUAL_EXCLUSION
 from psfwidget.serialize import plain
+from psfwidget.theory.model import Theory
 from psfwidget.tracking.chart import metric_label
 
 if TYPE_CHECKING:  # figures needs matplotlib, an optional extra
@@ -66,32 +67,58 @@ def _sourced(item: Sourced[object] | None) -> tuple[str, str]:
     return fmt(item.value), f"{item.source}{note}"
 
 
+def _model_widths(theory: Theory, model: str) -> tuple[float | None, float | None]:
+    if model == "scalar":
+        return theory.scalar_lateral_um, theory.scalar_axial_um
+    return theory.vectorial_lateral_um, theory.vectorial_axial_um
+
+
 def _summary_table(channel: ChannelResult) -> doc.Table:
+    """Metric summary with the theoretical FWHM and ratio for both models (THE-02, THE-03).
+
+    The reference model's ratio is the per-bead ratio's median, used for spec
+    limits and tracking; the other model's ratio is the median FWHM divided by
+    its width (the same thing, as the theory is one number per channel).
+    """
     rows = []
     theory = channel.theory
+    reference = "vectorial" if theory is not None and theory.reference_is_vectorial else "scalar"
     for metric, which, ratio in SUMMARY_ROWS:
         stats = channel.summary.get(metric)
         if stats is None:
             continue
-        reference = None
-        if theory is not None and which is not None:
-            reference = theory.lateral_um if which == "lateral" else theory.axial_um
-        ratio_stats = channel.summary.get(ratio) if ratio else None
+        cells: list[str] = []
+        for model in ("scalar", "vectorial"):
+            width = None
+            if theory is not None and which is not None:
+                lateral, axial = _model_widths(theory, model)
+                width = lateral if which == "lateral" else axial
+            if model == reference:
+                ratio_stats = channel.summary.get(ratio) if ratio else None
+                value = None if ratio_stats is None else ratio_stats.median
+            else:
+                value = None if width is None or stats.median is None else stats.median / width
+            cells += [fmt(width), fmt(value, 3)]
         rows.append(
-            (
-                metric_label(metric),
-                fmt(stats.median),
-                fmt(stats.iqr),
-                str(stats.n),
-                fmt(reference),
-                fmt(None if ratio_stats is None else ratio_stats.median, 3),
-            )
+            (metric_label(metric), fmt(stats.median), fmt(stats.iqr), str(stats.n), *cells)
         )
     return doc.Table(
-        ("Metric", "Median", "IQR", "n", "Theory", "Ratio"),
+        (
+            "Metric",
+            "Median",
+            "IQR",
+            "n",
+            "Scalar theory",
+            "Ratio",
+            "Vectorial theory",
+            "Ratio",
+        ),
         tuple(rows),
-        frozenset({1, 2, 3, 4, 5}),
-        caption="Over accepted beads; FWHM corrected for bead size where known.",
+        frozenset({1, 2, 3, 4, 5, 6, 7}),
+        caption=(
+            "Over accepted beads; FWHM corrected for bead size where known. Ratio = measured "
+            f"÷ theory. The {reference} model is the reference for spec limits and tracking."
+        ),
     )
 
 
@@ -106,7 +133,21 @@ def _theory_text(channel: ChannelResult) -> str:
     )
     if theory.excitation_nm is not None:
         text += f", excitation {theory.excitation_nm:g} nm"
-    text += f": lateral {theory.lateral_um * 1000:.0f} nm, axial {theory.axial_um * 1000:.0f} nm."
+    text += f": lateral {theory.lateral_um * 1000:.0f} nm, axial {theory.axial_um * 1000:.0f} nm"
+    text += " (the reference for ratios, spec limits, and tracking)."
+    both = (
+        theory.scalar_lateral_um,
+        theory.scalar_axial_um,
+        theory.vectorial_lateral_um,
+        theory.vectorial_axial_um,
+    )
+    if all(value is not None for value in both):
+        s_lat, s_ax, v_lat, v_ax = (float(value or 0.0) * 1000 for value in both)
+        text += (
+            f" Both models with these settings: scalar lateral {s_lat:.0f} nm, axial "
+            f"{s_ax:.0f} nm; vectorial (Richards–Wolf) lateral {v_lat:.0f} nm, axial "
+            f"{v_ax:.0f} nm."
+        )
     closed = theory.analytic
     if closed is not None:
         text += (

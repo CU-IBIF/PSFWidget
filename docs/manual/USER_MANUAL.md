@@ -458,11 +458,16 @@ the stack. When not computed, the report says why.
 - **Image-scanning modes** (NSPARC, Live-SR): compared with the base model
   (ratios below 1 are expected) and with an image-scanning model.
 
-By default all use a scalar high-NA model with matched refractive indices,
-with the published closed-form values shown alongside. A profile's
-`[theory]` table (chapter 4) switches to the vectorial model and/or adds
-refractive-index mismatch and coverslip deviations; the report names the
-model used.
+Both a scalar high-NA model and the vectorial (Richards–Wolf) model are
+calculated for every channel and reported side by side. The summary table has
+a theory and a ratio column for each, and the published closed-form values are
+shown alongside. The scalar model, with matched refractive indices, is the
+reference for the ratios, spec limits, and tracking unless a profile's
+`[theory]` table (chapter 4) chooses `model = "vectorial"`. That table can also
+add refractive-index mismatch and coverslip deviations, which apply to both
+models. The report names the reference model. At NA 1.4 the vectorial model is
+wider laterally (about 10% for widefield, 6% for confocal) and 1–2% shorter
+axially.
 
 [How PSFWidget calculates the theoretical PSF](../THEORY.md) gives the
 equations, the inputs each modality needs, the bead-size correction, what is

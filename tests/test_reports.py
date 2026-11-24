@@ -27,7 +27,7 @@ from psfwidget.report import paths
 from psfwidget.report.publish import OutputSettings, publish_session, session_base
 from psfwidget.report.render_html import render_html
 from psfwidget.report.render_pdf import pdf_text, render_pdf
-from psfwidget.report.session import SAMPLE_BEADS, build_session_report, sample_beads
+from psfwidget.report.session import SAMPLE_BEADS, build_session_report, fmt, sample_beads
 from psfwidget.report.status import MetricCheck, channel_status, session_checks
 from psfwidget.report.trend import DEFAULT_CHART_METRICS, build_trend_report
 from psfwidget.settings import AnalysisSettings
@@ -254,10 +254,29 @@ def test_session_report_and_exports(tracked: tuple[Path, Path, list[int]], tmp_p
         "tester",
         "XY",
         "fwhm_z_um",
-        "Theory",
+        "Scalar theory",
+        "Vectorial theory",
+        "Both models with these settings",
+        "The scalar model is the reference for spec limits and tracking",
         "PSFWidget",
     ):
         assert expected in html, expected
+    # The summary table gives both models; the reference ratio is the per-bead median.
+    summary = next(
+        b for b in report.blocks if isinstance(b, doc.Table) and b.header[0] == "Metric"
+    )
+    fwhm_x = next(row for row in summary.rows if row[0] == "FWHM x (µm)")
+    channel = result.channels[0]
+    assert channel.theory is not None
+    assert channel.theory.vectorial_lateral_um is not None
+    assert fwhm_x[4] == fmt(channel.theory.scalar_lateral_um)
+    assert fwhm_x[6] == fmt(channel.theory.vectorial_lateral_um)
+    # Ratios are shown to three significant figures.
+    assert float(fwhm_x[5]) == pytest.approx(channel.summary["ratio_x"].median, abs=0.006)
+    assert float(fwhm_x[7]) == pytest.approx(
+        channel.summary["fwhm_x_um"].median / channel.theory.vectorial_lateral_um, abs=0.006
+    )
+    assert float(fwhm_x[7]) < float(fwhm_x[5])  # the vectorial focus is wider laterally
     assert sum(isinstance(b, doc.Figure) for b in report.blocks) == 4  # with the field map
     assert re.search(r"average PSF of the \d+ accepted beads", html)
     assert "slices through the centre of bead" in html

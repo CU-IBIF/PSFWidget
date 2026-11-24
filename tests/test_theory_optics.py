@@ -159,3 +159,35 @@ def test_new_keys_are_validated() -> None:
     from psfwidget.io.metadata import plausibility_warnings
 
     assert any("sample refractive index" in w for w in plausibility_warnings(warned))
+
+
+@pytest.mark.req("THE-02", "THE-03")
+def test_both_models_are_computed_whichever_is_the_reference() -> None:
+    """Every channel gets the scalar and the vectorial FWHM; the profile picks the reference."""
+    plain = _metadata()
+    scalar_ref = channel_theory(plain.channels[0], plain)
+    assert not scalar_ref.reference_is_vectorial
+    assert scalar_ref.scalar_lateral_um == scalar_ref.lateral_um
+    assert scalar_ref.scalar_axial_um == scalar_ref.axial_um
+
+    chosen = _metadata(psf_model="vectorial")
+    vector_ref = channel_theory(chosen.channels[0], chosen)
+    assert vector_ref.reference_is_vectorial
+    assert vector_ref.vectorial_lateral_um == vector_ref.lateral_um
+    assert vector_ref.vectorial_axial_um == vector_ref.axial_um
+
+    # The same two numbers either way round, and they match the models computed directly.
+    for theory in (scalar_ref, vector_ref):
+        assert theory.scalar_lateral_um == pytest.approx(scalar_ref.lateral_um)
+        assert theory.vectorial_lateral_um == pytest.approx(vector_ref.lateral_um)
+        assert theory.vectorial_axial_um == pytest.approx(vector_ref.axial_um)
+    assert vector_ref.lateral_um > 1.05 * scalar_ref.lateral_um  # depolarisation at NA 1.4
+
+    # Refractive-index mismatch applies to both models.
+    deep = _metadata(sample_ri=1.33, bead_depth_um=5)
+    theory = channel_theory(deep.channels[0], deep)
+    mismatch = Optics(vectorial=True, sample_ri=1.33, depth_um=5)
+    direct = optics_width("widefield", None, 520.0, 1.4, 1.518, None, mismatch)
+    assert theory.vectorial_lateral_um == pytest.approx(direct.lateral_um)
+    assert theory.vectorial_axial_um == pytest.approx(direct.axial_um)
+    assert theory.scalar_axial_um == pytest.approx(theory.axial_um)

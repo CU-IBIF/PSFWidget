@@ -235,6 +235,13 @@ All notable changes to this project are documented here. The format follows
 
 
 ### Changed
+- Theory (THE-02): both the scalar and the vectorial (Richards–Wolf) model
+  are calculated for every channel, with the same settings, and reported:
+  a theory and a ratio column for each in the report's summary table, both
+  in the theory paragraph, the command-line and GUI summaries, the channel
+  CSV (`theory_scalar_*`, `theory_vectorial_*`), and `run.json`. The scalar
+  model stays the reference for ratios, spec limits, and tracking unless a
+  profile chooses `model = "vectorial"`. About 2 s more per confocal channel.
 - Versions come from git (hatch-vcs) instead of a fixed `0.0.1.dev0`: a
   commit tagged `vX.Y.Z` builds as `X.Y.Z`, any other commit as a
   development version naming the commit (e.g. `0.1.1.dev4+g1b89b85`). Every
