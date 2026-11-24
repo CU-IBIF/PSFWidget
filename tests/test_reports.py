@@ -6,6 +6,7 @@ Requirements: REP-01 to REP-08.
 from __future__ import annotations
 
 import os
+import re
 import zipfile
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -258,7 +259,7 @@ def test_session_report_and_exports(tracked: tuple[Path, Path, list[int]], tmp_p
     ):
         assert expected in html, expected
     assert sum(isinstance(b, doc.Figure) for b in report.blocks) == 4  # with the field map
-    assert "average PSF of all accepted beads" in html
+    assert re.search(r"average PSF of the \d+ accepted beads", html)
     assert "slices through the centre of bead" in html
     assert "accepted beads across the field of view" in html
     assert "Right: axial FWHM" in html
@@ -418,15 +419,17 @@ def test_orthogonal_comparison_rows(tracked: tuple[Path, Path, list[int]]) -> No
     bead = figures.representative_bead(channel)
     assert bead is not None
     volume, voxel = stack.channel(channel.index), stack.voxel_size_um
-    image, count = figures.orthogonal_comparison(volume, bead, channel, voxel, settings)
+    image, average = figures.orthogonal_comparison(volume, bead, channel, voxel, settings)
     assert image.startswith(b"\x89PNG")
-    assert count is not None
-    assert count >= 3
+    assert average is not None
+    assert average.count >= 3
+    assert not average.truncated
+    assert average.label == f"{average.count} beads"
     # Without enough beads to average, the average row is left out.
     alone = replace(channel, beads=(bead,))
-    image, count = figures.orthogonal_comparison(volume, bead, alone, voxel, settings)
+    image, average = figures.orthogonal_comparison(volume, bead, alone, voxel, settings)
     assert image.startswith(b"\x89PNG")
-    assert count is None
+    assert average is None
 
 
 @pytest.mark.req("REP-01")
@@ -559,3 +562,85 @@ def test_appendix_of_a_channel_without_accepted_beads_has_no_empty_table(
     )
     texts = [b.text for b in report.blocks if isinstance(b, doc.Paragraph)]
     assert any(t.startswith("No accepted beads. Not listed: ") for t in texts)
+
+
+@pytest.mark.req("THE-07", "MET-14", "REP-01")
+def test_figure_captions_name_only_the_curves_drawn(
+    tracked: tuple[Path, Path, list[int]],
+) -> None:
+    """With too few beads to average (as on a short LSM 980 stack), no caption claims one."""
+    from dataclasses import replace
+
+    database, profile_path, _ = tracked
+    profile = load_profile(profile_path)
+    stack = read_stack(database.parent / "day6.tif", profile=profile)
+    result = analyze_stack(stack, AnalysisSettings(), profile.spec)
+    channel = result.channels[0]
+    keep = {b.bead_id for b in channel.accepted[:2]}  # an average needs at least 3
+    beads = tuple(
+        b if b.bead_id in keep or not b.accepted else b.reject("SNR 2.1 below 5")
+        for b in channel.beads
+    )
+    few = replace(result, channels=(replace(channel, beads=beads),))
+    report, _ = build_session_report(few, stack=stack)
+    captions = [b.caption for b in report.blocks if isinstance(b, doc.Figure)]
+    profile_caption = next(c for c in captions if c.startswith("Profiles along x, y, and z"))
+    panel_caption = next(c for c in captions if c.startswith("XY, XZ, and YZ slices"))
+    for caption in (profile_caption, panel_caption):
+        assert "average PSF of" not in caption
+    assert "No average PSF: too few beads could be averaged" in profile_caption
+    assert "FWHM in the titles: bead uncorrected" in profile_caption
+    assert "the model (theoretical PSF with the bead size, dashed)" in profile_caption
+
+    # With enough beads the average is named, with its bead count.
+    report, _ = build_session_report(result, stack=stack)
+    captions = [b.caption for b in report.blocks if isinstance(b, doc.Figure)]
+    profile_caption = next(c for c in captions if c.startswith("Profiles along x, y, and z"))
+    assert re.search(r"and the average PSF of the \d+ accepted beads", profile_caption)
+    assert "No average PSF" not in profile_caption
+
+
+@pytest.mark.req("THE-07", "MET-14")
+def test_short_stack_gets_a_truncated_average_marked_as_undersampled(
+    tracked: tuple[Path, Path, list[int]],
+) -> None:
+    """A stack too short for the full box (like the 13-plane LSM 980 stack) still gets an
+    average for the figures, over fewer z-planes, labelled as an undersampled volume."""
+    from dataclasses import replace
+
+    from psfwidget.analysis import averaged_psf, truncated_averaged_psf
+    from psfwidget.average import AverageError
+    from psfwidget.report import figures
+
+    database, profile_path, _ = tracked
+    profile = load_profile(profile_path)
+    stack = read_stack(database.parent / "day6.tif", profile=profile)
+    result = analyze_stack(stack, AnalysisSettings(), profile.spec)
+    channel = result.channels[0]
+    volume, voxel = stack.channel(channel.index), stack.voxel_size_um
+    # A box twice as tall as the stack: the full average cannot be made.
+    tall = replace(AnalysisSettings(), crop_axial_fwhm=2 * volume.shape[0])
+    with pytest.raises(AverageError, match="too close to the stack's edges"):
+        averaged_psf(volume, channel.beads, voxel, channel.expected_fwhm_um, tall)
+    average, used, half = truncated_averaged_psf(
+        volume, channel.beads, voxel, channel.expected_fwhm_um, tall
+    )
+    assert used >= 3
+    assert average.shape[0] == 2 * half[0] + 1 < volume.shape[0]
+
+    bead = figures.representative_bead(channel)
+    assert bead is not None
+    image, shown = figures.orthogonal_comparison(volume, bead, channel, voxel, tall)
+    assert image.startswith(b"\x89PNG")
+    assert shown is not None
+    assert shown.truncated
+    assert shown.planes == average.shape[0]
+    assert "undersampled volume: z truncated to" in shown.label
+
+    # The report says so in both figure captions, and the metrics are not taken from it.
+    report, _ = build_session_report(replace(result, settings=tall), stack=stack)
+    captions = [b.caption for b in report.blocks if isinstance(b, doc.Figure)]
+    for start in ("XY, XZ, and YZ slices", "Profiles along x, y, and z"):
+        caption = next(c for c in captions if c.startswith(start))
+        assert "Undersampled volume: the stack is too short" in caption
+        assert "Strehl ratio and similarity are not computed from it" in caption

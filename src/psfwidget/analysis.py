@@ -400,6 +400,39 @@ def averaged_psf(
     return average, used, half
 
 
+def truncated_averaged_psf(
+    volume: np.ndarray[Any, Any],
+    beads: Sequence[BeadResult],
+    voxel: tuple[float, float, float],
+    expected: tuple[float, float],
+    settings: AnalysisSettings,
+) -> tuple[np.ndarray[Any, Any], int, tuple[int, int, int]]:
+    """Average the beads in a box cut short along z, for a stack too short for the full box.
+
+    Used for the report figures only: the z half-size is reduced one plane at a
+    time until at least the minimum number of beads fit, so the average covers
+    a shorter axial range than the full box (an undersampled volume). It is not
+    used for the Strehl ratio or the similarity to theory, which need the full
+    box to compare with the model.
+
+    Raises
+    ------
+    psfwidget.average.AverageError
+        If too few beads fit even a one-plane half-size.
+    """
+    half = half_box(voxel, expected, settings)
+    failure: AverageError | None = None
+    for half_z in range(half[0] - 1, 0, -1):
+        short = (half_z, half[1], half[2])
+        try:
+            average, used = average_beads(volume, tuple(beads), voxel, short)
+        except AverageError as exc:
+            failure = exc
+            continue
+        return average, used, short
+    raise failure or AverageError("the stack is too short for an averaged PSF")
+
+
 def _psf_comparison(
     volume: np.ndarray[Any, Any],
     beads: Sequence[BeadResult],
@@ -412,7 +445,9 @@ def _psf_comparison(
     try:
         average, used, half = averaged_psf(volume, beads, voxel, expected, settings)
     except AverageError as exc:
-        return None, f"no averaged PSF: {exc}"
+        return None, (
+            f"no Strehl ratio or similarity to theory, which need the full averaged PSF: {exc}"
+        )
     reference = theoretical_psf(theory, voxel, box_shape(half), bead_diameter_um=bead_diameter_um)
     return compare(average, reference, used, voxel), None
 

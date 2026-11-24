@@ -198,6 +198,11 @@ All notable changes to this project are documented here. The format follows
   excluded (with the reviewer and reason), but not beads rejected by the
   automatic checks: those are counted by reason in the caption. Every bead
   stays in the CSV and Excel bead export (M5.4 D11, REP-01).
+- Report figures for short z-stacks: when the stack is too short for the
+  averaging box, the beads are averaged over fewer z-planes and the average
+  is shown, marked *undersampled volume, z truncated*, with the missing
+  planes hatched and the plane count in the legend and captions. The Strehl
+  ratio and similarity are still computed only from the full average.
 - `docs/THEORY.md`: how the theoretical PSF is calculated (models by modality,
   vectorial and Gibson–Lanni refinements, image-scanning model, closed-form
   formulas, bead-size correction, the 3D model image, limits, verification,
@@ -212,6 +217,10 @@ All notable changes to this project are documented here. The format follows
   images fail on the CI machines' software OpenGL.
 
 ### Fixed
+- The profile figure's caption named the average PSF even when there was
+  none; captions now describe only the curves drawn, and the channel note for
+  a missing full average says it is the Strehl ratio and similarity that are
+  not computed.
 - PDF reports: a heading could be left alone at the foot of a page with its
   table on the next; headings are now kept with what follows them.
 - napari raised `AttributeError: 'NoneType' object has no attribute 'height'`

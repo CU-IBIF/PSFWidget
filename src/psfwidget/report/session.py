@@ -7,6 +7,7 @@ import math
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -19,6 +20,9 @@ from psfwidget.report.status import ChannelStatus, MetricCheck, field_status, ov
 from psfwidget.review import MANUAL_EXCLUSION
 from psfwidget.serialize import plain
 from psfwidget.tracking.chart import metric_label
+
+if TYPE_CHECKING:  # figures needs matplotlib, an optional extra
+    from psfwidget.report.figures import AverageImage
 
 SUMMARY_ROWS: tuple[tuple[str, str | None, str | None], ...] = (
     ("fwhm_x_um", "lateral", "ratio_x"),
@@ -317,6 +321,17 @@ def _bead_table(channel: ChannelResult) -> doc.Table:
     )
 
 
+def _truncation_note(average: AverageImage | None) -> str:
+    """Say when the average comes from a stack too short for the full box."""
+    if average is None or not average.truncated:
+        return ""
+    return (
+        f" Undersampled volume: the stack is too short for the full {average.full_planes}-plane "
+        f"box, so the average covers only {average.planes} z-planes (its axial width may be "
+        "cut short, and the Strehl ratio and similarity are not computed from it)."
+    )
+
+
 def _figures(stack: ImageStack, channel: ChannelResult, result: FieldResult) -> list[doc.Block]:
     from psfwidget.report import figures
 
@@ -336,12 +351,14 @@ def _figures(stack: ImageStack, channel: ChannelResult, result: FieldResult) -> 
         else result.metadata.bead_diameter_nm.value / 1000.0
     )
     if bead is not None:
-        image, count = figures.orthogonal_comparison(
+        image, average = figures.orthogonal_comparison(
             volume, bead, channel, voxel, result.settings, bead_diameter_um=diameter
         )
         rows = [f"bead {bead.bead_id}, closest to the median lateral FWHM"]
-        if count is not None:
-            rows.append(f"the average PSF of the {count} accepted beads across the field of view")
+        if average is not None:
+            rows.append(
+                f"the average PSF of the {average.count} accepted beads across the field of view"
+            )
         if channel.theory is not None:
             rows.append("the model (theoretical PSF with the bead size)")
         blocks.append(
@@ -354,20 +371,38 @@ def _figures(stack: ImageStack, channel: ChannelResult, result: FieldResult) -> 
                 + " (one row each), all at one scale and true aspect ratio, with z running "
                 "horizontally in XZ and YZ. Each image is "
                 "scaled to its own peak (the bead after subtracting its background). Hatching "
-                "marks any part of the window outside the stack.",
+                "marks any part of the window outside the stack." + _truncation_note(average),
             )
         )
+        # Describe only the curves drawn: the average and the model are left out of the
+        # figure when there are too few beads to average or no theory (as the panel above).
+        curves = []
+        if channel.theory is not None:
+            curves.append("the model (theoretical PSF with the bead size, dashed)")
+        curves.append(
+            f"the closest single bead ({bead.bead_id}, nearest the median lateral FWHM; data "
+            "and Gaussian fit)"
+        )
+        if average is not None:
+            curves.append(
+                f"the average PSF of the {average.count} accepted beads across the field of view"
+            )
+        listed = curves[0] if len(curves) == 1 else ", ".join(curves[:-1]) + ", and " + curves[-1]
+        measured = "bead and average" if average is not None else "bead"
+        caption = (
+            f"Profiles along x, y, and z, each centred and scaled to a peak of 1: {listed} "
+            f"(THE-07, MET-14). FWHM in the titles: {measured} uncorrected for the bead size."
+        )
+        if average is None:
+            caption += " No average PSF: too few beads could be averaged (see the note above)."
+        else:
+            caption += _truncation_note(average)
         blocks.append(
             doc.Figure(
                 figures.profile_fits(
                     volume, bead, channel, voxel, result.settings, bead_diameter_um=diameter
                 ),
-                "Profiles along x, y, and z, each centred and scaled to a peak of 1: the model "
-                "(theoretical PSF with the bead size, dashed), the closest single bead "
-                f"({bead.bead_id}, nearest the median lateral FWHM; data and Gaussian fit), "
-                "and the average PSF of all accepted beads across the field of view "
-                "(THE-07, MET-14). FWHM in the titles: bead and average uncorrected for the bead "
-                "size.",
+                caption,
             )
         )
     return blocks
