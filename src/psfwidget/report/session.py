@@ -2,17 +2,27 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+import numpy as np
 
 from psfwidget.analysis import ChannelResult, FieldResult
 from psfwidget.io.model import ACQUISITION_FIELDS, CHANNEL_FIELDS, ImageStack, Sourced
+from psfwidget.metrics.bead import BeadResult
+from psfwidget.metrics.summary import rejection_counts
 from psfwidget.report import document as doc
 from psfwidget.report.status import ChannelStatus, MetricCheck, field_status, overall
+from psfwidget.review import MANUAL_EXCLUSION
 from psfwidget.serialize import plain
 from psfwidget.tracking.chart import metric_label
+
+if TYPE_CHECKING:  # figures needs matplotlib, an optional extra
+    from psfwidget.report.figures import AverageImage
 
 SUMMARY_ROWS: tuple[tuple[str, str | None, str | None], ...] = (
     ("fwhm_x_um", "lateral", "ratio_x"),
@@ -250,11 +260,24 @@ def _spec_table(channel: ChannelResult) -> doc.Table | None:
     )
 
 
+def excluded_by_reviewer(bead: BeadResult) -> bool:
+    """Return whether a reviewer, not the automatic checks, rejected the bead."""
+    return not bead.accepted and any(r.startswith(MANUAL_EXCLUSION) for r in bead.reasons)
+
+
 def _bead_table(channel: ChannelResult) -> doc.Table:
-    """Every bead, accepted first and then rejected, each group by bead id."""
+    """Return the table of accepted beads, then reviewer exclusions, by bead id (REP-01).
+
+    Beads rejected by the automatic checks are only counted by reason, to keep
+    the report short; every bead is in the bead export (CSV or Excel).
+    """
+    accepted = sorted(channel.accepted, key=lambda b: b.bead_id)
+    excluded = sorted(
+        (b for b in channel.beads if excluded_by_reviewer(b)), key=lambda b: b.bead_id
+    )
+    automatic = [b for b in channel.beads if not b.accepted and not excluded_by_reviewer(b)]
     rows = []
-    ordered = sorted(channel.beads, key=lambda b: (not b.accepted, b.bead_id))
-    for bead in ordered:
+    for bead in (*accepted, *excluded):
         rows.append(
             (
                 str(bead.bead_id),
@@ -268,6 +291,16 @@ def _bead_table(channel: ChannelResult) -> doc.Table:
                 fmt(bead.snr, 3),
                 "; ".join(bead.reasons + bead.notes) or "-",
             )
+        )
+    caption = f"{len(accepted)} accepted beads" if accepted else "No accepted beads"
+    if excluded:
+        caption += f", then {len(excluded)} excluded by a reviewer"
+    caption += " (FWHM in µm)." if accepted or excluded else "."
+    if automatic:
+        counts = ", ".join(f"{kind} {n}" for kind, n in rejection_counts(automatic).items())
+        caption += (
+            f" Not listed: {len(automatic)} beads rejected by the automatic checks ({counts}); "
+            "every bead, with its reasons, is in the bead export (CSV or Excel)."
         )
     return doc.Table(
         (
@@ -284,10 +317,18 @@ def _bead_table(channel: ChannelResult) -> doc.Table:
         ),
         tuple(rows),
         frozenset({3, 4, 5, 6, 7, 8}),
-        caption=(
-            f"{len(channel.accepted)} accepted, then {len(channel.beads) - len(channel.accepted)} "
-            "rejected beads (FWHM in µm)."
-        ),
+        caption=caption,
+    )
+
+
+def _truncation_note(average: AverageImage | None) -> str:
+    """Say when the average comes from a stack too short for the full box."""
+    if average is None or not average.truncated:
+        return ""
+    return (
+        f" Undersampled volume: the stack is too short for the full {average.full_planes}-plane "
+        f"box, so the average covers only {average.planes} z-planes (its axial width may be "
+        "cut short, and the Strehl ratio and similarity are not computed from it)."
     )
 
 
@@ -310,12 +351,14 @@ def _figures(stack: ImageStack, channel: ChannelResult, result: FieldResult) -> 
         else result.metadata.bead_diameter_nm.value / 1000.0
     )
     if bead is not None:
-        image, count = figures.orthogonal_comparison(
+        image, average = figures.orthogonal_comparison(
             volume, bead, channel, voxel, result.settings, bead_diameter_um=diameter
         )
         rows = [f"bead {bead.bead_id}, closest to the median lateral FWHM"]
-        if count is not None:
-            rows.append(f"the average PSF of the {count} accepted beads across the field of view")
+        if average is not None:
+            rows.append(
+                f"the average PSF of the {average.count} accepted beads across the field of view"
+            )
         if channel.theory is not None:
             rows.append("the model (theoretical PSF with the bead size)")
         blocks.append(
@@ -328,20 +371,38 @@ def _figures(stack: ImageStack, channel: ChannelResult, result: FieldResult) -> 
                 + " (one row each), all at one scale and true aspect ratio, with z running "
                 "horizontally in XZ and YZ. Each image is "
                 "scaled to its own peak (the bead after subtracting its background). Hatching "
-                "marks any part of the window outside the stack.",
+                "marks any part of the window outside the stack." + _truncation_note(average),
             )
         )
+        # Describe only the curves drawn: the average and the model are left out of the
+        # figure when there are too few beads to average or no theory (as the panel above).
+        curves = []
+        if channel.theory is not None:
+            curves.append("the model (theoretical PSF with the bead size, dashed)")
+        curves.append(
+            f"the closest single bead ({bead.bead_id}, nearest the median lateral FWHM; data "
+            "and Gaussian fit)"
+        )
+        if average is not None:
+            curves.append(
+                f"the average PSF of the {average.count} accepted beads across the field of view"
+            )
+        listed = curves[0] if len(curves) == 1 else ", ".join(curves[:-1]) + ", and " + curves[-1]
+        measured = "bead and average" if average is not None else "bead"
+        caption = (
+            f"Profiles along x, y, and z, each centred and scaled to a peak of 1: {listed} "
+            f"(THE-07, MET-14). FWHM in the titles: {measured} uncorrected for the bead size."
+        )
+        if average is None:
+            caption += " No average PSF: too few beads could be averaged (see the note above)."
+        else:
+            caption += _truncation_note(average)
         blocks.append(
             doc.Figure(
                 figures.profile_fits(
                     volume, bead, channel, voxel, result.settings, bead_diameter_um=diameter
                 ),
-                "Profiles along x, y, and z, each centred and scaled to a peak of 1: the model "
-                "(theoretical PSF with the bead size, dashed), the closest single bead "
-                f"({bead.bead_id}, nearest the median lateral FWHM; data and Gaussian fit), "
-                "and the average PSF of all accepted beads across the field of view "
-                "(THE-07, MET-14). FWHM in the titles: bead and average uncorrected for the bead "
-                "size.",
+                caption,
             )
         )
     return blocks
@@ -392,6 +453,68 @@ def _metadata_tables(result: FieldResult) -> list[doc.Block]:
             )
         )
     return blocks
+
+
+SAMPLE_BEADS = 10
+"""Accepted beads shown in each channel section; the rest are in the appendices."""
+
+
+def _sample_seed(result: FieldResult, channel: ChannelResult) -> int:
+    """Seed the bead sample from the file and channel, so a report is reproducible."""
+    source = result.provenance
+    key = f"{source.sha256 or source.path.name}|{source.series_index}|{channel.index}"
+    return int.from_bytes(hashlib.sha256(key.encode()).digest()[:8], "big")
+
+
+def sample_beads(
+    result: FieldResult, channel: ChannelResult, count: int = SAMPLE_BEADS
+) -> list[BeadResult]:
+    """Return up to ``count`` accepted beads chosen at random, in bead order.
+
+    The choice is seeded from the file's SHA-256 (or name), series, and
+    channel, so the same data always gives the same sample.
+    """
+    accepted = sorted(channel.accepted, key=lambda b: b.bead_id)
+    if len(accepted) <= count:
+        return accepted
+    rng = np.random.default_rng(_sample_seed(result, channel))
+    chosen = sorted(int(i) for i in rng.choice(len(accepted), size=count, replace=False))
+    return [accepted[i] for i in chosen]
+
+
+def _sample_table(result: FieldResult, channel: ChannelResult, appendix: str) -> doc.Table:
+    """Return a table of a random sample of the channel's accepted beads."""
+    beads = sample_beads(result, channel)
+    rows = tuple(
+        (
+            str(bead.bead_id),
+            f"{bead.z_px}, {bead.y_px}, {bead.x_px}",
+            fmt(bead.fwhm_x_um, 3),
+            fmt(bead.fwhm_y_um, 3),
+            fmt(bead.fwhm_z_um, 3),
+            fmt(bead.ratio_x, 3),
+            fmt(bead.ratio_z, 3),
+            fmt(bead.snr, 3),
+        )
+        for bead in beads
+    )
+    total = len(channel.accepted)
+    which = (
+        f"{len(beads)} of {total} accepted beads, chosen at random (the same beads each time "
+        "this file is reported)"
+        if len(beads) < total
+        else f"All {total} accepted beads"
+    )
+    return doc.Table(
+        ("Bead", "z, y, x (px)", "FWHM x", "FWHM y", "FWHM z", "Ratio x", "Ratio z", "SNR"),
+        rows,
+        frozenset({2, 3, 4, 5, 6, 7}),
+        caption=f"{which}; FWHM in µm. All accepted beads are in {appendix}.",
+    )
+
+
+def _appendix(number: int) -> str:
+    return f"Appendix {chr(ord('A') + number)}"
 
 
 def build_session_report(
@@ -455,7 +578,9 @@ def build_session_report(
         )
     )
 
-    for channel, channel_status in zip(result.channels, statuses, strict=True):
+    for number, (channel, channel_status) in enumerate(
+        zip(result.channels, statuses, strict=True)
+    ):
         blocks.append(doc.PageBreak())
         title = f"Channel {channel.index}" + (f" – {channel.name}" if channel.name else "")
         blocks.append(doc.Heading(title))
@@ -486,36 +611,36 @@ def build_session_report(
             blocks.append(doc.Paragraph(f"Note: {warning}", muted=True))
         if stack is not None:
             blocks.extend(_figures(stack, channel, result))
-        blocks.append(
-            doc.Paragraph(
-                "Every bead of this channel, accepted and rejected, is listed in Appendix A.",
-                muted=True,
+        blocks.append(doc.Heading("Sample of accepted beads", 3))
+        if channel.accepted:
+            blocks.append(_sample_table(result, channel, _appendix(number)))
+        else:
+            blocks.append(
+                doc.Paragraph(
+                    f"No accepted beads; the rejections are summarised in {_appendix(number)}."
+                )
             )
-        )
 
     blocks.append(doc.PageBreak())
     blocks.append(doc.Heading("Provenance"))
     blocks.append(_provenance(result, operator))
     blocks.append(doc.Heading("Metadata"))
     blocks.extend(_metadata_tables(result))
-    blocks.append(doc.PageBreak())
-    blocks.append(doc.Heading("Appendix A: bead tables"))
-    blocks.append(
-        doc.Paragraph(
-            "Every candidate bead of each channel: accepted beads first, then rejected beads "
-            "with the reasons, each group in bead order.",
-            muted=True,
-        )
-    )
     for number, channel in enumerate(result.channels):
-        if number:
-            blocks.append(doc.PageBreak())  # keep each channel's heading with its table
+        blocks.append(doc.PageBreak())  # each appendix starts on its own page
+        name = f"channel {channel.index}" + (f" – {channel.name}" if channel.name else "")
+        blocks.append(doc.Heading(f"{_appendix(number)}: beads of {name}"))
         blocks.append(
-            doc.Heading(
-                f"Channel {channel.index}" + (f" – {channel.name}" if channel.name else ""), 3
+            doc.Paragraph(
+                "Accepted beads, then any beads a reviewer excluded, each group in bead "
+                "order. Beads rejected by the automatic checks are counted below the table, "
+                "not listed.",
+                muted=True,
             )
         )
-        blocks.append(_bead_table(channel))
+        table = _bead_table(channel)
+        # A channel with nothing to list gets the counts alone, not an empty table.
+        blocks.append(table if table.rows else doc.Paragraph(table.caption or ""))
     report = doc.Report(
         title="PSF quality control: session report",
         subtitle=subtitle,

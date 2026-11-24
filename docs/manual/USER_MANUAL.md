@@ -568,6 +568,13 @@ average against a compact model points to aberration. The average row is
 left out when fewer than three beads can be averaged, and the model row when
 there is no theory.
 
+When the z-stack is too short for the full averaging box (the 13-plane LSM 980
+stack, for example), the beads are averaged over fewer z-planes instead. The
+average is then labelled **undersampled, z truncated** in the image panel,
+with the missing planes hatched. The profile figure's legend and both captions
+give the number of planes used. Its axial width may be cut short, and the
+Strehl ratio and similarity to theory are not computed from it.
+
 The **profile figure** compares, along x, y, and z, three curves centred and
 scaled to a peak of 1: (1) the **model**, the theoretical PSF with the bead
 size (dashed); (2) the **closest single bead**, the one nearest the median
@@ -576,10 +583,21 @@ accepted beads across the field of view. The panel titles give the three
 FWHMs. Where the average differs from the single bead, the field is not
 uniform; where both differ from the model, the instrument does.
 
+Each channel section ends with a **sample of accepted beads**: 10 accepted
+beads chosen at random, or all of them if there are fewer, in bead order,
+with their position, FWHM, ratios to theory, and signal-to-noise. The choice
+is seeded from the file's SHA-256, series, and channel, so a report
+regenerated from the same data shows the same beads.
+
 Then come the provenance (software version, settings, file name and SHA-256,
-operator) and all metadata with origins, and **Appendix A**: a table of every
-candidate bead for each channel, accepted beads first and then rejected beads
-with their reasons, each group in bead order.
+operator) and all metadata with origins, and the **appendices**, one per
+channel (Appendix A for the first channel, B for the second, and so on). Each
+starts on a new page and lists the channel's accepted beads, then any beads a
+reviewer excluded, with the reviewer and reason, each group in bead order.
+Beads rejected by the automatic checks are not listed, to keep the report
+short; the caption counts them by reason (for example `low SNR 12, edge 4`).
+Every bead, with its reasons, is in the bead export (`<name>_beads.csv`, or
+the Excel file).
 
 ### 8.2 Trend report
 
@@ -798,7 +816,7 @@ is generated from them: it is published with each release, and
 | Ratios far below 1 | Check the metadata (NA, wavelengths, pinhole, voxel size) and the bead size. For NSPARC or Live-SR, ratios below 1 against the base model are expected. |
 | Ratios well above 1, axially | Possible spherical aberration (refractive-index mismatch, correction collar); look at the axial asymmetry and Strehl. |
 | "beads cover too little of the field" / no tilt | Beads must spread over at least a quarter of the field in x and y. |
-| "no averaged PSF: … too close to the stack's edges" | The z-stack is too short for the averaging box; acquire a longer stack. |
+| "no Strehl ratio or similarity to theory, which need the full averaged PSF: … too close to the stack's edges" | The z-stack is too short for the averaging box. The report still shows an average over fewer z-planes, marked *undersampled volume*, but the Strehl ratio and similarity need the full box; acquire a longer stack (at least about 8 axial FWHM). |
 | "already recorded as session N" | The same file and series is in the database. Use `--record-again` only on purpose. |
 | `ALERT.txt` appeared | Open it: it names the failing configuration or the file/folder with an error. Details are in `STATUS.json` and `_psfwidget/runs/`. |
 | "another run has held … run.lock" | A run is in progress, or one crashed less than 6 hours ago (the lock is then taken over automatically). |

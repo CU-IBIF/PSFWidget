@@ -6,6 +6,7 @@ Requirements: REP-01 to REP-08.
 from __future__ import annotations
 
 import os
+import re
 import zipfile
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -26,7 +27,7 @@ from psfwidget.report import paths
 from psfwidget.report.publish import OutputSettings, publish_session, session_base
 from psfwidget.report.render_html import render_html
 from psfwidget.report.render_pdf import pdf_text, render_pdf
-from psfwidget.report.session import build_session_report
+from psfwidget.report.session import SAMPLE_BEADS, build_session_report, sample_beads
 from psfwidget.report.status import MetricCheck, channel_status, session_checks
 from psfwidget.report.trend import DEFAULT_CHART_METRICS, build_trend_report
 from psfwidget.settings import AnalysisSettings
@@ -258,18 +259,37 @@ def test_session_report_and_exports(tracked: tuple[Path, Path, list[int]], tmp_p
     ):
         assert expected in html, expected
     assert sum(isinstance(b, doc.Figure) for b in report.blocks) == 4  # with the field map
-    assert "average PSF of all accepted beads" in html
+    assert re.search(r"average PSF of the \d+ accepted beads", html)
     assert "slices through the centre of bead" in html
     assert "accepted beads across the field of view" in html
     assert "Right: axial FWHM" in html
-    # The bead table is in Appendix A, after the provenance, accepted beads first.
+    # Each channel's full bead table is an appendix after the provenance, accepted first;
+    # the channel section shows a reproducible random sample of accepted beads.
     headings = [b.text for b in report.blocks if isinstance(b, doc.Heading)]
-    assert headings.index("Appendix A: bead tables") > headings.index("Provenance")
+    appendix = next(h for h in headings if h.startswith("Appendix A: beads of channel 0"))
+    assert headings.index(appendix) > headings.index("Provenance")
+    assert headings.count("Sample of accepted beads") == len(result.channels)
+    sample_table = next(
+        b
+        for b in report.blocks
+        if isinstance(b, doc.Table) and b.header[:2] == ("Bead", "z, y, x (px)")
+    )
+    channel = result.channels[0]
+    accepted = {b.bead_id for b in channel.accepted}
+    sampled = [int(row[0]) for row in sample_table.rows]
+    assert len(sampled) == min(len(accepted), SAMPLE_BEADS)
+    assert set(sampled) <= accepted
+    assert sampled == sorted(sampled)
+    assert "Appendix A" in (sample_table.caption or "")
     bead_table = next(
         b for b in report.blocks if isinstance(b, doc.Table) and b.header[:2] == ("Bead", "Status")
     )
-    bead_statuses = [row[1] for row in bead_table.rows]
-    assert bead_statuses == sorted(bead_statuses, key=lambda status: status != "accepted")
+    # Only accepted beads are listed (no reviewer here); automatic rejections are counted.
+    assert {row[1] for row in bead_table.rows} == {"accepted"}
+    assert len(bead_table.rows) == len(result.channels[0].accepted)
+    rejected = len(result.channels[0].beads) - len(result.channels[0].accepted)
+    if rejected:
+        assert f"Not listed: {rejected} beads rejected" in (bead_table.caption or "")
     accepted_ids = [int(row[0]) for row in bead_table.rows if row[1] == "accepted"]
     assert accepted_ids == sorted(accepted_ids)
     assert "Accepted beads across the field" in html
@@ -399,12 +419,228 @@ def test_orthogonal_comparison_rows(tracked: tuple[Path, Path, list[int]]) -> No
     bead = figures.representative_bead(channel)
     assert bead is not None
     volume, voxel = stack.channel(channel.index), stack.voxel_size_um
-    image, count = figures.orthogonal_comparison(volume, bead, channel, voxel, settings)
+    image, average = figures.orthogonal_comparison(volume, bead, channel, voxel, settings)
     assert image.startswith(b"\x89PNG")
-    assert count is not None
-    assert count >= 3
+    assert average is not None
+    assert average.count >= 3
+    assert not average.truncated
+    assert average.label == f"{average.count} beads"
     # Without enough beads to average, the average row is left out.
     alone = replace(channel, beads=(bead,))
-    image, count = figures.orthogonal_comparison(volume, bead, alone, voxel, settings)
+    image, average = figures.orthogonal_comparison(volume, bead, alone, voxel, settings)
     assert image.startswith(b"\x89PNG")
-    assert count is None
+    assert average is None
+
+
+@pytest.mark.req("REP-01")
+def test_bead_sample_is_random_but_reproducible(tracked: tuple[Path, Path, list[int]]) -> None:
+    from dataclasses import replace
+
+    database, profile_path, _ = tracked
+    profile = load_profile(profile_path)
+    stack = read_stack(database.parent / "day6.tif", profile=profile)
+    result = analyze_stack(stack, AnalysisSettings(), profile.spec)
+    channel = result.channels[0]
+    accepted = sorted(b.bead_id for b in channel.accepted)
+    assert sample_beads(result, channel, 3) == sample_beads(result, channel, 3)
+    chosen = [b.bead_id for b in sample_beads(result, channel, 3)]
+    assert len(chosen) == 3
+    assert set(chosen) <= set(accepted)
+    assert chosen == sorted(chosen)
+    # A different file (checksum) gives a different draw, for at least one of a few sizes.
+    other = replace(result, provenance=replace(result.provenance, sha256="0" * 64))
+    assert any(
+        sample_beads(result, channel, k) != sample_beads(other, channel, k)
+        for k in range(1, len(accepted))
+    )
+    # Fewer accepted beads than the sample size: all of them, in order.
+    assert [b.bead_id for b in sample_beads(result, channel, len(accepted) + 5)] == accepted
+
+
+@pytest.mark.req("REP-03")
+def test_pdf_headings_stay_with_what_follows() -> None:
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import KeepTogether, PageBreak, Paragraph, Spacer, Table
+
+    from psfwidget.report.render_pdf import keep_headings_with_content
+
+    def para(text: str, style: str) -> Paragraph:
+        return Paragraph(text, ParagraphStyle(style))
+
+    table = Table([["a", "b"]])
+    story = [
+        para("intro", "body"),
+        para("Channel", "h2"),
+        para("Sample", "h3"),  # consecutive headings travel together
+        KeepTogether([table]),
+        para("Appendix", "h2"),
+        para("caption", "caption"),
+        Table([["x"]] * 40),  # a long table: caption and table go with the heading
+        Spacer(1, 6),
+        para("Last", "h3"),
+        PageBreak(),  # a heading never swallows a page break
+    ]
+    grouped = keep_headings_with_content(story)
+    kinds = [type(f).__name__ for f in grouped]
+    assert kinds == [
+        "Paragraph",
+        "KeepTogether",
+        "KeepTogether",
+        "Spacer",
+        "KeepTogether",
+        "PageBreak",
+    ]
+    sizes = [len(getattr(f, "_content", ())) for f in grouped]
+    assert sizes == [0, 3, 3, 0, 1, 0]
+
+
+@pytest.mark.req("REP-01", "DET-07", "QA-01")
+def test_appendix_lists_reviewer_exclusions_but_not_automatic_rejections(
+    tracked: tuple[Path, Path, list[int]], tmp_path: Path
+) -> None:
+    from dataclasses import replace
+
+    from psfwidget.review import Decision, review
+
+    database, profile_path, _ = tracked
+    profile = load_profile(profile_path)
+    stack = read_stack(database.parent / "day6.tif", profile=profile)
+    result = analyze_stack(stack, AnalysisSettings(), profile.spec)
+    channel = result.channels[0]
+    # One bead fails an automatic check (the field's beads are all clean otherwise).
+    dim = channel.accepted[-1]
+    beads = tuple(b.reject("SNR 2.1 below 5") if b is dim else b for b in channel.beads)
+    result = replace(result, channels=(replace(channel, beads=beads), *result.channels[1:]))
+    target = channel.accepted[0].bead_id
+    reviewed = review(result, {0: {target: Decision(False, "dust on the bead", "ab")}})
+    report, _ = build_session_report(reviewed, stack=stack)
+    table = next(
+        b for b in report.blocks if isinstance(b, doc.Table) and b.header[:2] == ("Bead", "Status")
+    )
+    rows = {int(row[0]): row for row in table.rows}
+    assert target in rows  # the reviewer's exclusion stays in the record
+    assert rows[target][1] == "rejected"
+    assert "excluded by reviewer ab: dust on the bead" in rows[target][-1]
+    assert list(rows)[-1] == target  # after the accepted beads
+    automatic = [b for b in reviewed.channels[0].beads if not b.accepted and b.bead_id != target]
+    assert automatic  # the test field has beads the automatic checks reject
+    for bead in automatic:
+        assert bead.bead_id not in rows
+    assert f"Not listed: {len(automatic)} beads rejected" in (table.caption or "")
+    assert "low SNR 1" in (table.caption or "")  # counted by reason
+    # The bead export keeps every bead, with its reasons.
+    import csv
+
+    from psfwidget.automation.analyze import write_outputs
+
+    exported = next(p for p in write_outputs(reviewed, tmp_path) if p.name.endswith("_beads.csv"))
+    with exported.open(encoding="utf-8") as handle:
+        statuses = {
+            int(r["bead_id"]): r["status"] for r in csv.DictReader(handle) if r["channel"] == "0"
+        }
+    assert len(statuses) == len(reviewed.channels[0].beads)
+    assert statuses[dim.bead_id] == "rejected"
+    assert "1 excluded by a reviewer" in (table.caption or "")
+
+
+@pytest.mark.req("REP-01")
+def test_appendix_of_a_channel_without_accepted_beads_has_no_empty_table(
+    tracked: tuple[Path, Path, list[int]],
+) -> None:
+    from dataclasses import replace
+
+    database, profile_path, _ = tracked
+    profile = load_profile(profile_path)
+    stack = read_stack(database.parent / "day6.tif", profile=profile)
+    result = analyze_stack(stack, AnalysisSettings(), profile.spec)
+    channel = result.channels[0]
+    beads = tuple(b.reject("SNR 2.1 below 5") for b in channel.beads)
+    empty = replace(result, channels=(replace(channel, beads=beads),))
+    report, _ = build_session_report(empty)
+    assert not any(
+        isinstance(b, doc.Table) and b.header[:2] == ("Bead", "Status") for b in report.blocks
+    )
+    texts = [b.text for b in report.blocks if isinstance(b, doc.Paragraph)]
+    assert any(t.startswith("No accepted beads. Not listed: ") for t in texts)
+
+
+@pytest.mark.req("THE-07", "MET-14", "REP-01")
+def test_figure_captions_name_only_the_curves_drawn(
+    tracked: tuple[Path, Path, list[int]],
+) -> None:
+    """With too few beads to average (as on a short LSM 980 stack), no caption claims one."""
+    from dataclasses import replace
+
+    database, profile_path, _ = tracked
+    profile = load_profile(profile_path)
+    stack = read_stack(database.parent / "day6.tif", profile=profile)
+    result = analyze_stack(stack, AnalysisSettings(), profile.spec)
+    channel = result.channels[0]
+    keep = {b.bead_id for b in channel.accepted[:2]}  # an average needs at least 3
+    beads = tuple(
+        b if b.bead_id in keep or not b.accepted else b.reject("SNR 2.1 below 5")
+        for b in channel.beads
+    )
+    few = replace(result, channels=(replace(channel, beads=beads),))
+    report, _ = build_session_report(few, stack=stack)
+    captions = [b.caption for b in report.blocks if isinstance(b, doc.Figure)]
+    profile_caption = next(c for c in captions if c.startswith("Profiles along x, y, and z"))
+    panel_caption = next(c for c in captions if c.startswith("XY, XZ, and YZ slices"))
+    for caption in (profile_caption, panel_caption):
+        assert "average PSF of" not in caption
+    assert "No average PSF: too few beads could be averaged" in profile_caption
+    assert "FWHM in the titles: bead uncorrected" in profile_caption
+    assert "the model (theoretical PSF with the bead size, dashed)" in profile_caption
+
+    # With enough beads the average is named, with its bead count.
+    report, _ = build_session_report(result, stack=stack)
+    captions = [b.caption for b in report.blocks if isinstance(b, doc.Figure)]
+    profile_caption = next(c for c in captions if c.startswith("Profiles along x, y, and z"))
+    assert re.search(r"and the average PSF of the \d+ accepted beads", profile_caption)
+    assert "No average PSF" not in profile_caption
+
+
+@pytest.mark.req("THE-07", "MET-14")
+def test_short_stack_gets_a_truncated_average_marked_as_undersampled(
+    tracked: tuple[Path, Path, list[int]],
+) -> None:
+    """A stack too short for the full box (like the 13-plane LSM 980 stack) still gets an
+    average for the figures, over fewer z-planes, labelled as an undersampled volume."""
+    from dataclasses import replace
+
+    from psfwidget.analysis import averaged_psf, truncated_averaged_psf
+    from psfwidget.average import AverageError
+    from psfwidget.report import figures
+
+    database, profile_path, _ = tracked
+    profile = load_profile(profile_path)
+    stack = read_stack(database.parent / "day6.tif", profile=profile)
+    result = analyze_stack(stack, AnalysisSettings(), profile.spec)
+    channel = result.channels[0]
+    volume, voxel = stack.channel(channel.index), stack.voxel_size_um
+    # A box twice as tall as the stack: the full average cannot be made.
+    tall = replace(AnalysisSettings(), crop_axial_fwhm=2 * volume.shape[0])
+    with pytest.raises(AverageError, match="too close to the stack's edges"):
+        averaged_psf(volume, channel.beads, voxel, channel.expected_fwhm_um, tall)
+    average, used, half = truncated_averaged_psf(
+        volume, channel.beads, voxel, channel.expected_fwhm_um, tall
+    )
+    assert used >= 3
+    assert average.shape[0] == 2 * half[0] + 1 < volume.shape[0]
+
+    bead = figures.representative_bead(channel)
+    assert bead is not None
+    image, shown = figures.orthogonal_comparison(volume, bead, channel, voxel, tall)
+    assert image.startswith(b"\x89PNG")
+    assert shown is not None
+    assert shown.truncated
+    assert shown.planes == average.shape[0]
+    assert "undersampled volume: z truncated to" in shown.label
+
+    # The report says so in both figure captions, and the metrics are not taken from it.
+    report, _ = build_session_report(replace(result, settings=tall), stack=stack)
+    captions = [b.caption for b in report.blocks if isinstance(b, doc.Figure)]
+    for start in ("XY, XZ, and YZ slices", "Profiles along x, y, and z"):
+        caption = next(c for c in captions if c.startswith(start))
+        assert "Undersampled volume: the stack is too short" in caption
+        assert "Strehl ratio and similarity are not computed from it" in caption

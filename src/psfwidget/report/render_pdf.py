@@ -234,6 +234,45 @@ def _page_decoration(report: doc.Report, page_size: tuple[float, float]) -> Call
     return decorate
 
 
+HEADING_STYLES = ("h2", "h3")
+
+
+def _is_heading(flowable: Flowable) -> bool:
+    return isinstance(flowable, Paragraph) and flowable.style.name in HEADING_STYLES
+
+
+def keep_headings_with_content(story: list[Flowable]) -> list[Flowable]:
+    """Group each heading with what follows it, so no heading ends a page alone.
+
+    reportlab's ``keepWithNext`` does not hold when the next flowable is a
+    ``KeepTogether`` (as short tables are), so headings are grouped here: a
+    run of headings, the next flowable, and, when that is a table caption,
+    the table too.
+    """
+    grouped: list[Flowable] = []
+    index = 0
+    while index < len(story):
+        if not _is_heading(story[index]):
+            grouped.append(story[index])
+            index += 1
+            continue
+        group = [story[index]]
+        index += 1
+        while index < len(story) and _is_heading(story[index]):
+            group.append(story[index])
+            index += 1
+        if index < len(story) and not isinstance(story[index], PageBreak):
+            following = story[index]
+            group.append(following)
+            index += 1
+            caption = isinstance(following, Paragraph) and following.style.name == "caption"
+            if caption and index < len(story) and isinstance(story[index], Table):
+                group.append(story[index])
+                index += 1
+        grouped.append(KeepTogether(group))
+    return grouped
+
+
 def render_pdf(report: doc.Report, path: Path, *, page_size: str = "letter") -> Path:
     """Write the report to ``path`` as PDF and return the path.
 
@@ -305,5 +344,5 @@ def render_pdf(report: doc.Report, path: Path, *, page_size: str = "letter") -> 
         elif isinstance(block, doc.PageBreak):
             story.append(PageBreak())
     decorate = _page_decoration(report, size)
-    template.build(story, onFirstPage=decorate, onLaterPages=decorate)
+    template.build(keep_headings_with_content(story), onFirstPage=decorate, onLaterPages=decorate)
     return path

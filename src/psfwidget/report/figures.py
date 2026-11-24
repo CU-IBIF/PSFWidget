@@ -15,6 +15,7 @@ from __future__ import annotations
 import io
 import math
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -170,23 +171,58 @@ def _box(
     return box, (centre[0], centre[1], centre[2]), (starts[0], starts[1], starts[2])
 
 
-def _average_psf(
+@dataclass(frozen=True)
+class AverageImage:
+    """The averaged PSF shown in the report figures, and how it was made."""
+
+    data: NDArray[np.float64]
+    count: int
+    """Number of beads averaged."""
+    planes: int
+    """Number of z-planes the average covers."""
+    full_planes: int
+    """Number of z-planes of the full box (larger than ``planes`` when truncated)."""
+
+    @property
+    def truncated(self) -> bool:
+        """Whether the stack was too short for the full box (an undersampled volume)."""
+        return self.planes < self.full_planes
+
+    @property
+    def label(self) -> str:
+        """A short description for captions and legends."""
+        text = f"{self.count} beads"
+        if self.truncated:
+            text += (
+                f"; undersampled volume: z truncated to {self.planes} of {self.full_planes} planes"
+            )
+        return text
+
+
+def average_image(
     volume: NDArray[Any],
     channel: ChannelResult,
     voxel_um: tuple[float, float, float],
     settings: AnalysisSettings,
-) -> tuple[NDArray[np.float64], int] | None:
-    """Return the averaged PSF of the accepted beads and their count, or ``None``."""
-    from psfwidget.analysis import averaged_psf
+) -> AverageImage | None:
+    """Return the averaged PSF of the accepted beads for the figures, or ``None``.
+
+    When the stack is too short for the full box, the average is made over a
+    shorter z range instead and marked as truncated.
+    """
+    from psfwidget.analysis import averaged_psf, truncated_averaged_psf
     from psfwidget.average import AverageError
 
-    try:
-        average, used, _ = averaged_psf(
-            volume, channel.beads, voxel_um, channel.expected_fwhm_um, settings
-        )
-    except AverageError:
-        return None
-    return np.asarray(average, dtype=np.float64), used
+    full = 2 * half_box(voxel_um, channel.expected_fwhm_um, settings)[0] + 1
+    for method in (averaged_psf, truncated_averaged_psf):
+        try:
+            average, used, half = method(
+                volume, channel.beads, voxel_um, channel.expected_fwhm_um, settings
+            )
+        except AverageError:
+            continue
+        return AverageImage(np.asarray(average, dtype=np.float64), used, 2 * half[0] + 1, full)
+    return None
 
 
 BACKGROUND_PERCENTILE = 5.0
@@ -205,15 +241,16 @@ def orthogonal_comparison(
     voxel_um: tuple[float, float, float],
     settings: AnalysisSettings,
     bead_diameter_um: float | None = None,
-) -> tuple[bytes, int | None]:
+) -> tuple[bytes, AverageImage | None]:
     """Return a PNG of XY, XZ, and YZ slices of the closest bead, the average PSF, and the model.
 
     One row per image, one column per plane, all at the same physical scale
     and true aspect ratio. Each image is scaled to its own peak (the bead after
     subtracting its background), on one grey scale from 0 to 1, so the shapes
     compare directly. Rows that cannot be made (too few beads to average, no
-    theory) are left out. Also returns the number of beads in the average, or
-    ``None`` when there is no average.
+    theory) are left out. An average from a stack too short for the full box
+    covers fewer z-planes; the planes it lacks are hatched and its row says so.
+    Also returns the average shown, or ``None`` when there is none.
     """
     half = half_box(voxel_um, channel.expected_fwhm_um, settings)
     box, centre, _ = _box(volume, bead, half)
@@ -221,17 +258,14 @@ def orthogonal_comparison(
     rows: list[tuple[str, NDArray[np.float64], tuple[int, int, int]]] = [
         (f"Bead {bead.bead_id}", _peak_one(np.clip(box - background, 0, None)), centre)
     ]
-    average = _average_psf(volume, channel, voxel_um, settings)
-    count = None
+    average = average_image(volume, channel, voxel_um, settings)
     if average is not None:
-        image, count = average
-        image = _peak_one(np.clip(image, 0, None))
+        image = _peak_one(np.clip(average.data, 0, None))
+        label = f"Average ({average.count} beads)"
+        if average.truncated:
+            label += "\nundersampled, z truncated"
         rows.append(
-            (
-                f"Average ({count} beads)",
-                image,
-                (image.shape[0] // 2, image.shape[1] // 2, image.shape[2] // 2),
-            )
+            (label, image, (image.shape[0] // 2, image.shape[1] // 2, image.shape[2] // 2))
         )
     if channel.theory is not None:
         from psfwidget.theory.psf3d import theoretical_psf
@@ -299,7 +333,7 @@ def orthogonal_comparison(
                 f"{label}\n{ylabel}" if column == 0 else ylabel, color=INK_SECONDARY, fontsize=8
             )
             axes.tick_params(colors=INK_MUTED, labelsize=7)
-    return _png(figure), count
+    return _png(figure), average
 
 
 def _profile(
@@ -364,20 +398,19 @@ def _average_profiles(
     channel: ChannelResult,
     voxel_um: tuple[float, float, float],
     settings: AnalysisSettings,
-) -> tuple[list[tuple[NDArray[np.float64], NDArray[np.float64]]], int] | None:
-    """Return (offset µm, value) of the averaged PSF along z, y, x (peak 1) and its bead count."""
-    result = _average_psf(volume, channel, voxel_um, settings)
+) -> tuple[list[tuple[NDArray[np.float64], NDArray[np.float64]]], AverageImage] | None:
+    """Return (offset µm, value) of the averaged PSF along z, y, x (peak 1), and the average."""
+    result = average_image(volume, channel, voxel_um, settings)
     if result is None:
         return None
-    average, used = result
-    average = average / average.max()
+    average = result.data / result.data.max()
     return [
         (
             np.asarray((np.arange(n) - n // 2) * step, dtype=np.float64),
             _centre_profile(average, axis),
         )
         for axis, (n, step) in enumerate(zip(average.shape, voxel_um, strict=True))
-    ], used
+    ], result
 
 
 def profile_fits(
@@ -443,7 +476,10 @@ def profile_fits(
             axes.plot(
                 offsets, profile, color=AVERAGE, linewidth=2, marker="s", markersize=3, zorder=2
             )
-            widths.append(f"avg {fwhm_around_peak(offsets, profile) * 1000:.0f}")
+            try:
+                widths.append(f"avg {fwhm_around_peak(offsets, profile) * 1000:.0f}")
+            except ValueError:  # a truncated z range may not reach half maximum
+                widths.append("avg n/a")
         if model is not None:
             offsets, profile = model[axis]
             axes.plot(offsets, profile, color=INK_MUTED, linestyle="--", linewidth=1.4, zorder=1)
@@ -487,7 +523,15 @@ def profile_fits(
                 linewidth=2,
                 marker="s",
                 markersize=3,
-                label=f"average PSF across the field ({averaged[1]} beads)",
+                label=(
+                    f"average PSF across the field ({averaged[1].count} beads)"
+                    + (
+                        f"\nundersampled volume: z truncated to {averaged[1].planes} of "
+                        f"{averaged[1].full_planes} planes"
+                        if averaged[1].truncated
+                        else ""
+                    )
+                ),
             )
         )
     legend = figure.legend(
